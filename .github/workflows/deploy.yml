@@ -37,14 +37,23 @@ jobs:
           test -f package.json && echo "OK: package.json" || (echo "MISSING: package.json" && exit 1)
           test -f package-lock.json && echo "OK: package-lock.json" || (echo "MISSING: package-lock.json" && exit 1)
 
-      - name: NPM config (force public registry)
+      - name: NPM config (registry, no-audit)
         run: |
           npm config set registry https://registry.npmjs.org/
           npm config set fund false
           npm config set audit false
+          npm config set fetch-retries 5
+          npm config set fetch-retry-factor 2
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
           npm config list
 
-      - name: Install (deterministic)
+      - name: Install (npm ci, verbose)
+        env:
+          NPM_CONFIG_LOGLEVEL: verbose
+          NPM_CONFIG_PREFER_OFFLINE: "true"
+          NPM_CONFIG_AUDIT: "false"
+          NPM_CONFIG_FUND: "false"
         run: npm ci
 
       - name: Build
