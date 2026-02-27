@@ -20,10 +20,14 @@ jobs:
     timeout-minutes: 25
 
     env:
+      # Force public npm registry
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+      # Ensure devDependencies (vite) are installed on CI
+      NPM_CONFIG_PRODUCTION: "false"
+      # Make npm quieter/faster
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
-      # make network more patient (ms)
+      # Network patience (ms)
       NPM_CONFIG_FETCH_TIMEOUT: "300000"
       NPM_CONFIG_FETCH_RETRIES: "5"
       NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
@@ -47,14 +51,14 @@ jobs:
 
       - name: Network sanity
         run: |
+          npm config set registry https://registry.npmjs.org/
           echo "registry => $(npm config get registry)"
-          echo "Testing reachability..."
+          echo "production => $(npm config get production)"
           curl -I --max-time 20 https://registry.npmjs.org/ | head -n 5 || true
-          curl -I --max-time 20 https://registry.npmjs.org/vite | head -n 5 || true
 
-      - name: Install (npm ci, verbose)
+      - name: Install (npm ci incl. devDeps)
         run: |
-          npm ci --registry=https://registry.npmjs.org/ --no-audit --no-fund --loglevel=verbose
+          npm ci --include=dev --registry=https://registry.npmjs.org/ --no-audit --no-fund
 
       - name: Build
         run: npm run build
