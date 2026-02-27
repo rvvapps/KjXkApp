@@ -17,6 +17,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,15 +27,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
-      # ✅ Fuerza npm registry público (evita 403 "security policy")
-      - name: Force npm public registry
+      - name: Versions + sanity check
+        run: |
+          node -v
+          npm -v
+          ls -la
+          test -f package.json && echo "OK: package.json" || (echo "MISSING: package.json" && exit 1)
+          test -f package-lock.json && echo "OK: package-lock.json" || (echo "MISSING: package-lock.json" && exit 1)
+
+      - name: NPM config (force public registry)
         run: |
           npm config set registry https://registry.npmjs.org/
+          npm config set fund false
+          npm config set audit false
           npm config list
 
-      - name: Install
-        run: npm install --registry=https://registry.npmjs.org/
+      - name: Install (deterministic)
+        run: npm ci
 
       - name: Build
         run: npm run build
@@ -41,7 +53,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: dist
 
   deploy:
     environment:
