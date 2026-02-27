@@ -17,7 +17,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+
+    # Force npm to use the public registry even if the runner has a global .npmrc or env overrides
+    env:
+      NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+      npm_config_registry: "https://registry.npmjs.org/"
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
 
     steps:
       - name: Checkout
@@ -29,32 +36,29 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Versions + sanity check
+      - name: Sanity check
         run: |
           node -v
           npm -v
+          pwd
           ls -la
           test -f package.json && echo "OK: package.json" || (echo "MISSING: package.json" && exit 1)
           test -f package-lock.json && echo "OK: package-lock.json" || (echo "MISSING: package-lock.json" && exit 1)
 
-      - name: NPM config (registry, no-audit)
+      - name: Remove inherited npm config
+        run: |
+          rm -f ~/.npmrc || true
+          rm -f .npmrc || true
+          npm config delete registry || true
+
+      - name: Show npm config (should be npmjs)
         run: |
           npm config set registry https://registry.npmjs.org/
-          npm config set fund false
-          npm config set audit false
-          npm config set fetch-retries 5
-          npm config set fetch-retry-factor 2
-          npm config set fetch-retry-mintimeout 20000
-          npm config set fetch-retry-maxtimeout 120000
+          echo "registry => $(npm config get registry)"
           npm config list
 
-      - name: Install (npm ci, verbose)
-        env:
-          NPM_CONFIG_LOGLEVEL: verbose
-          NPM_CONFIG_PREFER_OFFLINE: "true"
-          NPM_CONFIG_AUDIT: "false"
-          NPM_CONFIG_FUND: "false"
-        run: npm ci
+      - name: Install (npm ci, forced registry)
+        run: npm ci --registry=https://registry.npmjs.org/ --prefer-offline --no-audit --no-fund --loglevel=info
 
       - name: Build
         run: npm run build
