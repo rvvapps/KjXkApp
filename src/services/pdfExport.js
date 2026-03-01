@@ -67,34 +67,34 @@ async function downscaleToJpegBytes(blob, { maxSide = 1400, quality = 0.8 } = {}
 }
 
 function sortExpensesForExports(expenses) {
-  const boletas = [];
   const facturas = [];
-  const otros = [];
+  const noFactura = [];
 
   for (const e of expenses) {
     const tipo = normDocTipo(e.docTipo || e.tipoDoc || e.tipoDocumento);
-    if (tipo === "boleta") boletas.push(e);
-    else if (tipo === "factura") facturas.push(e);
-    else otros.push(e);
+    if (tipo === "factura") facturas.push(e);
+    else noFactura.push(e);
   }
 
   const byFecha = (a, b) => {
     const da = parseDateFlexible(a.fechaISO || a.fechaDocumento || a.fecha) ?? new Date(0);
     const db = parseDateFlexible(b.fechaISO || b.fechaDocumento || b.fecha) ?? new Date(0);
-    return da.getTime() - db.getTime();
-  };
+    const diff = da.getTime() - db.getTime();
+    if (diff !== 0) return diff;
 
-  boletas.sort(byFecha);
-  facturas.sort(byFecha);
-  otros.sort((a, b) => {
+    // desempate estable por tipo + docNumero
     const ta = normDocTipo(a.docTipo || a.tipoDoc || a.tipoDocumento);
     const tb = normDocTipo(b.docTipo || b.tipoDoc || b.tipoDocumento);
     if (ta !== tb) return ta.localeCompare(tb, "es");
-    return byFecha(a, b);
-  });
+    return String(a.docNumero || a.numeroDoc || "").localeCompare(String(b.docNumero || b.numeroDoc || ""), "es");
+  };
 
-  return { boletas, facturas, otros };
+  noFactura.sort(byFecha);
+  facturas.sort(byFecha);
+
+  return { noFactura, facturas };
 }
+
 
 /**
  * PDF:
@@ -112,7 +112,7 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
     if (e) expenses.push({ ...e, _gastoId: gastoId });
   }
 
-  const { boletas, facturas, otros } = sortExpensesForExports(expenses);
+  const { noFactura, facturas } = sortExpensesForExports(expenses);
 
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
@@ -133,7 +133,7 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
   const innerPad = 6;
 
   const boletaTiles = [];
-  for (const e of boletas) {
+  for (const e of noFactura) {
     const atts = await db.getAllFromIndex("attachments", "gastoId", e._gastoId);
     const header = clampText(
       `${e.docTipo || e.tipoDoc || ""} ${e.docNumero || e.numeroDoc || ""} | $${e.monto ?? ""} | ${e.detalle || e.glosa || ""}`,
@@ -150,7 +150,7 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
     }
   }
 
-  for (const e of otros) {
+  for (const e of []) {
     const atts = await db.getAllFromIndex("attachments", "gastoId", e._gastoId);
     const header = clampText(
       `${e.docTipo || e.tipoDoc || ""} ${e.docNumero || e.numeroDoc || ""} | $${e.monto ?? ""} | ${e.detalle || e.glosa || ""}`,
