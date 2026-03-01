@@ -2,7 +2,7 @@ import ExcelJS from "exceljs";
 import { saveAs } from "./saveAs.js";
 import { getSettings, getDB } from "../db.js";
 
-const TEMPLATE_URL = "/templates/Formulario_Rendicion_Template.xlsx";
+const TEMPLATE_URL = "/KjXkApp/templates/Formulario_Rendicion_Template.xlsx";
 
 const MAP = {
   header: {
