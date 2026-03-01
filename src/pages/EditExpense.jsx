@@ -11,6 +11,7 @@ import {
   listAttachmentsForExpense,
   addAttachment,
   deleteAttachment,
+  isExpenseLockedByReimbursement,
 } from "../db.js";
 import SelectField from "../components/SelectField.jsx";
 import TextField from "../components/TextField.jsx";
@@ -32,11 +33,20 @@ export default function EditExpense() {
 
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [lockReason, setLockReason] = useState("");
 
   useEffect(() => {
     (async () => {
       const e = await getExpense(gastoId);
-      setExpense(e ?? undefined); // si no existe, queda undefined (no encontrado)setExpense(e);
+      setExpense(e ?? undefined); // si no existe, queda undefined (no encontrado)
+      try {
+        if (e) {
+          const lk = await isExpenseLockedByReimbursement(e);
+          setLocked(lk);
+          if (lk) setLockReason("Este gasto pertenece a una rendición ENVIADA/APROBADA. Queda congelado hasta que la rendición sea DEVUELTA.");
+        }
+      } catch {}setExpense(e);
       setConcepts(await listConcepts());
       setCrs(await listActiveCR());
       setAccts(await listActiveAccounts());
@@ -127,6 +137,10 @@ export default function EditExpense() {
   }
 
   async function save() {
+    if (locked) {
+      setMsg("❌ No puedes editar este gasto: está congelado (rendición enviada/aprobada).");
+      return;
+    }
     setMsg("");
     if (!expense.conceptId) return setMsg("Selecciona un concepto.");
     if (!expense.crCodigo) return setMsg("Selecciona CR.");
@@ -152,6 +166,10 @@ export default function EditExpense() {
   }
 
   async function addFiles(files) {
+    if (locked) {
+      setMsg("❌ No puedes modificar respaldos: el gasto está congelado (rendición enviada/aprobada).");
+      return;
+    }
     setMsg("");
     setBusy(true);
     try {
@@ -175,6 +193,10 @@ export default function EditExpense() {
   }
 
   async function removeAtt(adjuntoId) {
+    if (locked) {
+      setMsg("❌ No puedes eliminar respaldos: el gasto está congelado (rendición enviada/aprobada).");
+      return;
+    }
     if (!confirm("¿Eliminar este respaldo?")) return;
     await deleteAttachment(adjuntoId);
     setAtts(await listAttachmentsForExpense(gastoId));
@@ -184,6 +206,9 @@ export default function EditExpense() {
     <div className="card">
       <h2>Editar gasto</h2>
 
+      {locked && (
+        <div className="toast danger">🔒 {lockReason}</div>
+      )}
       {msg && (
         <div
           className="small"
@@ -303,11 +328,15 @@ export default function EditExpense() {
       )}
 
       <div className="row" style={{ marginTop: 12 }}>
+        {locked ? (
+        <div className="small">🔒 No se pueden agregar respaldos mientras la rendición esté ENVIADA/APROBADA.</div>
+      ) : (
         <FileCapture onFiles={addFiles} />
+      )}
       </div>
 
       <div className="row" style={{ marginTop: 12 }}>
-        <button className="btn" disabled={busy} onClick={save}>
+        <button className="btn" disabled={busy || locked} onClick={save}>
           {busy ? "Guardando..." : "Guardar cambios"}
         </button>
         <button className="btn secondary" onClick={() => nav(-1)}>
