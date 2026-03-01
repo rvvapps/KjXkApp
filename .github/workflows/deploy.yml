@@ -22,9 +22,11 @@ jobs:
     env:
       # Force public npm registry
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      # Ensure devDependencies (vite) are installed on CI
+      # Ensure devDependencies are installed (vite lives there)
+      NODE_ENV: "development"
       NPM_CONFIG_PRODUCTION: "false"
-      # Make npm quieter/faster
+      NPM_CONFIG_OMIT: ""
+      # Make npm faster/quieter
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
       # Network patience (ms)
@@ -43,22 +45,33 @@ jobs:
           node-version: "20"
           cache: "npm"
 
+      - name: Pin npm (workaround for npm 10.8.2 bug)
+        run: |
+          npm --version
+          npm i -g npm@10.8.1
+          npm --version
+
       - name: Remove inherited npm config
         run: |
           rm -f ~/.npmrc || true
           rm -f .npmrc || true
           npm config delete registry || true
 
-      - name: Network sanity
+      - name: Sanity + network
         run: |
           npm config set registry https://registry.npmjs.org/
           echo "registry => $(npm config get registry)"
           echo "production => $(npm config get production)"
+          echo "omit => $(npm config get omit)"
           curl -I --max-time 20 https://registry.npmjs.org/ | head -n 5 || true
 
-      - name: Install (npm ci incl. devDeps)
+      - name: Install (npm ci)
         run: |
-          npm ci --include=dev --registry=https://registry.npmjs.org/ --no-audit --no-fund
+          npm ci --no-audit --no-fund
+
+      - name: Verify vite is installed
+        run: |
+          npx --yes vite --version
 
       - name: Build
         run: npm run build
