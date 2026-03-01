@@ -145,6 +145,10 @@ export default function Reimbursements() {
     } catch (e) {
       console.error(e);
       setMsg("Error al crear/exportar rendición. Revisa la consola (F12) en el navegador.");
+      // ✅ Importante: aunque falle un export, la rendición puede haber quedado creada en IndexedDB.
+      // Refrescamos listas para que el borrador quede accesible.
+      setPending(await listPendingExpenses());
+      setReims(await listReimbursements());
     } finally {
       setBusy(false);
     }
@@ -256,9 +260,9 @@ export default function Reimbursements() {
                   <span className="pill">{r.estado}</span>
                 </div>
                 <div className="small" style={{ marginTop: 8 }}>
-                  Nota: re-descargar exports desde historial se implementa en la siguiente fase.
+                  Click para abrir la rendición (Borrador/Enviada) y re-exportar Excel/PDF.
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         )}
