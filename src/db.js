@@ -434,3 +434,48 @@ export async function markTransfersUsed({ transferIds, gastoId }) {
   }
   await tx.done;
 }
+
+
+/** =========================
+ *  Workflow de estados
+ *  borrador -> enviada -> (devuelta | aprobada)
+ *  Reglas:
+ *   - enviada/aprobada: gastos quedan congelados (no editables)
+ *   - devuelta: se permite editar y re-exportar
+ * ========================= */
+
+export const REIM_ESTADOS = ["borrador", "enviada", "devuelta", "aprobada"];
+
+export function isReimbursementLocked(estado) {
+  return estado === "enviada" || estado === "aprobada";
+}
+
+export async function getReimbursementEstado(rendicionId) {
+  const r = await getReimbursement(rendicionId);
+  return r?.estado ?? null;
+}
+
+export async function isExpenseLockedByReimbursement(expense) {
+  const rid = expense?.rendicionId;
+  if (!rid) return false;
+  const estado = await getReimbursementEstado(rid);
+  return isReimbursementLocked(estado);
+}
+
+export async function sendReimbursement({ rendicionId }) {
+  await setReimbursementEstado({ rendicionId, estado: "enviada" });
+}
+
+export async function returnReimbursement({ rendicionId, motivo = "" }) {
+  const db = await getDB();
+  const r = await db.get("reimbursements", rendicionId);
+  if (!r) return;
+  r.estado = "devuelta";
+  r.motivoDevuelta = motivo || r.motivoDevuelta || "";
+  r.updatedAt = new Date().toISOString();
+  await db.put("reimbursements", r);
+}
+
+export async function approveReimbursement({ rendicionId }) {
+  await setReimbursementEstado({ rendicionId, estado: "aprobada" });
+}
