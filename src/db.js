@@ -289,6 +289,61 @@ export async function listReimbursements() {
   return all;
 }
 
+export async function getReimbursement(rendicionId) {
+  const db = await getDB();
+  return await db.get("reimbursements", rendicionId);
+}
+
+export async function listReimbursementItems(rendicionId) {
+  const db = await getDB();
+  const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", rendicionId);
+  items.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+  return items;
+}
+
+export async function setReimbursementEstado({ rendicionId, estado }) {
+  const db = await getDB();
+  const r = await db.get("reimbursements", rendicionId);
+  if (!r) return;
+  r.estado = estado;
+  r.updatedAt = new Date().toISOString();
+  await db.put("reimbursements", r);
+}
+
+/**
+ * Cancela un borrador:
+ * - Borra items y la rendición
+ * - Devuelve gastos a estado "pendiente" (quitando rendicionId)
+ * NOTA: esto es útil como "salida" cuando hubo errores o se quiere rehacer.
+ */
+export async function cancelReimbursement({ rendicionId }) {
+  const db = await getDB();
+  const tx = db.transaction(["reimbursements", "reimbursement_items", "expenses"], "readwrite");
+
+  const items = await tx.objectStore("reimbursement_items").index("rendicionId").getAll(rendicionId);
+  const gastoIds = items.map((it) => it.gastoId).filter(Boolean);
+
+  // Devuelve gastos
+  for (const gastoId of gastoIds) {
+    const e = await tx.objectStore("expenses").get(gastoId);
+    if (!e) continue;
+    e.estado = "pendiente";
+    delete e.rendicionId;
+    e.updatedAt = new Date().toISOString();
+    await tx.objectStore("expenses").put(e);
+  }
+
+  // Borra items
+  for (const it of items) {
+    await tx.objectStore("reimbursement_items").delete(it.itemId);
+  }
+
+  // Borra rendición
+  await tx.objectStore("reimbursements").delete(rendicionId);
+
+  await tx.done;
+}
+
 export async function upsertConcept(concept) {
   const db = await getDB();
   await db.put("concepts", concept);
