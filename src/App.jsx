@@ -3,6 +3,7 @@ import { Routes, Route, Link, Navigate } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.jsx";
 import NewExpense from "./pages/NewExpense.jsx";
 import Reimbursements from "./pages/Reimbursements.jsx";
+import ReimbursementDetail from "./pages/ReimbursementDetail.jsx";
 import Settings from "./pages/Settings.jsx";
 import Catalogs from "./pages/Catalogs.jsx";
 import Concepts from "./pages/Concepts.jsx";
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="/traslados" element={<Transfers />} />
           <Route path="/gastos/nuevo" element={<NewExpense />} />
           <Route path="/gastos/:gastoId" element={<EditExpense />} />
+          <Route path="/rendiciones/:rendicionId" element={<ReimbursementDetail />} />
           <Route path="/rendiciones" element={<Reimbursements />} />
           <Route path="/maestros" element={<Catalogs />} />
           <Route path="/maestros/conceptos" element={<Concepts />} />
