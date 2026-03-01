@@ -1,5 +1,4 @@
 import ExcelJS from "exceljs";
-import { saveAs } from "./saveAs.js";
 import { getSettings, getDB } from "../db.js";
 
 // Mantener la misma capacidad histórica (42) para que calce con el slicing en Reimbursements.jsx
@@ -18,6 +17,17 @@ function fmtDateDDMMYYYY(d = new Date()) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -41,116 +51,115 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
     ws.getCell("A1").font = { size: 16, bold: true };
     ws.getCell("A1").alignment = { horizontal: "center" };
 
-    // Labels
+    // Labels en A3..A6 / Values en B3..B6
     ws.getCell("A3").value = "N° Rendición";
     ws.getCell("A4").value = "Responsable";
     ws.getCell("A5").value = "Fecha Generación";
     ws.getCell("A6").value = "Total Rendición";
-    ["A3","A4","A5","A6"].forEach(a => { ws.getCell(a).font = { bold: true }; });
+    ["A3", "A4", "A5", "A6"].forEach((addr) => {
+      ws.getCell(addr).font = { bold: true };
+    });
 
-    ws.getCell("B3").value = correlativo || "";
-    ws.getCell("B4").value = header.responsableNombre || "";
+    ws.getCell("B3").value = correlativo ?? "";
+    ws.getCell("B4").value = header?.responsableNombre ?? header?.nombreResponsable ?? "";
     ws.getCell("B5").value = fmtDateDDMMYYYY(new Date());
-    // B6 se setea luego con fórmula
-
-    let row = 8; // deja 1 línea de aire
+    // B6 se setea después con fórmula
 
     // =============================
-    // TABLA
+    // TABLA DE GASTOS
     // =============================
-    const tableStartRow = row;
+    const tableStartRow = 8;
 
-    const cols = [
+    const columns = [
       "Tipo Doc",
       "Fecha",
       "N° Doc",
       "Detalle / Glosa",
-      "Centro Responsabilidad (CR)",
+      "Centro Responsabilidad",
       "Cuenta Contable",
       "Partida",
       "Clasificación",
       "Monto",
     ];
 
-    cols.forEach((name, idx) => {
-      const cell = ws.getCell(tableStartRow, idx + 1);
-      cell.value = name;
+    columns.forEach((col, i) => {
+      const cell = ws.getCell(tableStartRow, i + 1);
+      cell.value = col;
       cell.font = { bold: true };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFEFEFEF" },
+      };
       cell.border = {
         top: { style: "thin" },
         left: { style: "thin" },
         bottom: { style: "thin" },
         right: { style: "thin" },
       };
-      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
     });
 
-    const dataStartRow = tableStartRow + 1;
+    const safeItems = Array.isArray(items) ? items : [];
+    let r = tableStartRow + 1;
 
-    (items || []).forEach((it, i) => {
-      const r = dataStartRow + i;
-
-      ws.getCell(r, 1).value = it.docTipo || "";
-      ws.getCell(r, 2).value = it.fechaISO ? fmtDateDDMMYYYY(new Date(it.fechaISO)) : "";
-      ws.getCell(r, 3).value = it.docNumero || "";
-      ws.getCell(r, 4).value = it.detalle || "";
-      ws.getCell(r, 5).value = it.crCodigo || "";
-      ws.getCell(r, 6).value = it.ctaCodigo || "";
-      ws.getCell(r, 7).value = it.partidaCodigo || "";
-      ws.getCell(r, 8).value = it.clasificacionCodigo || "";
-      ws.getCell(r, 9).value = Number(it.monto || 0);
-
-      // formato CLP
+    safeItems.forEach((it) => {
+      ws.getCell(r, 1).value = it.docTipo ?? "";
+      ws.getCell(r, 2).value = it.fechaISO ?? "";
+      ws.getCell(r, 3).value = it.docNumero ?? "";
+      ws.getCell(r, 4).value = it.detalle ?? "";
+      ws.getCell(r, 5).value = it.crCodigo ?? "";
+      ws.getCell(r, 6).value = it.ctaCodigo ?? "";
+      ws.getCell(r, 7).value = it.partidaCodigo ?? "";
+      ws.getCell(r, 8).value = it.clasificacionCodigo ?? "";
+      ws.getCell(r, 9).value = Number(it.monto ?? 0);
       ws.getCell(r, 9).numFmt = '"$"#,##0';
-      // wrap detalle
-      ws.getCell(r, 4).alignment = { wrapText: true, vertical: "top" };
+      r++;
     });
 
-    const lastDataRow = dataStartRow + (items?.length || 0) - 1;
-    const totalRow = lastDataRow + 1;
+    const firstDataRow = tableStartRow + 1;
+    const lastDataRow = Math.max(firstDataRow, r - 1);
+    const sumFormula = `SUM(I${firstDataRow}:I${lastDataRow})`;
 
-    // Total general
-    ws.getCell(totalRow, 8).value = "Total General";
-    ws.getCell(totalRow, 8).font = { bold: true };
-
-    const sumFormula = items?.length
-      ? `SUM(I${dataStartRow}:I${lastDataRow})`
-      : "0";
-
-    ws.getCell(totalRow, 9).value = { formula: sumFormula };
-    ws.getCell(totalRow, 9).numFmt = '"$"#,##0';
-    ws.getCell(totalRow, 9).font = { bold: true };
-
-    // Total en encabezado (B6)
+    // Total Rendición
     ws.getCell("B6").value = { formula: sumFormula };
     ws.getCell("B6").numFmt = '"$"#,##0';
     ws.getCell("B6").font = { bold: true };
 
-    // Auto filter
+    // Total General al final
+    const totalRow = r + 1;
+    ws.getCell(totalRow, 8).value = "Total General";
+    ws.getCell(totalRow, 8).font = { bold: true };
+    ws.getCell(totalRow, 9).value = { formula: sumFormula };
+    ws.getCell(totalRow, 9).numFmt = '"$"#,##0';
+    ws.getCell(totalRow, 9).font = { bold: true };
+
+    // Column widths
+    ws.columns = [
+      { width: 14 },
+      { width: 12 },
+      { width: 14 },
+      { width: 34 },
+      { width: 24 },
+      { width: 20 },
+      { width: 16 },
+      { width: 18 },
+      { width: 14 },
+    ];
+
     ws.autoFilter = {
       from: { row: tableStartRow, column: 1 },
       to: { row: tableStartRow, column: 9 },
     };
 
-    // Column widths
-    ws.columns = [
-      { width: 12 },
-      { width: 12 },
-      { width: 12 },
-      { width: 34 },
-      { width: 22 },
-      { width: 18 },
-      { width: 16 },
-      { width: 16 },
-      { width: 14 },
-    ];
-
-    // Freeze panes: keep header + table header
+    // Freeze panes
     ws.views = [{ state: "frozen", ySplit: tableStartRow }];
 
+    // IMPORTANT: writeBuffer returns ArrayBuffer, we must wrap it in Blob
     const buffer = await wb.xlsx.writeBuffer();
-    saveAs(buffer, `Rendicion_${correlativo || "SinNumero"}.xlsx`);
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    downloadBlob(blob, `Rendicion_${correlativo || "SinNumero"}.xlsx`);
   } catch (err) {
     console.error("Error generando Excel:", err);
     throw err;
@@ -163,23 +172,24 @@ export async function buildExportItems(gastoIds) {
     Promise.all(gastoIds.map((id) => db.get("expenses", id))),
     db.getAll("concepts"),
   ]);
-  const conceptById = new Map(concepts.map((c) => [c.conceptId, c]));
+
+  const byId = new Map(concepts.map((c) => [c.id, c]));
+
   return expenses
     .filter(Boolean)
     .map((e) => {
-      const c = conceptById.get(e.conceptId);
-      const conceptName = c?.nombre || "Gasto";
-      const detail = e.detalle?.trim() || `${conceptName}`;
+      const concept = e.conceptId ? byId.get(e.conceptId) : null;
       return {
-        docTipo: e.docTipo,
-        fechaISO: e.fecha,
-        docNumero: e.docNumero || "",
-        detalle: detail,
-        crCodigo: e.crCodigo,
-        ctaCodigo: e.ctaCodigo,
-        partidaCodigo: e.partidaCodigo || "",
-        clasificacionCodigo: e.clasificacionCodigo || "",
-        monto: e.monto,
+        id: e.id,
+        docTipo: e.docTipo ?? e.tipoDoc ?? "",
+        fechaISO: e.fechaISO ?? e.fecha ?? "",
+        docNumero: e.docNumero ?? e.numeroDoc ?? e.numeroDocumento ?? "",
+        detalle: e.detalle ?? e.glosa ?? "",
+        crCodigo: concept?.crCodigo ?? e.crCodigo ?? e.cr ?? "",
+        ctaCodigo: concept?.ctaCodigo ?? e.ctaCodigo ?? e.cuenta ?? e.cuentaContable ?? "",
+        partidaCodigo: concept?.partidaCodigo ?? e.partidaCodigo ?? e.partida ?? "",
+        clasificacionCodigo: concept?.clasificacionCodigo ?? e.clasificacionCodigo ?? e.clasificacion ?? "",
+        monto: Number(e.monto ?? 0),
       };
     });
 }
