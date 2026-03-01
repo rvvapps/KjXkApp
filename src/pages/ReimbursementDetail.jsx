@@ -47,7 +47,10 @@ export default function ReimbursementDetail() {
     setBusy(true);
     try {
       // Orden canónico de gastoIds según reimbursement_items.orden
-      const gastoIds = (items || []).slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((it) => it.gastoId);
+      const gastoIds = (items || [])
+        .slice()
+        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
+        .map((it) => it.gastoId);
 
       // Excel por lotes
       const exportItems = await buildExportItems(gastoIds);
@@ -73,11 +76,10 @@ export default function ReimbursementDetail() {
 
   async function onCancelDraft() {
     if (!reim) return;
-    const ok = window.confirm(
-      "¿Cancelar este borrador?
 
-Esto eliminará la rendición y devolverá sus gastos a 'pendiente'."
-    );
+    const ok = window.confirm(`¿Cancelar este borrador?
+
+Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
     if (!ok) return;
 
     setBusy(true);
