@@ -251,7 +251,12 @@ export default function Reimbursements() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {reims.map((r) => (
-              <div key={r.rendicionId} className="card" style={{ padding: 12 }}>
+              <Link
+                key={r.rendicionId}
+                to={`/rendiciones/${r.rendicionId}`}
+                className="card"
+                style={{ padding: 12, display: "block", textDecoration: "none", color: "inherit" }}
+              >
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontWeight: 900 }}>{r.correlativo}</div>
