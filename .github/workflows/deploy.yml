@@ -20,13 +20,12 @@ jobs:
     timeout-minutes: 25
 
     env:
-      # Force public npm registry
+      # Force public npm registry (avoid any injected proxy)
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      # Ensure devDependencies are installed (vite lives there)
+      # Ensure devDependencies (vite) are installed
       NODE_ENV: "development"
       NPM_CONFIG_PRODUCTION: "false"
-      NPM_CONFIG_OMIT: ""
-      # Make npm faster/quieter
+      # Avoid extra network calls
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
       # Network patience (ms)
@@ -45,33 +44,22 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Pin npm (workaround for npm 10.8.2 bug)
-        run: |
-          npm --version
-          npm i -g npm@10.8.1
-          npm --version
-
       - name: Remove inherited npm config
         run: |
           rm -f ~/.npmrc || true
           rm -f .npmrc || true
-          npm config delete registry || true
 
-      - name: Sanity + network
+      - name: Show npm config
         run: |
           npm config set registry https://registry.npmjs.org/
           echo "registry => $(npm config get registry)"
           echo "production => $(npm config get production)"
-          echo "omit => $(npm config get omit)"
-          curl -I --max-time 20 https://registry.npmjs.org/ | head -n 5 || true
+          echo "node => $(node -v)"
+          echo "npm => $(npm -v)"
 
-      - name: Install (npm ci)
-        run: |
-          npm ci --no-audit --no-fund
-
-      - name: Verify vite is installed
-        run: |
-          npx --yes vite --version
+      # Use npm install (not npm ci) to avoid npm/lockfile edge-cases in CI.
+      - name: Install
+        run: npm install --no-audit --no-fund --loglevel=warn
 
       - name: Build
         run: npm run build
