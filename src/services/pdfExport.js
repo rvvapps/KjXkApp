@@ -99,9 +99,9 @@ function sortExpensesForExports(expenses) {
 /**
  * PDF:
  * - Carta vertical (612x792)
- * - Boletas: 2x2 por página
+ * - Boletas y otros (no factura): 2x2 por página
  * - Facturas: 1 por página (full page)
- * - Orden: Boletas (fecha) -> Facturas (fecha) -> Otros (full page)
+ * - Orden: No-factura (fecha por tipo) -> Facturas (fecha)
  */
 export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
   const db = await getDB();
@@ -150,6 +150,23 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
     }
   }
 
+  for (const e of otros) {
+    const atts = await db.getAllFromIndex("attachments", "gastoId", e._gastoId);
+    const header = clampText(
+      `${e.docTipo || e.tipoDoc || ""} ${e.docNumero || e.numeroDoc || ""} | $${e.monto ?? ""} | ${e.detalle || e.glosa || ""}`,
+      120
+    );
+
+    if (!atts || atts.length === 0) {
+      boletaTiles.push({ kind: "placeholder", header, text: "SIN RESPALDO ADJUNTO" });
+      continue;
+    }
+
+    for (const att of atts) {
+      boletaTiles.push({ kind: "image", header, blob: att.blob, mimeType: att.mimeType || "" });
+    }
+  }
+
   const perPage = gridCols * gridRows;
   const boletaPages = Math.ceil(boletaTiles.length / perPage);
 
@@ -158,7 +175,7 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
     const start = p * perPage;
     const chunk = boletaTiles.slice(start, start + perPage);
 
-    page.drawText(clampText(`Boletas — Rendición ${correlativo ?? ""}`, 80), {
+    page.drawText(clampText(`Documentos (No Factura) — Rendición ${correlativo ?? ""}`, 80), {
       x: MARGIN,
       y: PAGE_H - MARGIN + 6,
       size: 9,
@@ -268,9 +285,6 @@ export async function exportReceiptsPdf({ correlativo, orderedGastoIds }) {
 
   for (const e of facturas) {
     await addFullPageForExpense(e, "Factura:");
-  }
-  for (const e of otros) {
-    await addFullPageForExpense(e, "Documento:");
   }
 
   const out = await pdf.save();
