@@ -22,7 +22,6 @@ jobs:
     env:
       # Force public npm registry (avoid any injected proxy)
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      NODE_ENV: "development"
       # Avoid extra network calls
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
@@ -31,8 +30,6 @@ jobs:
       NPM_CONFIG_FETCH_RETRIES: "5"
       NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
       NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
-      # Reduce noisy progress UI (sometimes hides what's going on)
-      NPM_CONFIG_PROGRESS: "false"
 
     steps:
       - name: Checkout
@@ -44,29 +41,25 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Pin npm (avoid npm@10.8.2 hang)
-        run: |
-          npm --version
-          npm i -g npm@10.8.1
-          npm --version
-
       - name: Remove inherited npm config
         run: |
           rm -f ~/.npmrc || true
           rm -f .npmrc || true
 
-      - name: Sanity + registry check
+      - name: Registry sanity
         run: |
           npm config set registry https://registry.npmjs.org/
           echo "registry => $(npm config get registry)"
-          echo "node => $(node -v)"
-          echo "npm => $(npm -v)"
-          npm ping --registry=https://registry.npmjs.org/ || true
-          npm view vite version --registry=https://registry.npmjs.org/ || true
+          node -v
+          npm -v
 
-      - name: Install (more verbose)
+      # WEB-ONLY WORKFLOW:
+      # If the repo contains a contaminated package-lock.json, delete it.
+      # Then use npm install (not npm ci) so the runner resolves deps from npmjs.
+      - name: Install dependencies (ignore lockfile)
         run: |
-          npm install --no-audit --no-fund --loglevel=info --prefer-online
+          rm -f package-lock.json npm-shrinkwrap.json || true
+          npm install --no-audit --no-fund --loglevel=warn
 
       - name: Build
         run: npm run build
