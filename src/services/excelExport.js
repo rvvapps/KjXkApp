@@ -73,27 +73,31 @@ function sortByFechaISO(a, b) {
 }
 
 function groupAndSortForExports(items) {
-  const boletas = [];
+  const noFactura = [];
   const facturas = [];
-  const otros = [];
 
   for (const it of items) {
     const tipo = normDocTipo(it.docTipo);
-    if (tipo === "boleta") boletas.push(it);
-    else if (tipo === "factura") facturas.push(it);
-    else otros.push(it);
+    if (tipo === "factura") facturas.push(it);
+    else noFactura.push(it);
   }
 
-  boletas.sort(sortByFechaISO);
-  facturas.sort(sortByFechaISO);
-  otros.sort((a, b) => {
+  const byFecha = (a, b) => {
+    const da = parseDateFlexible(a.fechaISO) ?? new Date(0);
+    const db = parseDateFlexible(b.fechaISO) ?? new Date(0);
+    const diff = da.getTime() - db.getTime();
+    if (diff !== 0) return diff;
+
     const ta = normDocTipo(a.docTipo);
     const tb = normDocTipo(b.docTipo);
     if (ta !== tb) return ta.localeCompare(tb, "es");
-    return sortByFechaISO(a, b);
-  });
+    return String(a.docNumero ?? "").localeCompare(String(b.docNumero ?? ""), "es");
+  };
 
-  return { boletas, facturas, otros };
+  noFactura.sort(byFecha);
+  facturas.sort(byFecha);
+
+  return { noFactura, facturas };
 }
 
 /**
@@ -170,7 +174,7 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
     });
 
     const safeItems = Array.isArray(items) ? items : [];
-    const { boletas, facturas, otros } = groupAndSortForExports(safeItems);
+    const { noFactura, facturas } = groupAndSortForExports(safeItems);
 
     let r = tableStartRow + 1;
 
@@ -199,22 +203,16 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
       r += 1;
     }
 
-    // ✅ Bloques: Boletas (fecha) -> Facturas (fecha) -> Otros (por tipo + fecha)
-    if (boletas.length) {
-      writeGroupLabel("BOLETAS (ordenadas por fecha)");
-      boletas.forEach(writeItem);
+    // ✅ Bloques: No Factura (mezclado por fecha) -> Facturas (por fecha)
+    if (noFactura.length) {
+      writeGroupLabel("DOCUMENTOS (NO FACTURA) — ordenados por fecha");
+      noFactura.forEach(writeItem);
       r += 1; // línea en blanco
     }
 
     if (facturas.length) {
-      writeGroupLabel("FACTURAS (ordenadas por fecha)");
+      writeGroupLabel("FACTURAS — ordenadas por fecha");
       facturas.forEach(writeItem);
-      r += 1;
-    }
-
-    if (otros.length) {
-      writeGroupLabel("OTROS DOCUMENTOS");
-      otros.forEach(writeItem);
       r += 1;
     }
 
