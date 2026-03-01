@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages (Web-only, no lockfile)
 
 on:
   push:
@@ -20,26 +20,25 @@ jobs:
     timeout-minutes: 30
 
     env:
-      # Force public npm registry (avoid any injected proxy)
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      # Avoid extra network calls
+      NODE_ENV: "development"
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
-      # Network patience (ms)
       NPM_CONFIG_FETCH_TIMEOUT: "300000"
       NPM_CONFIG_FETCH_RETRIES: "5"
       NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
       NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
+      NPM_CONFIG_PROGRESS: "false"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # IMPORTANT: do NOT enable dependency cache when you have no lockfile.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Remove inherited npm config
         run: |
@@ -50,16 +49,11 @@ jobs:
         run: |
           npm config set registry https://registry.npmjs.org/
           echo "registry => $(npm config get registry)"
-          node -v
-          npm -v
+          echo "node => $(node -v)"
+          echo "npm => $(npm -v)"
 
-      # WEB-ONLY WORKFLOW:
-      # If the repo contains a contaminated package-lock.json, delete it.
-      # Then use npm install (not npm ci) so the runner resolves deps from npmjs.
-      - name: Install dependencies (ignore lockfile)
-        run: |
-          rm -f package-lock.json npm-shrinkwrap.json || true
-          npm install --no-audit --no-fund --loglevel=warn
+      - name: Install (no lockfile)
+        run: npm install --no-audit --no-fund --loglevel=warn
 
       - name: Build
         run: npm run build
