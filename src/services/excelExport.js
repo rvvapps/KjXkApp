@@ -30,9 +30,22 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+function codeName(code, name) {
+  const c = (code ?? "").toString().trim();
+  const n = (name ?? "").toString().trim();
+  if (!c && !n) return "";
+  if (c && n) return `${c} - ${n}`;
+  return c || n;
+}
+
 /**
  * items: array of enriched expense rows:
- * { docTipo, fechaISO, docNumero, detalle, crCodigo, ctaCodigo, partidaCodigo, clasificacionCodigo, monto }
+ * {
+ *   docTipo, fechaISO, docNumero, detalle,
+ *   crCodigo, crNombre, ctaCodigo, ctaNombre, partidaCodigo, partidaNombre,
+ *   clasificacionCodigo, clasificacionNombre,
+ *   monto
+ * }
  */
 export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items }) {
   try {
@@ -107,10 +120,15 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
       ws.getCell(r, 2).value = it.fechaISO ?? "";
       ws.getCell(r, 3).value = it.docNumero ?? "";
       ws.getCell(r, 4).value = it.detalle ?? "";
-      ws.getCell(r, 5).value = it.crCodigo ?? "";
-      ws.getCell(r, 6).value = it.ctaCodigo ?? "";
-      ws.getCell(r, 7).value = it.partidaCodigo ?? "";
-      ws.getCell(r, 8).value = it.clasificacionCodigo ?? "";
+
+      // ✅ Formato "codigo - nombre"
+      ws.getCell(r, 5).value = codeName(it.crCodigo, it.crNombre);
+      ws.getCell(r, 6).value = codeName(it.ctaCodigo, it.ctaNombre);
+      ws.getCell(r, 7).value = codeName(it.partidaCodigo, it.partidaNombre);
+
+      // Clasificación (cuando exista en maestros, quedará igual)
+      ws.getCell(r, 8).value = codeName(it.clasificacionCodigo, it.clasificacionNombre);
+
       ws.getCell(r, 9).value = Number(it.monto ?? 0);
       ws.getCell(r, 9).numFmt = '"$"#,##0';
       r++;
@@ -139,10 +157,10 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
       { width: 12 },
       { width: 14 },
       { width: 34 },
-      { width: 24 },
-      { width: 20 },
-      { width: 16 },
-      { width: 18 },
+      { width: 28 },
+      { width: 28 },
+      { width: 28 },
+      { width: 26 },
       { width: 14 },
     ];
 
@@ -154,7 +172,7 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
     // Freeze panes
     ws.views = [{ state: "frozen", ySplit: tableStartRow }];
 
-    // IMPORTANT: writeBuffer returns ArrayBuffer, we must wrap it in Blob
+    // writeBuffer returns ArrayBuffer => wrap in Blob
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -166,29 +184,54 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
   }
 }
 
+/**
+ * buildExportItems(gastoIds)
+ * Devuelve items enriquecidos con nombres desde catálogos para que Excel muestre:
+ *  CR / Cuenta / Partida como "codigo - nombre".
+ */
 export async function buildExportItems(gastoIds) {
   const db = await getDB();
-  const [expenses, concepts] = await Promise.all([
+
+  const [expenses, concepts, crs, accounts, partidas] = await Promise.all([
     Promise.all(gastoIds.map((id) => db.get("expenses", id))),
     db.getAll("concepts"),
+    db.getAll("catalog_cr"),
+    db.getAll("catalog_accounts"),
+    db.getAll("catalog_partidas"),
   ]);
 
-  const byId = new Map(concepts.map((c) => [c.id, c]));
+  const conceptById = new Map(concepts.map((c) => [c.conceptId ?? c.id, c]));
+  const crByCode = new Map(crs.map((c) => [c.crCodigo, c]));
+  const accByCode = new Map(accounts.map((a) => [a.ctaCodigo, a]));
+  const partidaByCode = new Map(partidas.map((p) => [p.partidaCodigo, p]));
 
-  return expenses
+  return (expenses || [])
     .filter(Boolean)
     .map((e) => {
-      const concept = e.conceptId ? byId.get(e.conceptId) : null;
+      const concept = e.conceptId ? conceptById.get(e.conceptId) : null;
+
+      const crCodigo = concept?.crCodigo ?? e.crCodigo ?? e.cr ?? "";
+      const ctaCodigo = concept?.ctaCodigo ?? e.ctaCodigo ?? e.cuenta ?? e.cuentaContable ?? "";
+      const partidaCodigo = concept?.partidaCodigo ?? e.partidaCodigo ?? e.partida ?? "";
+
+      const cr = crByCode.get(crCodigo);
+      const acc = accByCode.get(ctaCodigo);
+      const part = partidaByCode.get(partidaCodigo);
+
       return {
         id: e.id,
-        docTipo: e.docTipo ?? e.tipoDoc ?? "",
-        fechaISO: e.fechaISO ?? e.fecha ?? "",
+        docTipo: e.docTipo ?? e.tipoDoc ?? e.tipoDocumento ?? "",
+        fechaISO: e.fechaISO ?? e.fechaDocumento ?? e.fecha ?? "",
         docNumero: e.docNumero ?? e.numeroDoc ?? e.numeroDocumento ?? "",
         detalle: e.detalle ?? e.glosa ?? "",
-        crCodigo: concept?.crCodigo ?? e.crCodigo ?? e.cr ?? "",
-        ctaCodigo: concept?.ctaCodigo ?? e.ctaCodigo ?? e.cuenta ?? e.cuentaContable ?? "",
-        partidaCodigo: concept?.partidaCodigo ?? e.partidaCodigo ?? e.partida ?? "",
-        clasificacionCodigo: concept?.clasificacionCodigo ?? e.clasificacionCodigo ?? e.clasificacion ?? "",
+        crCodigo,
+        crNombre: cr?.crNombre ?? "",
+        ctaCodigo,
+        ctaNombre: acc?.ctaNombre ?? "",
+        partidaCodigo,
+        partidaNombre: part?.partidaNombre ?? "",
+        clasificacionCodigo: e.clasificacionCodigo ?? e.clasificacion ?? "",
+        clasificacionNombre: e.clasificacionNombre ?? "",
         monto: Number(e.monto ?? 0),
       };
     });
