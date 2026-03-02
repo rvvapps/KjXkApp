@@ -16,7 +16,7 @@ import {
 import SelectField from "../components/SelectField.jsx";
 import TextField from "../components/TextField.jsx";
 import FileCapture from "../components/FileCapture.jsx";
-import { compressImageFile } from "../services/image.js";
+import { prepareReceiptImage } from "../services/image.js";
 
 export default function EditExpense() {
   const { gastoId } = useParams();
@@ -172,12 +172,15 @@ export default function EditExpense() {
     try {
       for (const f of files) {
         // iPhone-first defaults (1600px / quality 0.72 / WebP preferred)
-        const compressed = await compressImageFile(f);
+        const prepared = await prepareReceiptImage(f);
         await addAttachment({
           gastoId,
-          filename: compressed.name,
-          mimeType: compressed.type,
-          blob: compressed,
+          filename: prepared.filename,
+          mimeType: prepared.mimeType,
+          blob: prepared.blob,
+          width: prepared.width,
+          height: prepared.height,
+          contentHash: prepared.contentHash,
         });
       }
       setAtts(await listAttachmentsForExpense(gastoId));

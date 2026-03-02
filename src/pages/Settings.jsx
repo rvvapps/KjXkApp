@@ -1,17 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, listActiveCR } from "../db.js";
+import { getSettings, saveSettings, listActiveCR, getSyncState, saveSyncState } from "../db.js";
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
+import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
+import { syncOnce } from "../services/syncEngine.js";
 
 export default function Settings() {
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
   const [msg, setMsg] = useState("");
+  const [sync, setSync] = useState(null);
+  const [syncMsg, setSyncMsg] = useState("");
 
   useEffect(() => {
     (async () => {
       setS(await getSettings());
       setCrs(await listActiveCR());
+      setSync(await getSyncState());
     })();
   }, []);
 
@@ -19,6 +24,47 @@ export default function Settings() {
     setMsg("");
     await saveSettings(s);
     setMsg("✅ Guardado.");
+  }
+
+  async function saveOneDriveConfig(patch) {
+    const cur = await getSyncState();
+    const next = await saveSyncState({
+      auth: {
+        ...(cur?.auth || {}),
+        ...(patch || {}),
+      },
+    });
+    setSync(next);
+  }
+
+  async function connectOneDrive(preferredMode = "approot") {
+    setSyncMsg("");
+    const tenantId = sync?.auth?.tenantId || "organizations";
+    const clientId = sync?.auth?.clientId || "";
+    if (!clientId) {
+      setSyncMsg("⚠️ Debes ingresar Client ID (Application ID) antes de conectar.");
+      return;
+    }
+    const redirectUri = window.location.origin + window.location.pathname;
+    await saveOneDriveConfig({ tenantId, clientId, mode: preferredMode, redirectUri });
+    await startOneDriveLogin({ tenantId, clientId, mode: preferredMode, redirectUri });
+  }
+
+  async function doSyncNow() {
+    setSyncMsg("Sincronizando…");
+    const r = await syncOnce();
+    if (r.ok) {
+      setSyncMsg(`✅ Sync OK. Eventos: ${r.uploadedEvents}, Boletas: ${r.uploadedReceipts}`);
+      setS(await getSettings());
+    } else {
+      setSyncMsg(`❌ Sync falló en paso: ${r.step || "?"}. ${r.error || ""}`);
+    }
+  }
+
+  async function doDisconnect() {
+    await disconnectOneDrive();
+    setSync(await getSyncState());
+    setSyncMsg("Desconectado.");
   }
 
   if (!s) return <div className="card">Cargando…</div>;
@@ -65,7 +111,39 @@ export default function Settings() {
         <div><b>Último backup semanal:</b> {s.lastWeeklyBackupAt || "—"}</div>
       </div>
       <div className="small" style={{marginTop:10}}>
-        En Fase 1 la sincronización corre cuando la app está abierta. En el siguiente paso activaremos OneDrive (MSAL/Graph).
+        En Fase 1 la sincronización corre cuando la app está abierta (iOS no soporta background sync real).
+      </div>
+
+      <h4 style={{marginTop:14}}>OneDrive (Fase 1)</h4>
+      <div className="small" style={{opacity:.9, marginBottom:8}}>
+        Se usa OneDrive como respaldo/sync automático: sube eventos y boletas cuando hay conexión.
+      </div>
+      {syncMsg && <div className="small" style={{padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12, marginBottom:10}}>{syncMsg}</div>}
+
+      <div className="row">
+        <TextField
+          label="Tenant (default: organizations)"
+          value={sync?.auth?.tenantId || "organizations"}
+          onChange={(v)=>saveOneDriveConfig({ tenantId: v })}
+        />
+        <TextField
+          label="Client ID (Application ID)"
+          value={sync?.auth?.clientId || ""}
+          onChange={(v)=>saveOneDriveConfig({ clientId: v })}
+        />
+      </div>
+
+      <div className="small" style={{marginTop:8, opacity:.9}}>
+        <div><b>Modo:</b> {sync?.auth?.mode || "—"}</div>
+        <div><b>Conectado:</b> {sync?.auth?.connectedAt || "—"}</div>
+        <div><b>Root:</b> {sync?.rootMode || "—"}</div>
+      </div>
+
+      <div className="row" style={{marginTop:12, gap:10, flexWrap:"wrap"}}>
+        <button className="btn" onClick={()=>connectOneDrive("approot")}>Conectar (AppFolder)</button>
+        <button className="btn" onClick={()=>connectOneDrive("folder")}>Conectar (Carpeta dedicada)</button>
+        <button className="btn" onClick={doSyncNow}>Sincronizar ahora</button>
+        <button className="btn" onClick={doDisconnect}>Desconectar</button>
       </div>
 
       <h3>Cuenta / banco (para formulario)</h3>

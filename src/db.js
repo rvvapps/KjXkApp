@@ -207,6 +207,23 @@ export async function saveSettings(patch) {
 }
 
 // -------------------------
+// Sync state helpers
+// -------------------------
+
+export async function getSyncState() {
+  const db = await getDB();
+  return db.get("sync_state", "main");
+}
+
+export async function saveSyncState(patch) {
+  const db = await getDB();
+  const cur = await getSyncState();
+  const next = { ...(cur || { key: "main" }), ...patch, key: "main" };
+  await db.put("sync_state", next);
+  return next;
+}
+
+// -------------------------
 // Sync helpers (Phase 1)
 // -------------------------
 
@@ -423,18 +440,21 @@ export async function markExpensesReimbursed({ gastoIds, rendicionId }) {
   await tx.done;
 }
 
-export async function addAttachment({ gastoId, filename, mimeType, blob }) {
+export async function addAttachment({ gastoId, filename, mimeType, blob, width = null, height = null, contentHash = null }) {
   const db = await getDB();
   const adjuntoId = uuid();
-  const tx = db.transaction(["settings", "attachments", "sync_outbox"], "readwrite");
+  const tx = db.transaction(["settings", "attachments", "sync_outbox", "sync_objects"], "readwrite");
   const { settings, revision } = await bumpRevisionInTx(tx);
   const rec = {
     adjuntoId,
     gastoId,
     filename,
     mimeType,
+    contentHash,
     blob,
     sizeBytes: blob?.size ?? null,
+    width,
+    height,
     createdAt: nowIso(),
     updatedAt: nowIso(),
     updatedByDeviceId: settings.deviceId,
@@ -442,7 +462,37 @@ export async function addAttachment({ gastoId, filename, mimeType, blob }) {
     lastAccessedAt: nowIso(),
   };
   await tx.objectStore("attachments").put(rec);
-  // Minimalist events: we sync metadata via entity.upsert. Binary sync comes in next step.
+
+  if (contentHash) {
+    await tx.objectStore("sync_objects").put({
+      contentHash,
+      objectType: "receipt",
+      mimeType,
+      sizeBytes: blob?.size ?? null,
+      localBlobPresent: true,
+      uploadedAt: null,
+      remotePath: `objects/receipts/${contentHash}.${mimeType === "image/webp" ? "webp" : "jpg"}`,
+      lastAccessedAt: nowIso(),
+      pinned: false,
+    });
+  }
+  // Minimalist events: sync metadata via entity.upsert.
+  // Binary sync: if we have a contentHash, also enqueue object.ensure.
+  if (contentHash) {
+    await enqueueEventInTx(tx, {
+      settings,
+      revision,
+      type: "object.ensure",
+      payload: {
+        objectType: "receipt",
+        contentHash,
+        mimeType,
+        sizeBytes: blob?.size ?? null,
+        remotePath: `objects/receipts/${contentHash}.${mimeType === "image/webp" ? "webp" : "jpg"}`,
+        refs: [{ entityType: "expense", entityId: gastoId }],
+      },
+    });
+  }
   const meta = { ...rec };
   delete meta.blob;
   await enqueueEventInTx(tx, {

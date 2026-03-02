@@ -15,7 +15,7 @@ import {
 import SelectField from "../components/SelectField.jsx";
 import TextField from "../components/TextField.jsx";
 import FileCapture from "../components/FileCapture.jsx";
-import { compressImageFile } from "../services/image.js";
+import { prepareReceiptImage } from "../services/image.js";
 
 function MsgBox({ msg }) {
   if (!msg) return null;
@@ -191,12 +191,15 @@ export default function NewExpense() {
       if (fileList.length) {
         for (const f of fileList) {
           // iPhone-first defaults (1600px / quality 0.72 / WebP preferred)
-          const compressed = await compressImageFile(f);
+          const prepared = await prepareReceiptImage(f);
           await addAttachment({
             gastoId,
-            filename: compressed.name,
-            mimeType: compressed.type,
-            blob: compressed,
+            filename: prepared.filename,
+            mimeType: prepared.mimeType,
+            blob: prepared.blob,
+            width: prepared.width,
+            height: prepared.height,
+            contentHash: prepared.contentHash,
           });
         }
       }
