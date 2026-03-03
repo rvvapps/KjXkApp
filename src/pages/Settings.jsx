@@ -139,12 +139,16 @@ export default function Settings() {
         setRestoreMsg("⚠️ Debes ingresar la contraseña (mín. 6).");
         return;
       }
+      setRestoreMsg("⏳ Restaurando… no cierres esta pestaña.");
       const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass);
       if (!r?.ok) {
         setRestoreMsg("❌ Restauración fallida.");
         return;
       }
-      setRestoreMsg("✅ Restauración OK. Reiniciando…");
+      const c = r.insertedCounts || r.storeCounts || {};
+      setRestoreMsg(
+        `✅ Restauración OK. Gastos: ${c.expenses ?? 0}, Rendiciones: ${c.reimbursements ?? 0}, Boletas: ${c.attachments ?? 0}. Reiniciando…`
+      );
       setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       const code = e?.code || e?.message || "restore_failed";

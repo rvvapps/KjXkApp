@@ -126,6 +126,7 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
   const stores = parsed.stores || {};
   const meta = parsed.meta || {};
   const storeCounts = meta.storeCounts || null;
+  const insertedCounts = {};
 
   // IMPORTANT: avoid indexedDB.deleteDatabase() which can be BLOCKED by other tabs.
   // Instead, wipe stores with .clear(), then re-insert.
@@ -146,6 +147,8 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
     const rows = stores[name];
     if (!Array.isArray(rows)) continue;
 
+    insertedCounts[name] = rows.length;
+
     const tx = db.transaction(name, "readwrite");
     const os = tx.objectStore(name);
 
@@ -162,5 +165,5 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
     await tx.done;
   }
 
-  return { ok: true, storeCounts, meta };
+  return { ok: true, storeCounts, insertedCounts, meta };
 }
