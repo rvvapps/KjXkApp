@@ -7,33 +7,6 @@ import { syncOnce } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 
-
-function formatProgress(p) {
-  if (p == null) return "";
-  if (typeof p === "string") return p;
-  try {
-    if (typeof p === "object") {
-      const phase = p.phase || p.kind || "progress";
-      if (phase === "insert_progress") return `Insertando ${p.store}: ${p.i}/${p.total}`;
-      if (phase === "clear_store") return `Vaciando ${p.store}...`;
-      if (phase === "insert_store") return `Restaurando ${p.store}... (${p.count})`;
-      if (phase === "decrypt") return "Descifrando...";
-      if (phase === "unzip") return "Abriendo ZIP...";
-      if (phase === "parse") return "Procesando datos...";
-      if (phase === "open_db") return "Abriendo base local...";
-      if (phase === "zip_build") return "Construyendo ZIP...";
-      if (phase === "read_store") return `Leyendo ${p.store}...`;
-      if (phase === "done") return "Listo.";
-      if (p.text) return String(p.text);
-      return JSON.stringify(p);
-    }
-    return String(p);
-  } catch (e) {
-    return String(p);
-  }
-}
-
-
 export default function Settings() {
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
@@ -370,7 +343,7 @@ export default function Settings() {
 
       {restoreMsg && (
         <div className="small" style={{ marginTop: 10, padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
-          {formatProgress(restoreMsg)}
+          {restoreMsg}
         </div>
       )}
 
