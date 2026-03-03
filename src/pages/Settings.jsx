@@ -5,7 +5,8 @@ import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
 import { syncOnce } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
-import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
+import { generateEncryptedBackupBlob } from "../services/backupEngine.js";
+import { stageRestoreBlob } from "../services/restoreStaging.js";
 
 export default function Settings() {
   const [s, setS] = useState(null);
@@ -127,6 +128,7 @@ export default function Settings() {
     }
   }
 
+  
   async function doRestoreBackup() {
     setRestoreMsg("");
     setBackupBusy(true);
@@ -139,46 +141,20 @@ export default function Settings() {
         setRestoreMsg("⚠️ Debes ingresar la contraseña (mín. 6).");
         return;
       }
-      setRestoreMsg("⏳ Restaurando… no cierres esta pestaña.");
-      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass, {
-          timeoutMs: 60000,
-          onProgress: (p) => {
-            const phase = p?.phase || 'working';
-            const map = {
-              open_db: 'Abriendo base local…',
-              read_stores: 'Leyendo base local…',
-              zip_build: 'Construyendo ZIP…',
-              zip_receipts: 'Incluyendo boletas…',
-              zip_done: 'Backup listo…',
-              decrypt: 'Descifrando…',
-              unzip: 'Abriendo ZIP…',
-              parse: 'Leyendo data.json…',
-              clear_stores: 'Vaciando base local…',
-              insert_begin: 'Restaurando registros…',
-              insert_store: `Restaurando ${p.store} (${p.count})…`,
-              done: 'Restauración completa. Reiniciando…',
-            };
-            setRestoreMsg(map[phase] || `⏳ Restaurando… (${phase})`);
-          }
-        });
-      if (!r?.ok) {
-        setRestoreMsg("❌ Restauración fallida.");
-        return;
-      }
-      const c = r.insertedCounts || r.storeCounts || {};
-      setRestoreMsg(
-        `✅ Restauración OK. Gastos: ${c.expenses ?? 0}, Rendiciones: ${c.reimbursements ?? 0}, Boletas: ${c.attachments ?? 0}. Reiniciando…`
-      );
-      setTimeout(() => window.location.reload(), 400);
+
+      // Arquitectura correcta: NO restauramos dentro de la app montada (puede bloquear IndexedDB).
+      // En su lugar, dejamos el archivo staged y recargamos; el bootstrap ejecuta el restore antes de montar React.
+      setRestoreMsg("⏳ Preparando restauración…");
+      await stageRestoreBlob(restoreFile);
+
+      sessionStorage.setItem("cc_restore_pending", "1");
+      sessionStorage.setItem("cc_restore_pass", restorePass);
+
+      setRestoreMsg("⏳ Reiniciando para restaurar…");
+      setTimeout(() => window.location.reload(), 150);
     } catch (e) {
-      const code = e?.code || e?.message || "restore_failed";
-      if (String(code).includes("bad_backup")) {
-        setRestoreMsg("❌ Archivo inválido o corrupto.");
-      } else if (code === "passphrase_too_short") {
-        setRestoreMsg("⚠️ Contraseña inválida (mín. 6).");
-      } else {
-        setRestoreMsg(`❌ Restauración fallida: ${code}`);
-      }
+      const code = e?.code || e?.message || "restore_prepare_failed";
+      setRestoreMsg(`❌ No se pudo preparar la restauración: ${code}`);
     } finally {
       setBackupBusy(false);
     }
