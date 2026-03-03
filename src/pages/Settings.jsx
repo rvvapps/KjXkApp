@@ -145,17 +145,20 @@ export default function Settings() {
           onProgress: (p) => {
             const phase = p?.phase || 'working';
             const map = {
-              read: 'Leyendo archivo…',
+              open_db: 'Abriendo base local…',
+              read_stores: 'Leyendo base local…',
+              zip_build: 'Construyendo ZIP…',
+              zip_receipts: 'Incluyendo boletas…',
+              zip_done: 'Backup listo…',
               decrypt: 'Descifrando…',
               unzip: 'Abriendo ZIP…',
               parse: 'Leyendo data.json…',
-              open_db: 'Abriendo base local…',
               clear_stores: 'Vaciando base local…',
               insert_begin: 'Restaurando registros…',
               insert_store: `Restaurando ${p.store} (${p.count})…`,
               done: 'Restauración completa. Reiniciando…',
             };
-            setRestoreStatus({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
+            setRestoreMsg(map[phase] || `⏳ Restaurando… (${phase})`);
           }
         });
       if (!r?.ok) {
