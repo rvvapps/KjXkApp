@@ -4,6 +4,8 @@ import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
 import { syncOnce } from "../services/syncEngine.js";
+import { generateEncryptedFullBackup, restoreFromEncryptedBackup } from "../services/backupEngine.js";
+import { ensureOneDriveRoot, putFileUnderRoot } from "../services/onedriveApi.js";
 
 export default function Settings() {
   const [s, setS] = useState(null);
@@ -11,6 +13,11 @@ export default function Settings() {
   const [msg, setMsg] = useState("");
   const [sync, setSync] = useState(null);
   const [syncMsg, setSyncMsg] = useState("");
+  const [backupPass, setBackupPass] = useState("");
+  const [backupMsg, setBackupMsg] = useState("");
+  const [restorePass, setRestorePass] = useState("");
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoreMsg, setRestoreMsg] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -61,7 +68,86 @@ export default function Settings() {
     }
   }
 
-  async function doDisconnect() {
+  
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function doBackupLocal() {
+    setBackupMsg("Generando backup…");
+    try {
+      const r = await generateEncryptedFullBackup({ passphrase: backupPass });
+      if (!r.ok) {
+        setBackupMsg(`❌ Backup: ${r.error}`);
+        return;
+      }
+      downloadBlob(r.blob, r.filename);
+      setBackupMsg(`✅ Backup generado: ${r.filename}`);
+      // update lastWeeklyBackupAt (informativo)
+      const cur = await getSettings();
+      await saveSettings({ ...cur, lastWeeklyBackupAt: new Date().toISOString() });
+      setS(await getSettings());
+    } catch (e) {
+      setBackupMsg(`❌ Backup falló: ${String(e?.message || e)}`);
+    }
+  }
+
+  async function doBackupUploadOneDrive() {
+    setBackupMsg("Generando y subiendo backup a OneDrive…");
+    try {
+      const r = await generateEncryptedFullBackup({ passphrase: backupPass });
+      if (!r.ok) {
+        setBackupMsg(`❌ Backup: ${r.error}`);
+        return;
+      }
+      const root = await ensureOneDriveRoot({ preferAppFolder: true });
+      if (!root.ok) {
+        setBackupMsg(`❌ OneDrive: ${root.error || "no_root"}`);
+        return;
+      }
+      const up = await putFileUnderRoot({
+        rootMode: root.rootMode,
+        rootFolderItemId: root.rootFolderItemId,
+        relPath: `exports/${r.filename}`,
+        contentType: "application/octet-stream",
+        data: r.blob,
+      });
+      if (!up.ok) {
+        setBackupMsg("❌ Error subiendo backup a OneDrive.");
+        return;
+      }
+      const cur = await getSettings();
+      await saveSettings({ ...cur, lastWeeklyBackupAt: new Date().toISOString() });
+      setS(await getSettings());
+      setBackupMsg(`✅ Backup subido a OneDrive: exports/${r.filename}`);
+    } catch (e) {
+      setBackupMsg(`❌ Backup falló: ${String(e?.message || e)}`);
+    }
+  }
+
+  async function doRestoreFromFile() {
+    setRestoreMsg("Restaurando…");
+    try {
+      const r = await restoreFromEncryptedBackup({ file: restoreFile, passphrase: restorePass });
+      if (!r.ok) {
+        setRestoreMsg(`❌ Restore: ${r.error}. ${r.detail || ""}`);
+        return;
+      }
+      setRestoreMsg("✅ Restauración OK. Reiniciando…");
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+      setRestoreMsg(`❌ Restore falló: ${String(e?.message || e)}`);
+    }
+  }
+
+async function doDisconnect() {
     await disconnectOneDrive();
     setSync(await getSyncState());
     setSyncMsg("Desconectado.");
@@ -155,7 +241,54 @@ export default function Settings() {
         <TextField label="N° Cuenta" value={s.numeroCuenta} onChange={(v)=>setS({...s, numeroCuenta:v})} />
       </div>
 
+      
       <hr />
+
+      <h3>Backup cifrado (Fase 1 - Disaster Recovery)</h3>
+      <div className="small" style={{opacity:.9}}>
+        Genera un archivo <b>.cczip</b> que contiene <b>toda</b> la base (data.json + boletas). Está cifrado con tu contraseña (AES-GCM).
+      </div>
+
+      <div className="row" style={{marginTop:12}}>
+        <TextField
+          label="Contraseña backup (mín. 6)"
+          value={backupPass}
+          onChange={(v)=>setBackupPass(v)}
+        />
+      </div>
+
+      <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
+        <button className="btn" onClick={doBackupLocal}>Generar .cczip (descargar)</button>
+        <button className="btn" onClick={doBackupUploadOneDrive}>Subir backup a OneDrive</button>
+      </div>
+
+      {backupMsg && <div className="small" style={{marginTop:10, padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{backupMsg}</div>}
+
+      <div className="small" style={{marginTop:10, opacity:.9}}>
+        <div><b>Último backup:</b> {s.lastWeeklyBackupAt ? new Date(s.lastWeeklyBackupAt).toLocaleString() : "—"}</div>
+      </div>
+
+      <hr />
+
+      <h3>Restaurar desde .cczip</h3>
+      <div className="row" style={{marginTop:12}}>
+        <div style={{flex:1}}>
+          <div className="label">Archivo .cczip</div>
+          <input type="file" accept=".cczip,application/octet-stream" onChange={(e)=>setRestoreFile(e.target.files?.[0] || null)} />
+        </div>
+        <TextField
+          label="Contraseña"
+          value={restorePass}
+          onChange={(v)=>setRestorePass(v)}
+        />
+      </div>
+
+      <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
+        <button className="btn danger" onClick={doRestoreFromFile} disabled={!restoreFile}>Restaurar (REEMPLAZA local)</button>
+      </div>
+
+      {restoreMsg && <div className="small" style={{marginTop:10, padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{restoreMsg}</div>}
+<hr />
 
       <h3>Correlativo</h3>
       <div className="row">
