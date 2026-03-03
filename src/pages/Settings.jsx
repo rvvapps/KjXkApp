@@ -140,7 +140,24 @@ export default function Settings() {
         return;
       }
       setRestoreMsg("⏳ Restaurando… no cierres esta pestaña.");
-      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass);
+      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass, {
+          timeoutMs: 60000,
+          onProgress: (p) => {
+            const phase = p?.phase || 'working';
+            const map = {
+              read: 'Leyendo archivo…',
+              decrypt: 'Descifrando…',
+              unzip: 'Abriendo ZIP…',
+              parse: 'Leyendo data.json…',
+              open_db: 'Abriendo base local…',
+              clear_stores: 'Vaciando base local…',
+              insert_begin: 'Restaurando registros…',
+              insert_store: `Restaurando ${p.store} (${p.count})…`,
+              done: 'Restauración completa. Reiniciando…',
+            };
+            setRestoreStatus({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
+          }
+        });
       if (!r?.ok) {
         setRestoreMsg("❌ Restauración fallida.");
         return;

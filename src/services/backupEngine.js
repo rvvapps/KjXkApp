@@ -11,7 +11,8 @@ function extFromMime(mime) {
 }
 
 async function dumpAllStores() {
-  const db = await getDB();
+  tick('open_db');
+  const db = await withTimeout(getDB(), timeoutMs, 'open_db_timeout');
   const storeNames = Array.from(db.objectStoreNames);
   const stores = {};
   const storeCounts = {};
@@ -42,6 +43,11 @@ export async function buildPlainBackupZipBytes() {
     throw err;
   }
 
+  const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : null;
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
+  const tick = (phase, extra) => { try { onProgress && onProgress({ phase, ...extra }); } catch {} };
+
+  tick('read');
   const zip = new JSZip();
 
   // Extract blobs into /receipts/ and replace them with refs inside data.json
@@ -103,7 +109,7 @@ async function clearStore(os) {
   });
 }
 
-export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
+export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts = {}) {
   if (!fileBlob) throw new Error("missing_file");
   if (!passphrase || passphrase.length < 6) {
     const err = new Error("passphrase_too_short");
@@ -111,8 +117,10 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
     throw err;
   }
 
-  const plainBytes = await decryptToBytes(passphrase, fileBlob);
-  const zip = await JSZip.loadAsync(plainBytes);
+  tick('decrypt');
+  const plainBytes = await withTimeout(decryptToBytes(passphrase, fileBlob), timeoutMs, 'decrypt_timeout');
+  tick('unzip');
+  const zip = await withTimeout(JSZip.loadAsync(plainBytes), timeoutMs, 'unzip_timeout');
 
   const dataFile = zip.file("data.json");
   const dataText = await dataFile?.async("string");
@@ -122,6 +130,7 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
     throw err;
   }
 
+  tick('parse');
   const parsed = JSON.parse(dataText);
   const stores = parsed.stores || {};
   const meta = parsed.meta || {};
@@ -135,6 +144,7 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
 
   // Clear all stores first (single multi-store tx is faster)
   {
+    tick('clear_stores', { stores: storeNames.length });
     const tx = db.transaction(storeNames, "readwrite");
     for (const name of storeNames) {
       await clearStore(tx.objectStore(name));
@@ -143,11 +153,13 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
   }
 
   // Insert store data
+  tick('insert_begin', { stores: storeNames.length });
   for (const name of storeNames) {
     const rows = stores[name];
     if (!Array.isArray(rows)) continue;
 
     insertedCounts[name] = rows.length;
+    tick('insert_store', { store: name, count: rows.length });
 
     const tx = db.transaction(name, "readwrite");
     const os = tx.objectStore(name);
@@ -165,5 +177,19 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase) {
     await tx.done;
   }
 
+  tick('done', { insertedCounts });
   return { ok: true, storeCounts, insertedCounts, meta };
 }
+function withTimeout(promise, ms, code) {
+  if (!ms) return promise;
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      const err = new Error(code || "timeout");
+      err.code = code || "timeout";
+      reject(err);
+    }, ms);
+    promise.then((v)=>{ clearTimeout(t); resolve(v); }).catch((e)=>{ clearTimeout(t); reject(e); });
+  });
+}
+
+
