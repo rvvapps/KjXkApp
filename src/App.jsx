@@ -5,6 +5,7 @@ import NewExpense from "./pages/NewExpense.jsx";
 import Reimbursements from "./pages/Reimbursements.jsx";
 import ReimbursementDetail from "./pages/ReimbursementDetail.jsx";
 import Settings from "./pages/Settings.jsx";
+import ErrorBanner from "./components/ErrorBanner.jsx";
 import Catalogs from "./pages/Catalogs.jsx";
 import Concepts from "./pages/Concepts.jsx";
 import EditExpense from "./pages/EditExpense.jsx";
@@ -20,6 +21,7 @@ export default function App() {
 
   return (
     <div className="container">
+      <ErrorBanner />
       <header className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <h1 style={{ margin: 0 }}>Caja Chica</h1>
