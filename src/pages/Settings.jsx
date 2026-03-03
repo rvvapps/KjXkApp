@@ -4,8 +4,8 @@ import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
 import { syncOnce } from "../services/syncEngine.js";
-import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
+import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 
 export default function Settings() {
   const [s, setS] = useState(null);
@@ -13,6 +13,12 @@ export default function Settings() {
   const [msg, setMsg] = useState("");
   const [sync, setSync] = useState(null);
   const [syncMsg, setSyncMsg] = useState("");
+  const [backupPass, setBackupPass] = useState("");
+  const [restorePass, setRestorePass] = useState("");
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [backupMsg, setBackupMsg] = useState("");
+  const [restoreMsg, setRestoreMsg] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -71,71 +77,7 @@ export default function Settings() {
 
   if (!s) return <div className="card">Cargando…</div>;
 
-  
-  async function doGenerateBackup({ uploadToOneDrive = false } = {}) {
-    setBackupMsg(null);
-    setRestoreMsg(null);
-    try {
-      setBackupBusy(true);
-      const { blob, storeCounts } = await generateEncryptedBackupBlob(backupPass);
-      const ts = new Date();
-      const pad = (n) => String(n).padStart(2, "0");
-      const name = `backup_full_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}.cczip`;
-
-      if (uploadToOneDrive) {
-        const ab = await blob.arrayBuffer();
-        const up = await putFileByPath({ path: `exports/${name}`, contentType: "application/octet-stream", data: ab });
-        if (!up.ok) throw new Error(up.error || "upload_failed");
-        setBackupMsg(`✅ Backup subido a OneDrive: ${name} (Gastos:${storeCounts.expenses||0}, Rendiciones:${storeCounts.reimbursements||0}, Boletas:${storeCounts.attachments||0})`);
-      } else {
-        // Download locally
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = name;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        setBackupMsg(`✅ Backup generado: ${name} (Gastos:${storeCounts.expenses||0}, Rendiciones:${storeCounts.reimbursements||0}, Boletas:${storeCounts.attachments||0})`);
-      }
-    } catch (e) {
-      const msg = e?.code === "empty_backup"
-        ? "❌ Backup vacío: no hay datos para respaldar."
-        : e?.code === "passphrase_too_short"
-          ? "❌ Contraseña muy corta (mínimo 6)."
-          : `❌ Backup falló: ${e?.message || e}`;
-      setBackupMsg(msg);
-    } finally {
-      setBackupBusy(false);
-    }
-  }
-
-  async function doRestoreBackup() {
-    setRestoreMsg(null);
-    setBackupMsg(null);
-    try {
-      setBackupBusy(true);
-      if (!restoreFile) {
-        setRestoreMsg("❌ Selecciona un archivo .cczip.");
-        return;
-      }
-      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass);
-      setRestoreMsg("✅ Restore OK. Recargando…");
-      setTimeout(() => window.location.reload(), 600);
-    } catch (e) {
-      const msg = e?.code === "deleteDatabase_blocked"
-        ? "❌ Restore bloqueado: cierra otras pestañas de Caja Chica y reintenta."
-        : e?.code === "passphrase_too_short"
-          ? "❌ Contraseña muy corta (mínimo 6)."
-          : `❌ Restore falló: ${e?.message || e}`;
-      setRestoreMsg(msg);
-    } finally {
-      setBackupBusy(false);
-    }
-  }
-
-return (
+  return (
     <div className="card">
       <h2>Ajustes</h2>
       {msg && <div className="small" style={{padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{msg}</div>}
@@ -228,6 +170,75 @@ return (
         <TextField label="Prefijo" value={s.correlativoPrefix} onChange={(v)=>setS({...s, correlativoPrefix:v})} />
         <TextField label="Siguiente N°" type="number" value={s.correlativoNextNumber} onChange={(v)=>setS({...s, correlativoNextNumber:Number(v)})} />
       </div>
+
+      
+      <hr />
+
+      <h3>Backup cifrado (Fase 1 - Disaster Recovery)</h3>
+      <div className="small" style={{ marginBottom: 10 }}>
+        Genera un archivo <b>.cczip</b> cifrado con tu contraseña (AES-GCM) que contiene toda la base (data.json + boletas). 
+        Puedes descargarlo o subirlo a OneDrive.
+      </div>
+
+      <div className="row">
+        <TextField
+          label="Contraseña backup (mín. 6)"
+          value={backupPass}
+          onChange={setBackupPass}
+          type="password"
+        />
+      </div>
+
+      <div className="row" style={{ marginTop: 12, gap: 10 }}>
+        <button className="btn" disabled={backupBusy} onClick={() => doGenerateBackup({ uploadToOneDrive: false })}>
+          Generar .cczip (descargar)
+        </button>
+        <button className="btn" disabled={backupBusy} onClick={() => doGenerateBackup({ uploadToOneDrive: true })}>
+          Subir backup a OneDrive
+        </button>
+      </div>
+
+      {backupMsg && (
+        <div className="small" style={{ marginTop: 10, padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
+          {backupMsg}
+        </div>
+      )}
+
+      <hr />
+
+      <h3>Restaurar desde .cczip</h3>
+      <div className="small" style={{ marginBottom: 10 }}>
+        Restaura reemplazando la base local. Recomendación: cierra otras pestañas de Caja Chica antes de restaurar.
+      </div>
+
+      <div className="row">
+        <div style={{ flex: 1 }}>
+          <div className="label">Archivo .cczip</div>
+          <input
+            type="file"
+            accept=".cczip,application/octet-stream"
+            onChange={(e) => setRestoreFile(e.target.files?.[0] || null)}
+          />
+        </div>
+        <TextField
+          label="Contraseña"
+          value={restorePass}
+          onChange={setRestorePass}
+          type="password"
+        />
+      </div>
+
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn danger" disabled={backupBusy} onClick={doRestoreBackup}>
+          Restaurar (REEMPLAZA local)
+        </button>
+      </div>
+
+      {restoreMsg && (
+        <div className="small" style={{ marginTop: 10, padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
+          {restoreMsg}
+        </div>
+      )}
 
       <div className="row" style={{marginTop:12}}>
         <button className="btn" onClick={save}>Guardar</button>
