@@ -85,11 +85,22 @@ export default function Settings() {
     try {
       const r = await generateEncryptedFullBackup({ passphrase: backupPass });
       if (!r.ok) {
-        setBackupMsg(`❌ Backup: ${r.error}`);
+        if (r.error === "empty_backup") {
+          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
+        } else {
+          if (r.error === "empty_backup") {
+          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
+        } else {
+          setBackupMsg(`❌ Backup: ${r.error}`);
+        }
+        }
         return;
       }
       downloadBlob(r.blob, r.filename);
-      setBackupMsg(`✅ Backup generado: ${r.filename}`);
+      const exp = r.summary?.storeCounts?.expenses ?? 0;
+      const ren = r.summary?.storeCounts?.reimbursements ?? 0;
+      const att = r.summary?.storeCounts?.attachments ?? 0;
+      setBackupMsg(`✅ Backup generado: ${r.filename} (Gastos: ${exp}, Rendiciones: ${ren}, Boletas: ${att})`);
       // update lastWeeklyBackupAt (informativo)
       const cur = await getSettings();
       await saveSettings({ ...cur, lastWeeklyBackupAt: new Date().toISOString() });
@@ -104,7 +115,15 @@ export default function Settings() {
     try {
       const r = await generateEncryptedFullBackup({ passphrase: backupPass });
       if (!r.ok) {
-        setBackupMsg(`❌ Backup: ${r.error}`);
+        if (r.error === "empty_backup") {
+          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
+        } else {
+          if (r.error === "empty_backup") {
+          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
+        } else {
+          setBackupMsg(`❌ Backup: ${r.error}`);
+        }
+        }
         return;
       }
       const root = await ensureOneDriveRoot({ preferAppFolder: true });

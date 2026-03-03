@@ -32,12 +32,24 @@ function fromBase64(b64) {
   return out;
 }
 
+
+async function getAllFromStore(db, storeName) {
+  // Using explicit transaction/objectStore.getAll for maximum compatibility.
+  const tx = db.transaction(storeName, "readonly");
+  const store = tx.objectStore(storeName);
+  const all = await store.getAll();
+  await tx.done;
+  return all;
+}
+
 async function zipFullSnapshot() {
   const db = await getDB();
   const zip = new JSZip();
 
   // Export all stores (v3). Attachments blobs go to /receipts/ and are referenced in data.json.
   const storeNames = Array.from(db.objectStoreNames);
+
+  const storeCounts = {};
 
   const data = {
     meta: {
@@ -55,7 +67,9 @@ async function zipFullSnapshot() {
   };
 
   for (const storeName of storeNames) {
-    const all = await db.getAll(storeName);
+    const all = await getAllFromStore(db, storeName);
+
+    storeCounts[storeName] = Array.isArray(all) ? all.length : 0;
 
     if (storeName !== "attachments") {
       data.stores[storeName] = all;
@@ -98,7 +112,7 @@ async function zipFullSnapshot() {
 
   // Generate zip bytes
   const zipBytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } });
-  return zipBytes;
+  return { zipBytes, summary: { storeCounts } };
 }
 
 async function encryptZipBytes(zipBytes, passphrase) {
@@ -178,11 +192,16 @@ export async function generateEncryptedFullBackup({ passphrase }) {
   if (!passphrase || passphrase.length < 6) {
     return { ok: false, error: "passphrase_too_short" };
   }
-  const zipBytes = await zipFullSnapshot();
+  const { zipBytes, summary } = await zipFullSnapshot();
+  // Guard: avoid generating an almost-empty backup by mistake.
+  const important = (summary?.storeCounts?.expenses || 0) + (summary?.storeCounts?.reimbursements || 0) + (summary?.storeCounts?.attachments || 0);
+  if (important === 0) {
+    return { ok: false, error: "empty_backup" };
+  }
   const { bytes } = await encryptZipBytes(zipBytes, passphrase);
   const filename = `backup_full_${nowStamp()}.cczip`;
   const blob = new Blob([bytes], { type: "application/octet-stream" });
-  return { ok: true, blob, filename };
+  return { ok: true, blob, filename, summary };
 }
 
 export async function restoreFromEncryptedBackup({ file, passphrase }) {
@@ -225,7 +244,9 @@ export async function restoreFromEncryptedBackup({ file, passphrase }) {
       const tx = db.transaction([storeName], "readwrite");
       const store = tx.objectStore(storeName);
 
-      if (storeName !== "attachments") {
+      storeCounts[storeName] = Array.isArray(all) ? all.length : 0;
+
+    if (storeName !== "attachments") {
         for (const rec of records) {
           await store.put(rec);
         }
