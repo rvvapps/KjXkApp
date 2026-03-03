@@ -8,6 +8,9 @@ import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 
 export default function Settings() {
+  // Compat: evita crashes si quedó algún handler antiguo
+  const setRestoreStatus = (msg) => setRestoreMsg(msg);
+
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
   const [msg, setMsg] = useState("");
@@ -155,7 +158,7 @@ export default function Settings() {
               insert_store: `Restaurando ${p.store} (${p.count})…`,
               done: 'Restauración completa. Reiniciando…',
             };
-            setRestoreStatus({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
+            setRestoreMsg({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
           }
         });
       if (!r?.ok) {
