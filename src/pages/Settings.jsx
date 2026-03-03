@@ -4,8 +4,8 @@ import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
 import { syncOnce } from "../services/syncEngine.js";
-import { generateEncryptedFullBackup, restoreFromEncryptedBackup } from "../services/backupEngine.js";
-import { ensureOneDriveRoot, putFileUnderRoot } from "../services/onedriveApi.js";
+import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
+import { putFileByPath } from "../services/onedriveApi.js";
 
 export default function Settings() {
   const [s, setS] = useState(null);
@@ -13,11 +13,6 @@ export default function Settings() {
   const [msg, setMsg] = useState("");
   const [sync, setSync] = useState(null);
   const [syncMsg, setSyncMsg] = useState("");
-  const [backupPass, setBackupPass] = useState("");
-  const [backupMsg, setBackupMsg] = useState("");
-  const [restorePass, setRestorePass] = useState("");
-  const [restoreFile, setRestoreFile] = useState(null);
-  const [restoreMsg, setRestoreMsg] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -68,105 +63,7 @@ export default function Settings() {
     }
   }
 
-  
-  function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  async function doBackupLocal() {
-    setBackupMsg("Generando backup…");
-    try {
-      const r = await generateEncryptedFullBackup({ passphrase: backupPass });
-      if (!r.ok) {
-        if (r.error === "empty_backup") {
-          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
-        } else {
-          if (r.error === "empty_backup") {
-          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
-        } else {
-          setBackupMsg(`❌ Backup: ${r.error}`);
-        }
-        }
-        return;
-      }
-      downloadBlob(r.blob, r.filename);
-      const exp = r.summary?.storeCounts?.expenses ?? 0;
-      const ren = r.summary?.storeCounts?.reimbursements ?? 0;
-      const att = r.summary?.storeCounts?.attachments ?? 0;
-      setBackupMsg(`✅ Backup generado: ${r.filename} (Gastos: ${exp}, Rendiciones: ${ren}, Boletas: ${att})`);
-      // update lastWeeklyBackupAt (informativo)
-      const cur = await getSettings();
-      await saveSettings({ ...cur, lastWeeklyBackupAt: new Date().toISOString() });
-      setS(await getSettings());
-    } catch (e) {
-      setBackupMsg(`❌ Backup falló: ${String(e?.message || e)}`);
-    }
-  }
-
-  async function doBackupUploadOneDrive() {
-    setBackupMsg("Generando y subiendo backup a OneDrive…");
-    try {
-      const r = await generateEncryptedFullBackup({ passphrase: backupPass });
-      if (!r.ok) {
-        if (r.error === "empty_backup") {
-          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
-        } else {
-          if (r.error === "empty_backup") {
-          setBackupMsg("❌ Backup vacío: no se encontraron datos (gastos/rendiciones/boletas). Crea al menos 1 gasto y vuelve a intentar.");
-        } else {
-          setBackupMsg(`❌ Backup: ${r.error}`);
-        }
-        }
-        return;
-      }
-      const root = await ensureOneDriveRoot({ preferAppFolder: true });
-      if (!root.ok) {
-        setBackupMsg(`❌ OneDrive: ${root.error || "no_root"}`);
-        return;
-      }
-      const up = await putFileUnderRoot({
-        rootMode: root.rootMode,
-        rootFolderItemId: root.rootFolderItemId,
-        relPath: `exports/${r.filename}`,
-        contentType: "application/octet-stream",
-        data: r.blob,
-      });
-      if (!up.ok) {
-        setBackupMsg("❌ Error subiendo backup a OneDrive.");
-        return;
-      }
-      const cur = await getSettings();
-      await saveSettings({ ...cur, lastWeeklyBackupAt: new Date().toISOString() });
-      setS(await getSettings());
-      setBackupMsg(`✅ Backup subido a OneDrive: exports/${r.filename}`);
-    } catch (e) {
-      setBackupMsg(`❌ Backup falló: ${String(e?.message || e)}`);
-    }
-  }
-
-  async function doRestoreFromFile() {
-    setRestoreMsg("Restaurando…");
-    try {
-      const r = await restoreFromEncryptedBackup({ file: restoreFile, passphrase: restorePass });
-      if (!r.ok) {
-        setRestoreMsg(`❌ Restore: ${r.error}. ${r.detail || ""}`);
-        return;
-      }
-      setRestoreMsg("✅ Restauración OK. Reiniciando…");
-      setTimeout(() => window.location.reload(), 600);
-    } catch (e) {
-      setRestoreMsg(`❌ Restore falló: ${String(e?.message || e)}`);
-    }
-  }
-
-async function doDisconnect() {
+  async function doDisconnect() {
     await disconnectOneDrive();
     setSync(await getSyncState());
     setSyncMsg("Desconectado.");
@@ -174,7 +71,71 @@ async function doDisconnect() {
 
   if (!s) return <div className="card">Cargando…</div>;
 
-  return (
+  
+  async function doGenerateBackup({ uploadToOneDrive = false } = {}) {
+    setBackupMsg(null);
+    setRestoreMsg(null);
+    try {
+      setBackupBusy(true);
+      const { blob, storeCounts } = await generateEncryptedBackupBlob(backupPass);
+      const ts = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const name = `backup_full_${ts.getFullYear()}-${pad(ts.getMonth()+1)}-${pad(ts.getDate())}_${pad(ts.getHours())}${pad(ts.getMinutes())}.cczip`;
+
+      if (uploadToOneDrive) {
+        const ab = await blob.arrayBuffer();
+        const up = await putFileByPath({ path: `exports/${name}`, contentType: "application/octet-stream", data: ab });
+        if (!up.ok) throw new Error(up.error || "upload_failed");
+        setBackupMsg(`✅ Backup subido a OneDrive: ${name} (Gastos:${storeCounts.expenses||0}, Rendiciones:${storeCounts.reimbursements||0}, Boletas:${storeCounts.attachments||0})`);
+      } else {
+        // Download locally
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setBackupMsg(`✅ Backup generado: ${name} (Gastos:${storeCounts.expenses||0}, Rendiciones:${storeCounts.reimbursements||0}, Boletas:${storeCounts.attachments||0})`);
+      }
+    } catch (e) {
+      const msg = e?.code === "empty_backup"
+        ? "❌ Backup vacío: no hay datos para respaldar."
+        : e?.code === "passphrase_too_short"
+          ? "❌ Contraseña muy corta (mínimo 6)."
+          : `❌ Backup falló: ${e?.message || e}`;
+      setBackupMsg(msg);
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function doRestoreBackup() {
+    setRestoreMsg(null);
+    setBackupMsg(null);
+    try {
+      setBackupBusy(true);
+      if (!restoreFile) {
+        setRestoreMsg("❌ Selecciona un archivo .cczip.");
+        return;
+      }
+      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass);
+      setRestoreMsg("✅ Restore OK. Recargando…");
+      setTimeout(() => window.location.reload(), 600);
+    } catch (e) {
+      const msg = e?.code === "deleteDatabase_blocked"
+        ? "❌ Restore bloqueado: cierra otras pestañas de Caja Chica y reintenta."
+        : e?.code === "passphrase_too_short"
+          ? "❌ Contraseña muy corta (mínimo 6)."
+          : `❌ Restore falló: ${e?.message || e}`;
+      setRestoreMsg(msg);
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+return (
     <div className="card">
       <h2>Ajustes</h2>
       {msg && <div className="small" style={{padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{msg}</div>}
@@ -260,54 +221,7 @@ async function doDisconnect() {
         <TextField label="N° Cuenta" value={s.numeroCuenta} onChange={(v)=>setS({...s, numeroCuenta:v})} />
       </div>
 
-      
       <hr />
-
-      <h3>Backup cifrado (Fase 1 - Disaster Recovery)</h3>
-      <div className="small" style={{opacity:.9}}>
-        Genera un archivo <b>.cczip</b> que contiene <b>toda</b> la base (data.json + boletas). Está cifrado con tu contraseña (AES-GCM).
-      </div>
-
-      <div className="row" style={{marginTop:12}}>
-        <TextField
-          label="Contraseña backup (mín. 6)"
-          value={backupPass}
-          onChange={(v)=>setBackupPass(v)}
-        />
-      </div>
-
-      <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
-        <button className="btn" onClick={doBackupLocal}>Generar .cczip (descargar)</button>
-        <button className="btn" onClick={doBackupUploadOneDrive}>Subir backup a OneDrive</button>
-      </div>
-
-      {backupMsg && <div className="small" style={{marginTop:10, padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{backupMsg}</div>}
-
-      <div className="small" style={{marginTop:10, opacity:.9}}>
-        <div><b>Último backup:</b> {s.lastWeeklyBackupAt ? new Date(s.lastWeeklyBackupAt).toLocaleString() : "—"}</div>
-      </div>
-
-      <hr />
-
-      <h3>Restaurar desde .cczip</h3>
-      <div className="row" style={{marginTop:12}}>
-        <div style={{flex:1}}>
-          <div className="label">Archivo .cczip</div>
-          <input type="file" accept=".cczip,application/octet-stream" onChange={(e)=>setRestoreFile(e.target.files?.[0] || null)} />
-        </div>
-        <TextField
-          label="Contraseña"
-          value={restorePass}
-          onChange={(v)=>setRestorePass(v)}
-        />
-      </div>
-
-      <div style={{display:"flex", gap:10, flexWrap:"wrap", marginTop:12}}>
-        <button className="btn danger" onClick={doRestoreFromFile} disabled={!restoreFile}>Restaurar (REEMPLAZA local)</button>
-      </div>
-
-      {restoreMsg && <div className="small" style={{marginTop:10, padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{restoreMsg}</div>}
-<hr />
 
       <h3>Correlativo</h3>
       <div className="row">
