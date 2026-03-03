@@ -75,15 +75,93 @@ export default function Settings() {
     setSyncMsg("Desconectado.");
   }
 
-  if (!s) return (
-    <div className="card">
-      <h2>Ajustes</h2>
-      <div className="small" style={{opacity:.9}}>Cargando configuración…</div>
-      <div style={{marginTop:12}}>
-        <button className="btn secondary" onClick={() => window.location.reload()}>Reintentar</button>
-      </div>
-    </div>
-  );
+  async function doGenerateBackup({ uploadToOneDrive }) {
+    setBackupMsg("");
+    setBackupBusy(true);
+    try {
+      const { blob, storeCounts } = await generateEncryptedBackupBlob(backupPass);
+
+      // Download locally by default
+      const fileName = `backup_full_${new Date().toISOString().replace(/[:.]/g, "-")}.cczip`;
+
+      if (uploadToOneDrive) {
+        // Require OneDrive root configured (sync connection)
+        const st = await getSyncState();
+        if (!st?.rootMode || !st?.driveId || !st?.rootFolderItemId) {
+          setBackupMsg("⚠️ OneDrive no está conectado/configurado. Conecta AppFolder y sincroniza primero.");
+          return;
+        }
+        // Upload under approot or configured root using API helper (approot path by default here)
+        const r = await putFileByPath({
+          path: `exports/${fileName}`,
+          contentType: "application/octet-stream",
+          data: blob,
+        });
+        if (!r.ok) {
+          setBackupMsg(`❌ Error subiendo backup: ${r.error || "put_failed"}`);
+          return;
+        }
+        setBackupMsg(`✅ Backup subido a OneDrive: exports/${fileName} (Gastos: ${storeCounts.expenses ?? 0}, Rendiciones: ${storeCounts.reimbursements ?? 0}, Boletas: ${storeCounts.attachments ?? 0})`);
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        setBackupMsg(`✅ Backup generado: ${fileName} (Gastos: ${storeCounts.expenses ?? 0}, Rendiciones: ${storeCounts.reimbursements ?? 0}, Boletas: ${storeCounts.attachments ?? 0})`);
+      }
+    } catch (e) {
+      const code = e?.code || e?.message || "backup_failed";
+      if (code === "empty_backup") {
+        setBackupMsg("⚠️ Backup vacío: no hay gastos/rendiciones/boletas para respaldar.");
+      } else if (code === "passphrase_too_short") {
+        setBackupMsg("⚠️ La contraseña debe tener al menos 6 caracteres.");
+      } else {
+        setBackupMsg(`❌ Error generando backup: ${code}`);
+      }
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function doRestoreBackup() {
+    setRestoreMsg("");
+    setBackupBusy(true);
+    try {
+      if (!restoreFile) {
+        setRestoreMsg("⚠️ Debes seleccionar un archivo .cczip primero.");
+        return;
+      }
+      if (!restorePass || restorePass.length < 6) {
+        setRestoreMsg("⚠️ Debes ingresar la contraseña (mín. 6).");
+        return;
+      }
+      const r = await restoreFromEncryptedBackupFile(restoreFile, restorePass);
+      if (!r?.ok) {
+        setRestoreMsg("❌ Restauración fallida.");
+        return;
+      }
+      setRestoreMsg("✅ Restauración OK. Reiniciando…");
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e) {
+      const code = e?.code || e?.message || "restore_failed";
+      if (String(code).includes("bad_backup")) {
+        setRestoreMsg("❌ Archivo inválido o corrupto.");
+      } else if (code === "passphrase_too_short") {
+        setRestoreMsg("⚠️ Contraseña inválida (mín. 6).");
+      } else {
+        setRestoreMsg(`❌ Restauración fallida: ${code}`);
+      }
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+
+  if (!s) return <div className="card">Cargando…</div>;
 
   return (
     <div className="card">
