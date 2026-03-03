@@ -8,6 +8,9 @@ import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 
 export default function Settings() {
+  // Compat: evita crashes si queda alguna referencia antigua
+  const setRestoreStatus = (msg) => setRestoreMsg(typeof msg === 'string' ? msg : (msg?.text ? String(msg.text) : JSON.stringify(msg)));
+
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
   const [msg, setMsg] = useState("");
@@ -155,7 +158,7 @@ export default function Settings() {
               insert_store: `Restaurando ${p.store} (${p.count})…`,
               done: 'Restauración completa. Reiniciando…',
             };
-            setRestoreStatus({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
+            setRestoreMsg({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
           }
         });
       if (!r?.ok) {
@@ -343,7 +346,7 @@ export default function Settings() {
 
       {restoreMsg && (
         <div className="small" style={{ marginTop: 10, padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
-          {restoreMsg}
+          {typeof restoreMsg === "string" ? restoreMsg : (restoreMsg?.text ? String(restoreMsg.text) : JSON.stringify(restoreMsg))}
         </div>
       )}
 
