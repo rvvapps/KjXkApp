@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getSettings, saveSettings, listActiveCR, getSyncState, saveSyncState } from "../db.js";
+import { ensureSeedData, getSettings, saveSettings, listActiveCR, getSyncState, saveSyncState } from "../db.js";
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
@@ -11,6 +11,7 @@ export default function Settings() {
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
   const [msg, setMsg] = useState("");
+  const [loadErr, setLoadErr] = useState("");
   const [sync, setSync] = useState(null);
   const [syncMsg, setSyncMsg] = useState("");
   const [backupPass, setBackupPass] = useState("");
@@ -22,9 +23,20 @@ export default function Settings() {
 
   useEffect(() => {
     (async () => {
-      setS(await getSettings());
-      setCrs(await listActiveCR());
-      setSync(await getSyncState());
+      try {
+        // Ensure defaults exist even on a fresh/cleared install.
+        await ensureSeedData();
+        setS(await getSettings());
+        setCrs(await listActiveCR());
+        setSync(await getSyncState());
+      } catch (e) {
+        console.error("Settings load failed:", e);
+        setLoadErr(String(e?.message || e));
+        // Still render the page to avoid a blank screen.
+        setS((prev) => prev || { responsableNombre:"", responsableRut:"", cargo:"", telefono:"", empresa:"", crDefaultCodigo:"", deviceLabel:"", tipoCuenta:"", banco:"", numeroCuenta:"" , correlativoPrefix:"RC", correlativoNextNumber:1});
+        setCrs([]);
+        setSync(null);
+      }
     })();
   }, []);
 
@@ -80,6 +92,7 @@ export default function Settings() {
   return (
     <div className="card">
       <h2>Ajustes</h2>
+      {loadErr && <div className="small" style={{padding:10, border:"1px solid rgba(255,80,80,.35)", borderRadius:12, marginTop:10}}>❌ Error cargando Ajustes: {loadErr}</div>}
       {msg && <div className="small" style={{padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{msg}</div>}
 
       <h3>Perfil (encabezado rendición)</h3>
