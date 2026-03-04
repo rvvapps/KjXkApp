@@ -9,6 +9,7 @@ import Catalogs from "./pages/Catalogs.jsx";
 import Concepts from "./pages/Concepts.jsx";
 import EditExpense from "./pages/EditExpense.jsx";
 import Transfers from "./pages/Transfers.jsx";
+import Expenses from "./pages/Expenses.jsx";
 import ErrorBanner from "./components/ErrorBanner.jsx";
 import { ensureSeedData } from "./db.js";
 
@@ -40,7 +41,7 @@ export default function App() {
         <nav className="row" style={{ position: "relative" }}>
           <Link className="btn secondary" to="/">Inicio</Link>
           <Link className="btn secondary" to="/traslados">Traslados</Link>
-          <Link className="btn secondary" to="/gastos/nuevo">+ Gasto</Link>
+          <Link className="btn secondary" to="/gastos">Gastos</Link>
           <Link className="btn secondary" to="/rendiciones">Rendiciones</Link>
 
           {/* Dropdown Maestros */}
@@ -92,6 +93,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/traslados" element={<Transfers />} />
+          <Route path="/gastos" element={<Expenses />} />
           <Route path="/gastos/nuevo" element={<NewExpense />} />
           <Route path="/gastos/:gastoId" element={<EditExpense />} />
           <Route path="/rendiciones/:rendicionId" element={<ReimbursementDetail />} />

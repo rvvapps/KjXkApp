@@ -365,7 +365,21 @@ export async function listActiveCR() {
 
 export async function upsertCR(item) {
   const db = await getDB();
-  await db.put("catalog_cr", item);
+  // Si el código cambió, borrar el registro viejo primero
+  if (item._originalCode && item._originalCode !== item.crCodigo) {
+    await db.delete("catalog_cr", item._originalCode);
+  }
+  const { _originalCode, ...clean } = item;
+  await db.put("catalog_cr", clean);
+}
+
+export async function deleteCR(crCodigo) {
+  const db = await getDB();
+  // Verificar si está en uso en gastos o transfers
+  const enUso = await db.countFromIndex("expenses", "crCodigo", crCodigo)
+    .catch(() => 0);
+  if (enUso > 0) throw Object.assign(new Error(`CR en uso en ${enUso} gasto(s). Desactívalo en vez de eliminarlo.`), { code: "in_use", count: enUso });
+  await db.delete("catalog_cr", crCodigo);
 }
 
 export async function listActiveAccounts() {
@@ -378,7 +392,19 @@ export async function listActiveAccounts() {
 
 export async function upsertAccount(item) {
   const db = await getDB();
-  await db.put("catalog_accounts", item);
+  if (item._originalCode && item._originalCode !== item.ctaCodigo) {
+    await db.delete("catalog_accounts", item._originalCode);
+  }
+  const { _originalCode, ...clean } = item;
+  await db.put("catalog_accounts", clean);
+}
+
+export async function deleteAccount(ctaCodigo) {
+  const db = await getDB();
+  const enUso = await db.countFromIndex("expenses", "ctaCodigo", ctaCodigo)
+    .catch(() => 0);
+  if (enUso > 0) throw Object.assign(new Error(`Cuenta en uso en ${enUso} gasto(s). Desactívala en vez de eliminarla.`), { code: "in_use", count: enUso });
+  await db.delete("catalog_accounts", ctaCodigo);
 }
 
 export async function listActivePartidas() {
@@ -391,7 +417,16 @@ export async function listActivePartidas() {
 
 export async function upsertPartida(item) {
   const db = await getDB();
-  await db.put("catalog_partidas", item);
+  if (item._originalCode && item._originalCode !== item.partidaCodigo) {
+    await db.delete("catalog_partidas", item._originalCode);
+  }
+  const { _originalCode, ...clean } = item;
+  await db.put("catalog_partidas", clean);
+}
+
+export async function deletePartida(partidaCodigo) {
+  const db = await getDB();
+  await db.delete("catalog_partidas", partidaCodigo);
 }
 
 export async function listActiveClasificaciones() {
@@ -404,7 +439,16 @@ export async function listActiveClasificaciones() {
 
 export async function upsertClasificacion(item) {
   const db = await getDB();
-  await db.put("catalog_clasificaciones", item);
+  if (item._originalCode && item._originalCode !== item.clasificacionCodigo) {
+    await db.delete("catalog_clasificaciones", item._originalCode);
+  }
+  const { _originalCode, ...clean } = item;
+  await db.put("catalog_clasificaciones", clean);
+}
+
+export async function deleteClasificacion(clasificacionCodigo) {
+  const db = await getDB();
+  await db.delete("catalog_clasificaciones", clasificacionCodigo);
 }
 
 export async function listConcepts() {
@@ -785,8 +829,16 @@ export async function listActiveDestinations() {
 
 export async function upsertDestination(item) {
   const db = await getDB();
-  if (!item.destinationId) item.destinationId = (await import("uuid")).v4();
+  if (!item.destinationId) {
+    const { v4 } = await import("uuid");
+    item.destinationId = v4();
+  }
   await db.put("catalog_destinations", item);
+}
+
+export async function deleteDestination(destinationId) {
+  const db = await getDB();
+  await db.delete("catalog_destinations", destinationId);
 }
 
 /**

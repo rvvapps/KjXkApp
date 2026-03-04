@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  listActiveCR, upsertCR,
-  listActiveAccounts, upsertAccount,
-  listActivePartidas, upsertPartida,
-  listActiveClasificaciones, upsertClasificacion,
-  listActiveDestinations, upsertDestination,
-  listActiveCR as listCRForSelect,
+  listActiveCR, upsertCR, deleteCR,
+  listActiveAccounts, upsertAccount, deleteAccount,
+  listActivePartidas, upsertPartida, deletePartida,
+  listActiveClasificaciones, upsertClasificacion, deleteClasificacion,
+  listActiveDestinations, upsertDestination, deleteDestination,
 } from "../db.js";
 import SelectField from "../components/SelectField.jsx";
 import TextField from "../components/TextField.jsx";
 
-// Muestra todos los registros (activos e inactivos) con edición inline y toggle
-function CatalogBlock({ title, rows, keyField, nameField, onSave, onAdd }) {
-  const [editing, setEditing] = useState(null); // { code, name }
+// Muestra todos los registros (activos e inactivos) con edición inline, toggle y eliminar
+function CatalogBlock({ title, rows, onSave, onDelete, onAdd }) {
+  const [editing, setEditing] = useState(null);
+  const [delErr, setDelErr] = useState("");
 
   function startEdit(r) {
     setEditing({ code: r.code, name: r.name, originalCode: r.code });
   }
 
   async function saveEdit(r) {
-    await onSave({ ...r, code: editing.code.trim(), name: editing.name.trim(), activo: r.activo });
+    // Pasamos _originalCode para que el upsert sepa si el código cambió
+    await onSave({ ...r, code: editing.code.trim(), name: editing.name.trim(), _originalCode: editing.originalCode });
     setEditing(null);
   }
 
@@ -28,77 +29,56 @@ function CatalogBlock({ title, rows, keyField, nameField, onSave, onAdd }) {
     await onSave({ ...r, activo: !r.activo });
   }
 
+  async function handleDelete(r) {
+    setDelErr("");
+    if (!confirm(`¿Eliminar "${r.name}" (${r.code})? Esta acción no se puede deshacer.`)) return;
+    try {
+      await onDelete(r.code);
+    } catch (e) {
+      setDelErr(e?.message || "Error al eliminar.");
+    }
+  }
+
   return (
     <div className="card">
       <h2>{title}</h2>
+
+      {delErr && (
+        <div className="small" style={{ color: "#f87171", marginBottom: 8 }}>{delErr}</div>
+      )}
 
       {rows.length === 0 ? (
         <div className="small">Sin registros.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((r) => (
-            <div
-              key={r.code}
-              style={{
-                borderTop: "1px solid rgba(255,255,255,.08)",
-                paddingTop: 8,
-                opacity: r.activo === false ? 0.5 : 1,
-              }}
-            >
+            <div key={r.code} style={{
+              borderTop: "1px solid rgba(255,255,255,.08)",
+              paddingTop: 8,
+              opacity: r.activo === false ? 0.55 : 1,
+            }}>
               {editing?.originalCode === r.code ? (
-                // Modo edición inline
                 <div className="row" style={{ alignItems: "end", gap: 8 }}>
-                  <TextField
-                    label="Código"
-                    value={editing.code}
-                    onChange={(v) => setEditing({ ...editing, code: v })}
-                  />
-                  <TextField
-                    label="Nombre"
-                    value={editing.name}
-                    onChange={(v) => setEditing({ ...editing, name: v })}
-                  />
-                  <button
-                    className="btn"
-                    style={{ alignSelf: "end" }}
-                    onClick={() => saveEdit(r)}
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    className="btn secondary"
-                    style={{ alignSelf: "end" }}
-                    onClick={() => setEditing(null)}
-                  >
-                    Cancelar
-                  </button>
+                  <TextField label="Código" value={editing.code} onChange={(v) => setEditing({ ...editing, code: v })} />
+                  <TextField label="Nombre" value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
+                  <button className="btn" style={{ alignSelf: "end" }} onClick={() => saveEdit(r)}>Guardar</button>
+                  <button className="btn secondary" style={{ alignSelf: "end" }} onClick={() => setEditing(null)}>Cancelar</button>
                 </div>
               ) : (
-                // Modo visualización
                 <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <b>{r.code}</b>
                     <span className="small"> — {r.name}</span>
-                    <span
-                      className="pill"
-                      style={{ marginLeft: 8, fontSize: 11 }}
-                    >
+                    <span className="pill" style={{ marginLeft: 8, fontSize: 11 }}>
                       {r.activo !== false ? "activo" : "inactivo"}
                     </span>
                   </div>
                   <div className="row" style={{ gap: 6 }}>
-                    <button
-                      className="btn secondary"
-                      onClick={() => startEdit(r)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      className="btn secondary"
-                      onClick={() => toggleActivo(r)}
-                    >
+                    <button className="btn secondary" onClick={() => startEdit(r)}>Editar</button>
+                    <button className="btn secondary" onClick={() => toggleActivo(r)}>
                       {r.activo !== false ? "Desactivar" : "Activar"}
                     </button>
+                    <button className="btn danger" onClick={() => handleDelete(r)}>Eliminar</button>
                   </div>
                 </div>
               )}
@@ -153,22 +133,26 @@ export default function Catalogs() {
   useEffect(() => { refresh(); }, []);
 
   // Handlers de guardado para cada catálogo
-  async function saveCR({ code, name, activo }) {
-    await upsertCR({ crCodigo: code, crNombre: name, activo: activo !== false });
+  async function saveCR({ code, name, activo, _originalCode }) {
+    await upsertCR({ crCodigo: code, crNombre: name, activo: activo !== false, _originalCode });
     await refresh();
   }
-  async function saveAcct({ code, name, activo }) {
-    await upsertAccount({ ctaCodigo: code, ctaNombre: name, activo: activo !== false });
+  async function saveAcct({ code, name, activo, _originalCode }) {
+    await upsertAccount({ ctaCodigo: code, ctaNombre: name, activo: activo !== false, _originalCode });
     await refresh();
   }
-  async function savePart({ code, name, activo }) {
-    await upsertPartida({ partidaCodigo: code, partidaNombre: name, activo: activo !== false });
+  async function savePart({ code, name, activo, _originalCode }) {
+    await upsertPartida({ partidaCodigo: code, partidaNombre: name, activo: activo !== false, _originalCode });
     await refresh();
   }
-  async function saveClasif({ code, name, activo }) {
-    await upsertClasificacion({ clasificacionCodigo: code, clasificacionNombre: name, activo: activo !== false });
+  async function saveClasif({ code, name, activo, _originalCode }) {
+    await upsertClasificacion({ clasificacionCodigo: code, clasificacionNombre: name, activo: activo !== false, _originalCode });
     await refresh();
   }
+  async function doDeleteCR(code) { await deleteCR(code); await refresh(); }
+  async function doDeleteAcct(code) { await deleteAccount(code); await refresh(); }
+  async function doDeletePart(code) { await deletePartida(code); await refresh(); }
+  async function doDeleteClasif(code) { await deleteClasificacion(code); await refresh(); }
 
   // Agregar nuevos
   async function addCR() {
@@ -232,6 +216,7 @@ export default function Catalogs() {
           title="Centros de Responsabilidad (CR)"
           rows={crs.map((x) => ({ code: x.crCodigo, name: x.crNombre, activo: x.activo }))}
           onSave={saveCR}
+          onDelete={doDeleteCR}
           onAdd={
             <div className="row">
               <TextField label="Código" value={crCodigo} onChange={setCrCodigo} />
@@ -245,6 +230,7 @@ export default function Catalogs() {
           title="Cuentas Contables"
           rows={accts.map((x) => ({ code: x.ctaCodigo, name: x.ctaNombre, activo: x.activo }))}
           onSave={saveAcct}
+          onDelete={doDeleteAcct}
           onAdd={
             <div className="row">
               <TextField label="Código" value={ctaCodigo} onChange={setCtaCodigo} />
@@ -258,6 +244,7 @@ export default function Catalogs() {
           title="Partidas"
           rows={parts.map((x) => ({ code: x.partidaCodigo, name: x.partidaNombre, activo: x.activo }))}
           onSave={savePart}
+          onDelete={doDeletePart}
           onAdd={
             <div className="row">
               <TextField label="Código" value={partCodigo} onChange={setPartCodigo} />
@@ -271,6 +258,7 @@ export default function Catalogs() {
           title="Clasificaciones"
           rows={clasifs.map((x) => ({ code: x.clasificacionCodigo, name: x.clasificacionNombre, activo: x.activo }))}
           onSave={saveClasif}
+          onDelete={doDeleteClasif}
           onAdd={
             <div className="row">
               <TextField label="Código" value={clasificacionCodigo} onChange={setClasificacionCodigo} />

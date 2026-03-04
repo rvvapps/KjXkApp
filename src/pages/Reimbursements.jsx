@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   createReimbursement,
   addReimbursementItems,
@@ -21,6 +21,8 @@ function pad(n, width = 4) {
 }
 
 export default function Reimbursements() {
+  const location = useLocation();
+  const nav = useNavigate();
   const [pending, setPending] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [settings, setSettings] = useState(null);
@@ -30,10 +32,22 @@ export default function Reimbursements() {
 
   useEffect(() => {
     (async () => {
-      setPending(await listPendingExpenses());
-      setSettings(await getSettings());
-      setReims(await listReimbursements());
+      const [pend, cfg, rs] = await Promise.all([
+        listPendingExpenses(),
+        getSettings(),
+        listReimbursements(),
+      ]);
+      setPending(pend);
+      setSettings(cfg);
+      setReims(rs);
+
+      // Pre-seleccionar gastos pasados desde Expenses
+      const incoming = location.state?.selectedIds;
+      if (incoming?.length) {
+        setSelected(new Set(incoming));
+      }
     })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalSelected = useMemo(() => {
@@ -233,54 +247,14 @@ if (String(exp.docTipo || "") !== "SinDoc" && !String(exp.docNumero || "").trim(
 
         <hr />
 
-<h3>Pendientes</h3>
-{pending.length === 0 ? (
-  <div className="small">No hay gastos pendientes 🎉</div>
-) : (
-  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-    {pending
-      .slice()
-      .sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""))
-      .map((e) => (
-        <div key={e.gastoId} className="card" style={{ padding: 12 }}>
-          <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 800 }}>{e.detalle || "Gasto"}</div>
-              
-              {/* TEMP: mostrar ID */}
-              <div className="small">ID: {e.gastoId}</div>
-              
-              <div className="small">
-                {new Date(e.fecha).toLocaleDateString("es-CL")} · {e.docTipo} {e.docNumero || ""} · CR {e.crCodigo} ·
-                CTA {e.ctaCodigo} · Part {e.partidaCodigo}
-              </div>
-            </div>
-
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontWeight: 900 }}>${Number(e.monto || 0).toLocaleString("es-CL")}</div>
-
-              <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
-                {/* Botón Editar */}
-                <Link className="btn secondary" to={`/gastos/${e.gastoId}`}>
-                  Editar
-                </Link>
-
-                {/* Checkbox incluir */}
-                <label style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(e.gastoId)}
-                    onChange={() => toggle(e.gastoId)}
-                  />
-                  <span className="small">Incluir</span>
-                </label>
-              </div>
-            </div>
-          </div>
+        <div className="small" style={{ marginBottom: 8 }}>
+          {selected.size === 0
+            ? <span>Sin gastos seleccionados. <Link to="/gastos">Ir a Gastos</Link> para seleccionarlos.</span>
+            : <span><b>{selected.size} gasto{selected.size !== 1 ? "s" : ""}</b> seleccionado{selected.size !== 1 ? "s" : ""} para esta rendición.</span>
+          }
         </div>
-      ))}
-  </div>
-)}
+
+        <Link className="btn secondary" to="/gastos">← Volver a Gastos</Link>
       </div>
 
       <div className="card">
