@@ -811,8 +811,7 @@ export async function liquidarCombustible({ transferIds, conceptId, crCodigo, mo
       const fechaStr = new Date(t.fecha).toLocaleDateString("es-CL");
       return `• ${fechaStr} — ${t.destino}${montoTrayecto ? ` ($${montoTrayecto.toLocaleString("es-CL")})` : ""}`;
     })
-    .join("
-");
+    .join("\n");
 
   const sumaTramos = transfers.reduce((s, t) => s + Number(t.monto || 0), 0);
   const monto = Number.isFinite(Number(montoFinal)) && montoFinal > 0
@@ -838,9 +837,7 @@ export async function liquidarCombustible({ transferIds, conceptId, crCodigo, mo
     clasificacionCodigo: concept?.clasificacionDefaultCodigo || "",
     docTipo,
     docNumero: "",
-    detalle: `Combustible — ${transfers.length} trayecto${transfers.length > 1 ? "s" : ""}:
-${lines}
-Suma tramos: $${sumaTramos.toLocaleString("es-CL")} | Monto final: $${monto.toLocaleString("es-CL")}`,
+    detalle: `Combustible — ${transfers.length} trayecto${transfers.length > 1 ? "s" : ""}:\n${lines}\nSuma tramos: $${sumaTramos.toLocaleString("es-CL")} | Monto final: $${monto.toLocaleString("es-CL")}`,
     fromTransferIds: transferIds,
   }, { deviceId: settings.deviceId, revision });
 
