@@ -496,8 +496,7 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
               {pendingExpenses.filter((p) => Number(p.monto) > 0).map((p) => (
                 <div key={p.gastoId} className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontWeight: 700 }}>{p.detalle?.split("
-")[0]?.slice(0, 50) || "Sin detalle"}</div>
+                    <div style={{ fontWeight: 700 }}>{p.detalle?.split("\n")[0]?.slice(0, 50) || "Sin detalle"}</div>
                     <div className="small">
                       {new Date(p.fecha).toLocaleDateString("es-CL")} · {p.docTipo} {p.docNumero || ""} · ${Number(p.monto).toLocaleString("es-CL")}
                     </div>
@@ -524,8 +523,7 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
                     {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
                   </div>
                   <div className="small">
-                    {e.detalle?.split("
-")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
+                    {e.detalle?.split("\n")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
                   </div>
                   <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
                 </div>
