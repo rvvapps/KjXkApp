@@ -401,13 +401,13 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
       </div>
 
       {(reim.estado === "enviada" || reim.estado === "aprobada") && (
-        <pre style={{ whiteSpace: "pre-wrap", marginTop: 12, background: "#fff7ed", color: "#111827", padding: 10, borderRadius: 8 }}>
+        <pre style={{whiteSpace: "pre-wrap", marginTop: 12, background: "#fff7ed", padding: 10, borderRadius: 8 , color: "#111827"}}>
           🔒 Esta rendición está {reim.estado.toUpperCase()}. Los gastos quedan congelados hasta estado DEVUELTA.
         </pre>
       )}
 
       {msg && (
-        <pre style={{ whiteSpace: "pre-wrap", marginTop: 12, background: "#f8fafc", color: "#111827", padding: 10, borderRadius: 8 }}>
+        <pre style={{ whiteSpace: "pre-wrap", marginTop: 12, background: "#f8fafc", padding: 10, borderRadius: 8 }}>
           {msg}
         </pre>
       )}

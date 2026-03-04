@@ -10,64 +10,75 @@ function extFromMime(mime) {
   return "bin";
 }
 
+function toTextProgress(p) {
+  if (p == null) return "";
+  if (typeof p === "string") return p;
+  if (typeof p !== "object") return String(p);
+  if (p.text) return String(p.text);
+  const phase = p.phase || p.kind || "progress";
+  if (phase === "clear_store") return `Vaciando ${p.store || "store"}...`;
+  if (phase === "insert_store") return `Restaurando ${p.store || "store"}... (${p.count ?? "?"})`;
+  if (phase === "insert_progress") return `Insertando ${p.store || "store"}: ${p.i}/${p.total}`;
+  return `Restaurando... (${phase})`;
+}
+
 function withTimeout(promise, ms, code) {
-  const tms = Number.isFinite(ms) ? ms : 0;
-  if (!tms) return promise;
+  if (!ms || !Number.isFinite(ms)) return promise;
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => {
       const err = new Error(code || "timeout");
       err.code = code || "timeout";
       reject(err);
-    }, tms);
+    }, ms);
     promise
       .then((v) => { clearTimeout(t); resolve(v); })
       .catch((e) => { clearTimeout(t); reject(e); });
   });
 }
 
-async function dumpAllStores(opts = {}) {
-  const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
-  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
-  const tick = (phase, extra = {}) => {
-    try { onProgress && onProgress({ phase, ...extra }); } catch {}
-  };
+async function waitTx(tx) {
+  if (tx && tx.done) return tx.done;
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new Error("tx abort"));
+  });
+}
 
-  tick("open_db");
-  const db = await withTimeout(getDB(), timeoutMs, "open_db_timeout");
-
+async function dumpAllStores(db, onProgress, timeoutMs) {
   const storeNames = Array.from(db.objectStoreNames);
   const stores = {};
   const storeCounts = {};
 
   for (const name of storeNames) {
-    tick("read_store", { store: name });
+    onProgress?.({ phase: "read_store", store: name, text: `Leyendo ${name}...` });
     const tx = db.transaction(name, "readonly");
     const all = await withTimeout(tx.objectStore(name).getAll(), timeoutMs, `read_${name}_timeout`);
+    await withTimeout(tx.done, timeoutMs, `read_${name}_tx_timeout`);
     stores[name] = all;
-    storeCounts[name] = Array.isArray(all) ? all.length : 0;
-    await withTimeout(tx.done, timeoutMs, `read_${name}_commit_timeout`);
+    storeCounts[name] = all.length;
   }
-
-  try { db.close && db.close(); } catch {}
-  return { stores, storeCounts, tick, timeoutMs };
+  return { stores, storeCounts };
 }
 
-async function buildPlainBackupZipBytes(opts = {}) {
+export async function generateEncryptedBackupBlob(passphrase, opts = {}) {
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
-  const tick = (phase, extra = {}) => {
-    try { onProgress && onProgress({ phase, ...extra }); } catch {}
-  };
 
-  tick("read");
-  const { stores, storeCounts } = await dumpAllStores({ onProgress, timeoutMs });
+  if (!passphrase || passphrase.length < 6) {
+    const err = new Error("passphrase_too_short");
+    err.code = "passphrase_too_short";
+    throw err;
+  }
 
-  // Guard against empty backups.
-  const anyData =
-    (storeCounts.expenses ?? 0) +
-    (storeCounts.reimbursements ?? 0) +
-    (storeCounts.attachments ?? 0) > 0;
+  onProgress?.({ phase: "open_db", text: "Abriendo base local..." });
+  const db = await withTimeout(getDB(), timeoutMs, "open_db_timeout");
 
+  const { stores, storeCounts } = await dumpAllStores(db, onProgress, timeoutMs);
+  db.close?.();
+
+  // Guard: empty backup is usually a mistake
+  const anyData = Object.values(storeCounts).reduce((a, b) => a + (b || 0), 0) > 0;
   if (!anyData) {
     const err = new Error("empty_backup");
     err.code = "empty_backup";
@@ -75,17 +86,19 @@ async function buildPlainBackupZipBytes(opts = {}) {
     throw err;
   }
 
-  tick("zip");
+  onProgress?.({ phase: "zip_build", text: "Construyendo ZIP..." });
   const zip = new JSZip();
 
-  // Extract blobs into /receipts/ and replace them with refs inside data.json
+  // Extract blobs into receipts/ and replace with __blobRef in data.json
   if (Array.isArray(stores.attachments)) {
     const updated = [];
     for (const rec of stores.attachments) {
       if (rec && rec.blob instanceof Blob) {
         const mimeType = rec.mimeType || rec.blob.type || "application/octet-stream";
         const ext = extFromMime(mimeType);
-        const fileName = rec.contentHash ? `${rec.contentHash}.${ext}` : `${rec.adjuntoId}.${ext}`;
+        const fileName = rec.contentHash
+          ? `${rec.contentHash}.${ext}`
+          : `${rec.adjuntoId || rec.id || crypto.randomUUID()}.${ext}`;
         const path = `receipts/${fileName}`;
         zip.file(path, await rec.blob.arrayBuffer());
         const { blob, ...rest } = rec;
@@ -107,81 +120,50 @@ async function buildPlainBackupZipBytes(opts = {}) {
 
   zip.file("data.json", JSON.stringify({ meta, stores }, null, 2));
 
-  const bytes = await withTimeout(
-    zip.generateAsync({ type: "uint8array", compression: "DEFLATE", compressionOptions: { level: 6 } }),
-    timeoutMs,
-    "zip_timeout"
-  );
+  const plainZipBytes = await zip.generateAsync({
+    type: "uint8array",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
 
-  return { bytes, storeCounts };
-}
-
-export async function generateEncryptedBackupBlob(passphrase, opts = {}) {
-  if (!passphrase || passphrase.length < 6) {
-    const err = new Error("passphrase_too_short");
-    err.code = "passphrase_too_short";
-    throw err;
-  }
-
-  const { bytes, storeCounts } = await buildPlainBackupZipBytes(opts);
-  const encBlob = await encryptBytes(passphrase, bytes);
+  onProgress?.({ phase: "encrypt", text: "Cifrando..." });
+  const encBlob = await withTimeout(encryptBytes(passphrase, plainZipBytes), timeoutMs, "encrypt_timeout");
   return { blob: encBlob, storeCounts };
 }
 
-async function wipeStoreByDeleting(db, name, opts = {}) {
-  const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
-  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
-  const tick = (phase, extra = {}) => {
-    try { onProgress && onProgress({ phase, ...extra }); } catch {}
-  };
+async function deleteAllByCursor(db, storeName, onProgress, timeoutMs) {
+  const tx = db.transaction(storeName, "readwrite");
+  const os = tx.objectStore(storeName);
 
-  tick("wipe_store", { store: name });
+  await withTimeout(new Promise((resolve, reject) => {
+    const req = os.openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (cursor) {
+        cursor.delete();
+        cursor.continue();
+      } else {
+        resolve();
+      }
+    };
+    req.onerror = () => reject(req.error);
+  }), timeoutMs, `clear_${storeName}_cursor_timeout`);
 
-  const tx = db.transaction(name, "readwrite");
-  const os = tx.objectStore(name);
+  await withTimeout(tx.done, timeoutMs, `clear_${storeName}_tx_timeout`);
+}
 
-  // Delete using cursor to avoid clear() hanging in some SPA situations.
-  let cursor = await withTimeout(os.openCursor(), timeoutMs, `cursor_${name}_timeout`);
-  let deleted = 0;
-
-  while (cursor) {
-    await withTimeout(cursor.delete(), timeoutMs, `delete_${name}_timeout`);
-    deleted += 1;
-    cursor = await withTimeout(cursor.continue(), timeoutMs, `cursor_${name}_continue_timeout`);
-  }
-
-  await withTimeout(tx.done, timeoutMs, `wipe_${name}_commit_timeout`);
-  tick("wipe_store_done", { store: name, deleted });
-  return deleted;
+async function putOne(db, storeName, record, timeoutMs) {
+  const tx = db.transaction(storeName, "readwrite");
+  const os = tx.objectStore(storeName);
+  await withTimeout(os.put(record), timeoutMs, `put_${storeName}_timeout`);
+  await withTimeout(tx.done, timeoutMs, `put_${storeName}_tx_timeout`);
 }
 
 export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts = {}) {
-  if (!fileBlob) throw new Error("missing_file");
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
-  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
+  const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 90000;
 
-  const withTimeout = (promise, ms, code) => {
-    if (!ms || !Number.isFinite(ms)) return promise;
-    return new Promise((resolve, reject) => {
-      const t = setTimeout(() => {
-        const err = new Error(code || "timeout");
-        err.code = code || "timeout";
-        reject(err);
-      }, ms);
-      promise.then((v) => { clearTimeout(t); resolve(v); })
-             .catch((e) => { clearTimeout(t); reject(e); });
-    });
-  };
-
-  const waitTx = (tx) => {
-    if (tx && tx.done) return tx.done;
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error || new Error("tx abort"));
-    });
-  };
-
+  if (!fileBlob) throw new Error("missing_file");
   if (!passphrase || passphrase.length < 6) {
     const err = new Error("passphrase_too_short");
     err.code = "passphrase_too_short";
@@ -213,42 +195,11 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
   const db = await withTimeout(getDB(), timeoutMs, "open_db_timeout");
   const storeNames = Array.from(db.objectStoreNames);
 
-  // Helper: delete by cursor with explicit store progress + timeouts
-  const deleteAllByCursor = async (storeName) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const os = tx.objectStore(storeName);
-
-    await withTimeout(new Promise((resolve, reject) => {
-      const req = os.openCursor();
-      req.onsuccess = (e) => {
-        const cursor = e.target.result;
-        if (cursor) {
-          cursor.delete();
-          cursor.continue();
-        } else {
-          resolve();
-        }
-      };
-      req.onerror = () => reject(req.error);
-    }), timeoutMs, `clear_${storeName}_cursor_timeout`);
-
-    await withTimeout(waitTx(tx), timeoutMs, `clear_${storeName}_tx_timeout`);
-  };
-
-  const putOne = async (storeName, record) => {
-    const tx = db.transaction(storeName, "readwrite");
-    const os = tx.objectStore(storeName);
-    await withTimeout(os.put(record), timeoutMs, `put_${storeName}_timeout`);
-    await withTimeout(waitTx(tx), timeoutMs, `put_${storeName}_tx_timeout`);
-  };
-
-  // 1) Wipe stores one-by-one (robust)
   for (const name of storeNames) {
     onProgress?.({ phase: "clear_store", store: name, text: `Vaciando ${name}...` });
-    await deleteAllByCursor(name);
+    await deleteAllByCursor(db, name, onProgress, timeoutMs);
   }
 
-  // 2) Insert store data one-by-one (robust)
   for (const name of storeNames) {
     const rows = stores[name];
     if (!Array.isArray(rows) || rows.length === 0) continue;
@@ -260,13 +211,13 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
       const rec = rows[i];
 
       if (name === "attachments" && rec && rec.__blobRef) {
-        // Build record FIRST (await zip) before opening tx
+        // Await file FIRST (no open tx yet)
         const buf = await withTimeout(zip.file(rec.__blobRef)?.async("arraybuffer"), timeoutMs, "read_blob_timeout");
         const blob = buf ? new Blob([buf], { type: rec.mimeType || "application/octet-stream" }) : null;
         const { __blobRef, ...rest } = rec;
-        await putOne(name, { ...rest, blob });
+        await putOne(db, name, { ...rest, blob }, timeoutMs);
       } else {
-        await putOne(name, rec);
+        await putOne(db, name, rec, timeoutMs);
       }
 
       insertedCounts[name]++;
@@ -278,6 +229,5 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
 
   db.close?.();
   onProgress?.({ phase: "done", insertedCounts, text: "Restauración completada." });
-  return { ok: true, storeCounts, insertedCounts, meta };
+  return { ok: true, storeCounts, insertedCounts };
 }
-

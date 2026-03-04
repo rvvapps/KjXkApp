@@ -151,9 +151,6 @@ export default function Settings() {
               parse: 'Leyendo data.json…',
               open_db: 'Abriendo base local…',
               clear_stores: 'Vaciando base local…',
-              wipe_begin: 'Vaciando base local…',
-              wipe_store: `Vaciando ${p.store}…`,
-              wipe_store_done: `Vaciado ${p.store}…`,
               insert_begin: 'Restaurando registros…',
               insert_store: `Restaurando ${p.store} (${p.count})…`,
               done: 'Restauración completa. Reiniciando…',
@@ -346,7 +343,7 @@ export default function Settings() {
 
       {restoreMsg && (
         <div className="small" style={{ marginTop: 10, padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
-          {restoreMsg}
+          {formatProgress(restoreMsg)}
         </div>
       )}
 
