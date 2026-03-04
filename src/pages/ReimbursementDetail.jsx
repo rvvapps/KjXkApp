@@ -16,6 +16,7 @@ import {
   deleteExpense,
   listPendingExpenses,
 } from "../db.js";
+import AttachmentGallery from "../components/AttachmentGallery.jsx";
 import {
   buildExportItems,
   exportBatchXlsx,
@@ -49,6 +50,8 @@ export default function ReimbursementDetail() {
   const [busy, setBusy] = useState(false);
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [showAddPanel, setShowAddPanel] = useState(false);
+  const [expAtts, setExpAtts] = useState({}); // gastoId -> atts[]
+  const [expandedAtts, setExpandedAtts] = useState(new Set()); // gastoIds con galería abierta
 
   useEffect(() => {
     (async () => {
@@ -71,6 +74,18 @@ export default function ReimbursementDetail() {
     })();
   }, [rendicionId]);
 
+  // Cargar adjuntos cuando cambian los gastos
+  useEffect(() => {
+    if (!expenses.length) return;
+    (async () => {
+      const map = {};
+      await Promise.all(expenses.map(async (e) => {
+        map[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
+      }));
+      setExpAtts(map);
+    })();
+  }, [expenses]);
+
   const total = useMemo(() => {
     return (expenses || []).reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
   }, [expenses]);
@@ -88,6 +103,12 @@ export default function ReimbursementDetail() {
     exps.sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
     setExpenses(exps);
     setPendingExpenses(await listPendingExpenses());
+    // Recargar adjuntos
+    const map = {};
+    await Promise.all(exps.map(async (e) => {
+      map[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
+    }));
+    setExpAtts(map);
   }
 
   // 🔒 Validación fuerte (misma lógica que en "Crear rendición")
@@ -515,38 +536,61 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
         <div className="small" style={{ marginTop: 10 }}>No hay gastos asociados a esta rendición.</div>
       ) : (
         <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-          {expenses.map((e) => (
-            <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
-              <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontWeight: 800 }}>
-                    {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
+          {expenses.map((e) => {
+            const atts = expAtts[e.gastoId] || [];
+            const hasAtts = atts.length > 0;
+            const expanded = expandedAtts.has(e.gastoId);
+            return (
+              <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
+                <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
+                      <span title={hasAtts ? `${atts.length} adjunto(s)` : "Sin imagen"} style={{ opacity: hasAtts ? 1 : 0.2 }}>📎</span>
+                      {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
+                    </div>
+                    <div className="small">
+                      {e.detalle?.split("\n")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
+                    </div>
+                    <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
                   </div>
-                  <div className="small">
-                    {e.detalle?.split("\n")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
+                  <div className="row" style={{ gap: 6 }}>
+                    {hasAtts && (
+                      <button
+                        className="btn secondary"
+                        onClick={() => setExpandedAtts((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
+                          return next;
+                        })}
+                      >
+                        {expanded ? "Ocultar" : "Ver boleta"}
+                      </button>
+                    )}
+                    {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
+                      <span className="btn secondary" style={{ opacity: 0.5, cursor: "not-allowed" }}>Editar</span>
+                    ) : (
+                      <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>Editar</Link>
+                    )}
+                    {reim.estado === "devuelta" && (
+                      <>
+                        <button className="btn secondary" disabled={busy} onClick={() => handleRemoveExpense(e.gastoId)}>
+                          Quitar
+                        </button>
+                        <button className="btn danger" disabled={busy} onClick={() => handleDeleteExpense(e.gastoId)}>
+                          Eliminar
+                        </button>
+                      </>
+                    )}
                   </div>
-                  <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
                 </div>
-                <div className="row" style={{ gap: 6 }}>
-                  {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
-                    <span className="btn secondary" style={{ opacity: 0.5, cursor: "not-allowed" }}>Editar</span>
-                  ) : (
-                    <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>Editar</Link>
-                  )}
-                  {reim.estado === "devuelta" && (
-                    <>
-                      <button className="btn secondary" disabled={busy} onClick={() => handleRemoveExpense(e.gastoId)}>
-                        Quitar
-                      </button>
-                      <button className="btn danger" disabled={busy} onClick={() => handleDeleteExpense(e.gastoId)}>
-                        Eliminar
-                      </button>
-                    </>
-                  )}
-                </div>
+                {expanded && hasAtts && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                    <AttachmentGallery atts={atts} locked={true} />
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
