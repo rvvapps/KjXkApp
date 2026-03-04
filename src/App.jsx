@@ -9,6 +9,7 @@ import Catalogs from "./pages/Catalogs.jsx";
 import Concepts from "./pages/Concepts.jsx";
 import EditExpense from "./pages/EditExpense.jsx";
 import Transfers from "./pages/Transfers.jsx";
+import ErrorBanner from "./components/ErrorBanner.jsx";
 import { ensureSeedData } from "./db.js";
 
 export default function App() {
@@ -17,6 +18,16 @@ export default function App() {
   useEffect(() => {
     ensureSeedData();
   }, []);
+
+  // Cerrar el menú Maestros al hacer click fuera
+  useEffect(() => {
+    if (!openMenu) return;
+    const handler = (e) => {
+      if (!e.target.closest("[data-menu='maestros']")) setOpenMenu(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openMenu]);
 
   return (
     <div className="container">
@@ -28,15 +39,12 @@ export default function App() {
 
         <nav className="row" style={{ position: "relative" }}>
           <Link className="btn secondary" to="/">Inicio</Link>
-
-          {/* ✅ Traslados fuera de Maestros */}
           <Link className="btn secondary" to="/traslados">Traslados</Link>
-
           <Link className="btn secondary" to="/gastos/nuevo">+ Gasto</Link>
           <Link className="btn secondary" to="/rendiciones">Rendiciones</Link>
 
           {/* Dropdown Maestros */}
-          <div style={{ position: "relative" }}>
+          <div data-menu="maestros" style={{ position: "relative" }}>
             <button
               className="btn secondary"
               onClick={() => setOpenMenu((v) => !v)}
@@ -64,7 +72,6 @@ export default function App() {
                 <Link className="btn secondary" to="/maestros" onClick={() => setOpenMenu(false)}>
                   Catálogos
                 </Link>
-
                 <Link className="btn secondary" to="/maestros/conceptos" onClick={() => setOpenMenu(false)}>
                   Conceptos
                 </Link>
@@ -76,7 +83,12 @@ export default function App() {
         </nav>
       </header>
 
-      <main style={{ marginTop: 16 }}>
+      {/* ErrorBanner: visible en todas las páginas, se oculta solo */}
+      <div style={{ marginTop: 12 }}>
+        <ErrorBanner />
+      </div>
+
+      <main style={{ marginTop: 8 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/traslados" element={<Transfers />} />
