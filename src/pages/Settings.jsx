@@ -7,6 +7,33 @@ import { syncOnce } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 
+
+function formatProgress(p) {
+  if (p == null) return "";
+  if (typeof p === "string") return p;
+  try {
+    if (typeof p === "object") {
+      if (p.text) return String(p.text);
+      const phase = p.phase || p.kind || "progress";
+      if (phase === "clear_store") return `Vaciando ${p.store || "store"}...`;
+      if (phase === "insert_store") return `Restaurando ${p.store || "store"}... (${p.count ?? "?"})`;
+      if (phase === "insert_progress") return `Insertando ${p.store || "store"}: ${p.i}/${p.total}`;
+      if (phase === "decrypt") return "Descifrando...";
+      if (phase === "unzip") return "Abriendo ZIP...";
+      if (phase === "parse") return "Procesando datos...";
+      if (phase === "open_db") return "Abriendo base local...";
+      if (phase === "zip_build") return "Construyendo ZIP...";
+      if (phase === "encrypt") return "Cifrando...";
+      if (phase === "done") return "Listo.";
+      return `Restaurando… (${phase})`;
+    }
+    return String(p);
+  } catch (e) {
+    return String(p);
+  }
+}
+
+
 export default function Settings() {
   const [s, setS] = useState(null);
   const [crs, setCrs] = useState([]);
@@ -155,7 +182,7 @@ export default function Settings() {
               insert_store: `Restaurando ${p.store} (${p.count})…`,
               done: 'Restauración completa. Reiniciando…',
             };
-            setRestoreMsg(map[phase] || `Restaurando… (${phase})`);
+            setRestoreStatus({ kind: 'info', text: map[phase] || `Restaurando… (${phase})` });
           }
         });
       if (!r?.ok) {
