@@ -545,7 +545,15 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
                 <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span title={hasAtts ? `${atts.length} adjunto(s)` : "Sin imagen"} style={{ opacity: hasAtts ? 1 : 0.2 }}>📎</span>
+                      <span
+                        title={hasAtts ? `${atts.length} adjunto(s) — click para ver` : "Sin imagen"}
+                        onClick={hasAtts ? () => setExpandedAtts((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
+                          return next;
+                        }) : undefined}
+                        style={{ fontSize: 15, opacity: hasAtts ? 1 : 0.2, cursor: hasAtts ? "pointer" : "default" }}
+                      >📎</span>
                       {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
                     </div>
                     <div className="small">
@@ -554,18 +562,6 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
                     <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
                   </div>
                   <div className="row" style={{ gap: 6 }}>
-                    {hasAtts && (
-                      <button
-                        className="btn secondary"
-                        onClick={() => setExpandedAtts((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
-                          return next;
-                        })}
-                      >
-                        {expanded ? "Ocultar" : "Ver boleta"}
-                      </button>
-                    )}
                     {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
                       <span className="btn secondary" style={{ opacity: 0.5, cursor: "not-allowed" }}>Editar</span>
                     ) : (
