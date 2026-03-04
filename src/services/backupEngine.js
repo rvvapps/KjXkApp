@@ -22,7 +22,7 @@ function withTimeout(promise, ms, code) {
   });
 }
 
-// FIX: dumpAllStores ahora recibe tick y timeoutMs como parámetros
+// FIX v0.1.1: dumpAllStores recibe tick y timeoutMs como parámetros
 async function dumpAllStores(tick, timeoutMs) {
   tick("open_db");
   const db = await withTimeout(getDB(), timeoutMs, "open_db_timeout");
@@ -40,7 +40,7 @@ async function dumpAllStores(tick, timeoutMs) {
   return { stores, storeCounts };
 }
 
-// FIX: opts ahora es parámetro explícito (antes no tenía parámetros)
+// FIX v0.1.1: opts es ahora parámetro explícito
 export async function buildPlainBackupZipBytes(opts = {}) {
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
@@ -48,7 +48,6 @@ export async function buildPlainBackupZipBytes(opts = {}) {
 
   const { stores, storeCounts } = await dumpAllStores(tick, timeoutMs);
 
-  // Guard against empty backups (common mistake during setup).
   const expensesCount = storeCounts.expenses ?? 0;
   const reimbursementsCount = storeCounts.reimbursements ?? 0;
   const attachmentsCount = storeCounts.attachments ?? 0;
@@ -64,7 +63,6 @@ export async function buildPlainBackupZipBytes(opts = {}) {
   tick("read");
   const zip = new JSZip();
 
-  // Extract blobs into /receipts/ and replace them with refs inside data.json
   if (Array.isArray(stores.attachments)) {
     const updated = [];
     for (const rec of stores.attachments) {
@@ -73,9 +71,7 @@ export async function buildPlainBackupZipBytes(opts = {}) {
         const ext = extFromMime(mimeType);
         const fileName = rec.contentHash ? `${rec.contentHash}.${ext}` : `${rec.adjuntoId}.${ext}`;
         const path = `receipts/${fileName}`;
-
         zip.file(path, await rec.blob.arrayBuffer());
-
         const { blob, ...rest } = rec;
         updated.push({ ...rest, __blobRef: path, mimeType });
       } else {
@@ -115,12 +111,16 @@ export async function generateEncryptedBackupBlob(passphrase, opts = {}) {
   return { blob: encBlob, storeCounts };
 }
 
-async function clearStore(os) {
-  return new Promise((resolve, reject) => {
-    const req = os.clear();
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error || new Error("clear_failed"));
-  });
+// FIX v0.1.2: clear por cursor en lugar de .clear() que puede colgarse
+async function clearStoreByCursor(db, storeName) {
+  const tx = db.transaction(storeName, "readwrite");
+  const store = tx.objectStore(storeName);
+  let cursor = await store.openCursor();
+  while (cursor) {
+    await cursor.delete();
+    cursor = await cursor.continue();
+  }
+  await tx.done;
 }
 
 export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts = {}) {
@@ -131,7 +131,7 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
     throw err;
   }
 
-  // FIX: tick y timeoutMs definidos al inicio de esta función (antes faltaban)
+  // FIX v0.1.1: tick y timeoutMs definidos al inicio
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
   const tick = (phase, extra) => { try { onProgress && onProgress({ phase, ...extra }); } catch {} };
@@ -156,22 +156,17 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
   const storeCounts = meta.storeCounts || null;
   const insertedCounts = {};
 
-  // IMPORTANT: avoid indexedDB.deleteDatabase() which can be BLOCKED by other tabs.
-  // Instead, wipe stores with .clear(), then re-insert.
   const db = await getDB();
   const storeNames = Array.from(db.objectStoreNames);
 
-  // Clear all stores first (single multi-store tx)
-  {
-    tick("clear_stores", { stores: storeNames.length });
-    const tx = db.transaction(storeNames, "readwrite");
-    for (const name of storeNames) {
-      await clearStore(tx.objectStore(name));
-    }
-    await tx.done;
+  // FIX v0.1.2: clear por cursor, 1 tx por store (evita colgado de .clear() en tx multi-store)
+  tick("clear_stores", { stores: storeNames.length });
+  for (const name of storeNames) {
+    tick("clear_store", { store: name });
+    await clearStoreByCursor(db, name);
   }
 
-  // Insert store data — 1 transacción por store para evitar "transaction has finished"
+  // Insert store data — 1 transacción por store (evita "transaction has finished")
   tick("insert_begin", { stores: storeNames.length });
   for (const name of storeNames) {
     const rows = stores[name];
