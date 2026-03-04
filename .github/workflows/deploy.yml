@@ -21,8 +21,10 @@ jobs:
 
     env:
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      # FIX: era "development", causaba bundle sin optimizar en producción
-      NODE_ENV: "production"
+      # NODE_ENV debe ser "development" durante el INSTALL para que npm instale
+      # devDependencies (vite, @vitejs/plugin-react). Vite se encarga internamente
+      # de optimizar el bundle para producción con "vite build", independiente de esta variable.
+      NODE_ENV: "development"
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
       NPM_CONFIG_FETCH_TIMEOUT: "300000"
