@@ -1192,6 +1192,15 @@ export async function approveReimbursement({ rendicionId }) {
 }
 
 /** Guarda un snapshot (Excel/PDF) en la rendición. */
+export async function updateReimbursementTotal({ rendicionId, total }) {
+  const db = await getDB();
+  const r = await db.get("reimbursements", rendicionId);
+  if (!r) return;
+  r.total = Number(total) || 0;
+  r.updatedAt = new Date().toISOString();
+  await db.put("reimbursements", r);
+}
+
 export async function setReimbursementSnapshot({ rendicionId, excelBlob = null, pdfBlob = null, exportedAt = null }) {
   const db = await getDB();
   const r = await db.get("reimbursements", rendicionId);
