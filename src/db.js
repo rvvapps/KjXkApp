@@ -677,28 +677,100 @@ export async function setReimbursementEstado({ rendicionId, estado }) {
  */
 export async function cancelReimbursement({ rendicionId }) {
   const db = await getDB();
+  const reim = await db.get("reimbursements", rendicionId);
+  if (!reim) throw new Error("Rendición no encontrada.");
+  if (reim.estado !== "borrador" && reim.estado !== "devuelta") {
+    throw Object.assign(
+      new Error(`No se puede cancelar una rendición en estado "${reim.estado}".`),
+      { code: "invalid_state" }
+    );
+  }
+
   const tx = db.transaction(["reimbursements", "reimbursement_items", "expenses"], "readwrite");
-
   const items = await tx.objectStore("reimbursement_items").index("rendicionId").getAll(rendicionId);
-  const gastoIds = items.map((it) => it.gastoId).filter(Boolean);
 
-  // Devuelve gastos
-  for (const gastoId of gastoIds) {
-    const e = await tx.objectStore("expenses").get(gastoId);
+  for (const it of items) {
+    const e = await tx.objectStore("expenses").get(it.gastoId);
     if (!e) continue;
     e.estado = "pendiente";
     delete e.rendicionId;
     e.updatedAt = new Date().toISOString();
     await tx.objectStore("expenses").put(e);
   }
-
-  // Borra items
   for (const it of items) {
     await tx.objectStore("reimbursement_items").delete(it.itemId);
   }
-
-  // Borra rendición
   await tx.objectStore("reimbursements").delete(rendicionId);
+  await tx.done;
+}
+
+/** Quita un gasto de una rendición devuelta — lo devuelve a pendiente sin borrarlo. */
+export async function removeExpenseFromReimbursement({ rendicionId, gastoId }) {
+  const db = await getDB();
+  const reim = await db.get("reimbursements", rendicionId);
+  if (!reim) throw new Error("Rendición no encontrada.");
+  if (reim.estado !== "devuelta") {
+    throw Object.assign(
+      new Error("Solo se puede quitar gastos de una rendición devuelta."),
+      { code: "invalid_state" }
+    );
+  }
+
+  const tx = db.transaction(["reimbursements", "reimbursement_items", "expenses"], "readwrite");
+  const items = await tx.objectStore("reimbursement_items").index("rendicionId").getAll(rendicionId);
+  const item = items.find((it) => it.gastoId === gastoId);
+  if (!item) { await tx.done; return; }
+
+  // Devolver gasto a pendiente
+  const e = await tx.objectStore("expenses").get(gastoId);
+  if (e) {
+    e.estado = "pendiente";
+    delete e.rendicionId;
+    e.updatedAt = new Date().toISOString();
+    await tx.objectStore("expenses").put(e);
+  }
+
+  await tx.objectStore("reimbursement_items").delete(item.itemId);
+  await tx.done;
+}
+
+/** Agrega un gasto pendiente a una rendición devuelta. */
+export async function addExpenseToReimbursement({ rendicionId, gastoId }) {
+  const db = await getDB();
+  const reim = await db.get("reimbursements", rendicionId);
+  if (!reim) throw new Error("Rendición no encontrada.");
+  if (reim.estado !== "devuelta") {
+    throw Object.assign(
+      new Error("Solo se pueden agregar gastos a una rendición devuelta."),
+      { code: "invalid_state" }
+    );
+  }
+  const expense = await db.get("expenses", gastoId);
+  if (!expense) throw new Error("Gasto no encontrado.");
+  if (expense.estado !== "pendiente") {
+    throw Object.assign(new Error("El gasto debe estar en estado pendiente."), { code: "invalid_state" });
+  }
+
+  const tx = db.transaction(["settings", "reimbursement_items", "expenses", "sync_outbox"], "readwrite");
+  const { settings, revision } = await bumpRevisionInTx(tx);
+
+  // Calcular próximo orden
+  const existing = await tx.objectStore("reimbursement_items").index("rendicionId").getAll(rendicionId);
+  const nextOrden = (existing.length ? Math.max(...existing.map((i) => i.orden ?? 0)) : 0) + 1;
+
+  const itemId = uuid();
+  const item = { itemId, rendicionId, gastoId, orden: nextOrden, createdAt: nowIso() };
+  tx.objectStore("reimbursement_items").put(item);
+
+  // Marcar gasto como rendido
+  const enriched = withAuditFields({ ...expense, estado: "rendido", rendicionId },
+    { deviceId: settings.deviceId, revision });
+  tx.objectStore("expenses").put(enriched);
+  enqueueEventInTx(tx, {
+    settings, revision,
+    type: "entity.upsert",
+    payload: { entityType: "expense", entityId: gastoId, data: enriched },
+  });
 
   await tx.done;
 }
@@ -777,14 +849,29 @@ export async function deleteAttachment(adjuntoId) {
 export async function deleteExpense(gastoId) {
   const db = await getDB();
 
-  // Solo se puede borrar si está en estado pendiente
   const expense = await db.get("expenses", gastoId);
   if (!expense) throw Object.assign(new Error("not_found"), { code: "not_found" });
+
+  // Permitir borrar si está pendiente, o si está rendido pero en una rendición devuelta
   if (expense.estado !== "pendiente") {
-    throw Object.assign(
-      new Error("Solo se pueden eliminar gastos en estado pendiente."),
-      { code: "not_deletable", estado: expense.estado }
-    );
+    if (expense.estado === "rendido" && expense.rendicionId) {
+      const reim = await db.get("reimbursements", expense.rendicionId);
+      if (reim?.estado !== "devuelta") {
+        throw Object.assign(
+          new Error(`No se puede eliminar: el gasto está en una rendición "${reim?.estado || "desconocida"}".`),
+          { code: "not_deletable", estado: reim?.estado }
+        );
+      }
+      // Si la rendición está devuelta, primero quitar el item de la rendición
+      const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", expense.rendicionId);
+      const item = items.find((it) => it.gastoId === gastoId);
+      if (item) await db.delete("reimbursement_items", item.itemId);
+    } else {
+      throw Object.assign(
+        new Error(`Solo se pueden eliminar gastos pendientes o devueltos. Estado actual: "${expense.estado}".`),
+        { code: "not_deletable", estado: expense.estado }
+      );
+    }
   }
 
   // Obtener adjuntos para borrarlos en la misma tx

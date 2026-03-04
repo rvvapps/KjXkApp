@@ -11,6 +11,10 @@ import {
   setReimbursementSnapshot,
   listAttachmentsForExpense,
   listConcepts,
+  removeExpenseFromReimbursement,
+  addExpenseToReimbursement,
+  deleteExpense,
+  listPendingExpenses,
 } from "../db.js";
 import {
   buildExportItems,
@@ -43,6 +47,8 @@ export default function ReimbursementDetail() {
   const [expenses, setExpenses] = useState([]);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingExpenses, setPendingExpenses] = useState([]);
+  const [showAddPanel, setShowAddPanel] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -59,12 +65,30 @@ export default function ReimbursementDetail() {
       }
       exps.sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
       setExpenses(exps);
+
+      // Cargar gastos pendientes para panel "agregar"
+      setPendingExpenses(await listPendingExpenses());
     })();
   }, [rendicionId]);
 
   const total = useMemo(() => {
     return (expenses || []).reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
   }, [expenses]);
+
+  async function reloadAll() {
+    const r = await getReimbursement(rendicionId);
+    setReim(r);
+    const its = await listReimbursementItems(rendicionId);
+    setItems(its);
+    const exps = [];
+    for (const it of its) {
+      const e = await getExpense(it.gastoId);
+      if (e) exps.push({ ...e, _orden: it.orden ?? 0 });
+    }
+    exps.sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
+    setExpenses(exps);
+    setPendingExpenses(await listPendingExpenses());
+  }
 
   // 🔒 Validación fuerte (misma lógica que en "Crear rendición")
   async function validateBeforeStateChange(gastoIds) {
@@ -189,6 +213,42 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRemoveExpense(gastoId) {
+    if (!confirm("¿Quitar este gasto de la rendición? Volverá a estar pendiente y podrás incorporarlo a otra rendición.")) return;
+    setBusy(true); setMsg("");
+    try {
+      await removeExpenseFromReimbursement({ rendicionId, gastoId });
+      await reloadAll();
+      setMsg("✅ Gasto quitado. Vuelve a estado pendiente.");
+    } catch (e) {
+      setMsg(`❌ ${e?.message || "Error al quitar gasto."}`);
+    } finally { setBusy(false); }
+  }
+
+  async function handleDeleteExpense(gastoId) {
+    if (!confirm("¿Eliminar este gasto definitivamente? Esta acción no se puede deshacer.")) return;
+    setBusy(true); setMsg("");
+    try {
+      await deleteExpense(gastoId);
+      await reloadAll();
+      setMsg("✅ Gasto eliminado.");
+    } catch (e) {
+      setMsg(`❌ ${e?.message || "Error al eliminar gasto."}`);
+    } finally { setBusy(false); }
+  }
+
+  async function handleAddExpense(gastoId) {
+    setBusy(true); setMsg("");
+    try {
+      await addExpenseToReimbursement({ rendicionId, gastoId });
+      await reloadAll();
+      setShowAddPanel(false);
+      setMsg("✅ Gasto incorporado a la rendición.");
+    } catch (e) {
+      setMsg(`❌ ${e?.message || "Error al agregar gasto."}`);
+    } finally { setBusy(false); }
   }
 
   if (!reim) {
@@ -392,9 +452,9 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
             </>
           )}
 
-          {reim.estado === "borrador" && (
+          {(reim.estado === "borrador" || reim.estado === "devuelta") && (
             <button className="btn danger" onClick={onCancelDraft} disabled={busy}>
-              Cancelar borrador
+              {reim.estado === "devuelta" ? "Cancelar rendición" : "Cancelar borrador"}
             </button>
           )}
         </div>
@@ -412,31 +472,80 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
         </pre>
       )}
 
-      <h3 style={{ marginTop: 18 }}>Gastos incluidos</h3>
+      <div style={{ marginTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h3 style={{ margin: 0 }}>Gastos incluidos ({expenses.length})</h3>
+        {reim.estado === "devuelta" && (
+          <button className="btn secondary" onClick={() => setShowAddPanel((v) => !v)}>
+            {showAddPanel ? "Cancelar" : "+ Agregar gasto"}
+          </button>
+        )}
+      </div>
+
+      {/* Panel agregar gasto pendiente */}
+      {showAddPanel && reim.estado === "devuelta" && (
+        <div style={{
+          marginTop: 10, padding: "12px 14px",
+          background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.3)",
+          borderRadius: 14,
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>Selecciona un gasto pendiente para agregar:</div>
+          {pendingExpenses.filter((p) => Number(p.monto) > 0).length === 0 ? (
+            <div className="small">No hay gastos pendientes disponibles.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {pendingExpenses.filter((p) => Number(p.monto) > 0).map((p) => (
+                <div key={p.gastoId} className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{p.detalle?.split("
+")[0]?.slice(0, 50) || "Sin detalle"}</div>
+                    <div className="small">
+                      {new Date(p.fecha).toLocaleDateString("es-CL")} · {p.docTipo} {p.docNumero || ""} · ${Number(p.monto).toLocaleString("es-CL")}
+                    </div>
+                  </div>
+                  <button className="btn" disabled={busy} onClick={() => handleAddExpense(p.gastoId)}>
+                    Agregar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {expenses.length === 0 ? (
-        <div className="small">No hay gastos asociados a esta rendición.</div>
+        <div className="small" style={{ marginTop: 10 }}>No hay gastos asociados a esta rendición.</div>
       ) : (
         <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
           {expenses.map((e) => (
-            <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid #e5e7eb" }}>
+            <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
               <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontWeight: 800 }}>
                     {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
                   </div>
                   <div className="small">
-                    {e.detalle || e.glosa || "—"} · Fecha: {e.fechaISO || e.fecha || "—"}
+                    {e.detalle?.split("
+")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
                   </div>
+                  <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
                 </div>
-                {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
-                  <span className="btn secondary" style={{ opacity: 0.6, cursor: "not-allowed" }}>
-                    Editar
-                  </span>
-                ) : (
-                  <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>
-                    Editar
-                  </Link>
-                )}
+                <div className="row" style={{ gap: 6 }}>
+                  {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
+                    <span className="btn secondary" style={{ opacity: 0.5, cursor: "not-allowed" }}>Editar</span>
+                  ) : (
+                    <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>Editar</Link>
+                  )}
+                  {reim.estado === "devuelta" && (
+                    <>
+                      <button className="btn secondary" disabled={busy} onClick={() => handleRemoveExpense(e.gastoId)}>
+                        Quitar
+                      </button>
+                      <button className="btn danger" disabled={busy} onClick={() => handleDeleteExpense(e.gastoId)}>
+                        Eliminar
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           ))}

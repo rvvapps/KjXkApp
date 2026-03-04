@@ -93,6 +93,139 @@ function CatalogBlock({ title, rows, onSave, onDelete, onAdd }) {
   );
 }
 
+
+function DestsBlock({ dests, crs, onRefresh, destForm, setDestForm, onAdd }) {
+  const [editing, setEditing] = useState(null);
+  const [delErr, setDelErr] = useState("");
+
+  function startEdit(d) {
+    setEditing({
+      destinationId: d.destinationId,
+      destino: d.destino,
+      monto: String(d.monto || ""),
+      crCodigo: d.crCodigo || "",
+      notas: d.notas || "",
+      activo: d.activo !== false,
+    });
+  }
+
+  async function saveEdit() {
+    if (!editing.destino.trim()) return;
+    await upsertDestination({
+      destinationId: editing.destinationId,
+      destino: editing.destino.trim(),
+      monto: Number(editing.monto) || 0,
+      crCodigo: editing.crCodigo || "",
+      notas: editing.notas.trim(),
+      activo: editing.activo,
+    });
+    setEditing(null);
+    await onRefresh();
+  }
+
+  async function toggleActivo(d) {
+    await upsertDestination({ ...d, activo: !d.activo });
+    await onRefresh();
+  }
+
+  async function handleDelete(d) {
+    setDelErr("");
+    if (!confirm(`¿Eliminar destino "${d.destino}"? Esta acción no se puede deshacer.`)) return;
+    try {
+      await deleteDestination(d.destinationId);
+      await onRefresh();
+    } catch (e) {
+      setDelErr(e?.message || "Error al eliminar.");
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>Destinos favoritos (combustible)</h2>
+      <div className="small" style={{ marginBottom: 10 }}>
+        Destinos con monto fijo por trayecto. Se pre-completan al registrar un traslado.
+      </div>
+
+      {delErr && <div className="small" style={{ color: "#f87171", marginBottom: 8 }}>{delErr}</div>}
+
+      {dests.length === 0 ? (
+        <div className="small">Sin destinos favoritos.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {dests.map((d) => (
+            <div key={d.destinationId} style={{
+              borderTop: "1px solid rgba(255,255,255,.08)",
+              paddingTop: 8,
+              opacity: d.activo === false ? 0.55 : 1,
+            }}>
+              {editing?.destinationId === d.destinationId ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div className="row">
+                    <TextField label="Destino" value={editing.destino} onChange={(v) => setEditing({ ...editing, destino: v })} />
+                    <TextField label="Monto ($)" type="number" value={editing.monto} onChange={(v) => setEditing({ ...editing, monto: v })} />
+                  </div>
+                  <div className="row">
+                    <SelectField
+                      label="CR"
+                      value={editing.crCodigo}
+                      onChange={(v) => setEditing({ ...editing, crCodigo: v })}
+                      options={crs.filter((x) => x.activo !== false).map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))}
+                      placeholder="Opcional..."
+                    />
+                    <TextField label="Notas" value={editing.notas} onChange={(v) => setEditing({ ...editing, notas: v })} placeholder="Opcional" />
+                  </div>
+                  <div className="row">
+                    <button className="btn" onClick={saveEdit}>Guardar</button>
+                    <button className="btn secondary" onClick={() => setEditing(null)}>Cancelar</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <b>{d.destino}</b>
+                    <span className="small"> — ${Number(d.monto || 0).toLocaleString("es-CL")}</span>
+                    {d.crCodigo && <span className="small"> · CR {d.crCodigo}</span>}
+                    {d.notas && <div className="small" style={{ opacity: 0.7 }}>{d.notas}</div>}
+                    <span className="pill" style={{ marginLeft: 8, fontSize: 11 }}>
+                      {d.activo !== false ? "activo" : "inactivo"}
+                    </span>
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn secondary" onClick={() => startEdit(d)}>Editar</button>
+                    <button className="btn secondary" onClick={() => toggleActivo(d)}>
+                      {d.activo !== false ? "Desactivar" : "Activar"}
+                    </button>
+                    <button className="btn danger" onClick={() => handleDelete(d)}>Eliminar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <hr />
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="row">
+          <TextField label="Destino" value={destForm.destino} onChange={(v) => setDestForm({ ...destForm, destino: v })} placeholder="Ej: Proveedor ABC - Quilpué" />
+          <TextField label="Monto por trayecto ($)" type="number" value={destForm.monto} onChange={(v) => setDestForm({ ...destForm, monto: v })} />
+        </div>
+        <div className="row">
+          <SelectField
+            label="CR asociado"
+            value={destForm.crCodigo}
+            onChange={(v) => setDestForm({ ...destForm, crCodigo: v })}
+            options={crs.filter((x) => x.activo !== false).map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))}
+            placeholder="Opcional..."
+          />
+          <TextField label="Notas" value={destForm.notas} onChange={(v) => setDestForm({ ...destForm, notas: v })} placeholder="Opcional" />
+        </div>
+        <div><button className="btn" onClick={onAdd}>Agregar destino</button></div>
+      </div>
+    </div>
+  );
+}
+
 export default function Catalogs() {
   // Listas completas (activos + inactivos) para mostrar en edición
   const [crs, setCrs] = useState([]);
@@ -267,84 +400,15 @@ export default function Catalogs() {
             </div>
           }
         />
-        {/* Destinos favoritos — tiene campos extra, necesita bloque custom */}
-        <div className="card">
-          <h2>Destinos favoritos (combustible)</h2>
-          <div className="small" style={{ marginBottom: 10 }}>
-            Destinos con monto fijo por trayecto. Se pre-completan al registrar un traslado.
-          </div>
-
-          {dests.length === 0 ? (
-            <div className="small">Sin destinos favoritos.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {dests.map((d) => (
-                <div
-                  key={d.destinationId}
-                  style={{
-                    borderTop: "1px solid rgba(255,255,255,.08)",
-                    paddingTop: 8,
-                    opacity: d.activo === false ? 0.5 : 1,
-                  }}
-                >
-                  <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <b>{d.destino}</b>
-                      <span className="small"> — ${Number(d.monto || 0).toLocaleString("es-CL")}</span>
-                      {d.crCodigo && <span className="small"> · CR {d.crCodigo}</span>}
-                      {d.notas && <div className="small" style={{ opacity: 0.7 }}>{d.notas}</div>}
-                      <span className="pill" style={{ marginLeft: 8, fontSize: 11 }}>
-                        {d.activo !== false ? "activo" : "inactivo"}
-                      </span>
-                    </div>
-                    <button
-                      className="btn secondary"
-                      onClick={() => saveDest({ ...d, name: d.destino, activo: !d.activo })}
-                    >
-                      {d.activo !== false ? "Desactivar" : "Activar"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <hr />
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div className="row">
-              <TextField
-                label="Destino"
-                value={destForm.destino}
-                onChange={(v) => setDestForm({ ...destForm, destino: v })}
-                placeholder="Ej: Proveedor ABC - Quilpué"
-              />
-              <TextField
-                label="Monto por trayecto ($)"
-                type="number"
-                value={destForm.monto}
-                onChange={(v) => setDestForm({ ...destForm, monto: v })}
-              />
-            </div>
-            <div className="row">
-              <SelectField
-                label="CR asociado"
-                value={destForm.crCodigo}
-                onChange={(v) => setDestForm({ ...destForm, crCodigo: v })}
-                options={crs.filter((x) => x.activo !== false).map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))}
-                placeholder="Opcional..."
-              />
-              <TextField
-                label="Notas"
-                value={destForm.notas}
-                onChange={(v) => setDestForm({ ...destForm, notas: v })}
-                placeholder="Opcional"
-              />
-            </div>
-            <div>
-              <button className="btn" onClick={addDest}>Agregar destino</button>
-            </div>
-          </div>
-        </div>
+        {/* Destinos favoritos — bloque con edición inline completa */}
+        <DestsBlock
+          dests={dests}
+          crs={crs}
+          onRefresh={refresh}
+          destForm={destForm}
+          setDestForm={setDestForm}
+          onAdd={addDest}
+        />
       </div>
     </div>
   );
