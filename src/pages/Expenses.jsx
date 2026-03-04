@@ -7,6 +7,7 @@ import {
   getExpense,
 } from "../db.js";
 import { buildExportItems, exportBatchXlsx, splitIntoBatches } from "../services/excelExport.js";
+import AttachmentGallery from "../components/AttachmentGallery.jsx";
 import { exportReceiptsPdf } from "../services/pdfExport.js";
 
 function pad(n, width = 4) { return String(n).padStart(width, "0"); }
@@ -19,6 +20,8 @@ export default function Expenses() {
   const [concepts, setConcepts] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [attachCounts, setAttachCounts] = useState({}); // gastoId -> count
+  const [attachData, setAttachData] = useState({});    // gastoId -> atts[]
+  const [expandedAtts, setExpandedAtts] = useState(new Set());
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [showRendicion, setShowRendicion] = useState(false);
@@ -28,13 +31,16 @@ export default function Expenses() {
     setExpenses(exps);
     setConcepts(concs);
 
-    // Cargar cantidad de adjuntos por gasto
+    // Cargar adjuntos por gasto
     const counts = {};
+    const data = {};
     await Promise.all(exps.map(async (e) => {
       const atts = await listAttachmentsForExpense(e.gastoId).catch(() => []);
       counts[e.gastoId] = atts.length;
+      data[e.gastoId] = atts;
     }));
     setAttachCounts(counts);
+    setAttachData(data);
   }
 
   useEffect(() => { refresh(); }, [location.pathname]);
@@ -153,51 +159,66 @@ export default function Expenses() {
     const concept = conceptById.get(e.conceptId);
     const label = concept?.nombre || e.detalle?.split("\\n")[0]?.slice(0, 40) || "Sin detalle";
     const hasImage = (attachCounts[e.gastoId] ?? 0) > 0;
+    const expanded = expandedAtts.has(e.gastoId);
+
+    function toggleAtts() {
+      setExpandedAtts((prev) => {
+        const next = new Set(prev);
+        if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
+        return next;
+      });
+    }
 
     return (
       <div style={{
-        display: "flex", justifyContent: "space-between", alignItems: "center",
-        paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)", gap: 8,
+        paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)",
       }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-            {isIncomplete && <span title="Falta completar monto" style={{ color: "#facc15" }}>⚠️</span>}
-            <span
-              title={hasImage ? `${attachCounts[e.gastoId]} adjunto(s)` : "Sin imagen adjunta"}
-              style={{ fontSize: 15, opacity: hasImage ? 1 : 0.25 }}
-            >
-              📎
-            </span>
-            {label}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
+              {isIncomplete && <span title="Falta completar monto" style={{ color: "#facc15" }}>⚠️</span>}
+              <span
+                title={hasImage ? `${attachCounts[e.gastoId]} adjunto(s) — click para ver` : "Sin imagen adjunta"}
+                onClick={hasImage ? toggleAtts : undefined}
+                style={{ fontSize: 15, opacity: hasImage ? 1 : 0.25, cursor: hasImage ? "pointer" : "default" }}
+              >📎</span>
+              {label}
+            </div>
+            <div className="small">
+              {new Date(e.fecha).toLocaleDateString("es-CL")}
+              {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : ""}
+              {" · CR "}{e.crCodigo || "—"}
+              {isIncomplete
+                ? " · Sin monto — completar"
+                : ` · $${Number(e.monto).toLocaleString("es-CL")}`}
+            </div>
           </div>
-          <div className="small">
-            {new Date(e.fecha).toLocaleDateString("es-CL")}
-            {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : ""}
-            {" · CR "}{e.crCodigo || "—"}
-            {isIncomplete
-              ? " · Sin monto — completar"
-              : ` · $${Number(e.monto).toLocaleString("es-CL")}`}
+
+          <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+            {!isIncomplete && (
+              <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={selected.has(e.gastoId)}
+                  onChange={() => toggle(e.gastoId)}
+                />
+                <span className="small">Incluir</span>
+              </label>
+            )}
+            <button className="btn secondary" onClick={() => nav(`/gastos/${e.gastoId}`)}>
+              {isIncomplete ? "Completar" : "Editar"}
+            </button>
+            <button className="btn danger" onClick={() => handleDelete(e.gastoId)}>
+              Eliminar
+            </button>
           </div>
         </div>
 
-        <div className="row" style={{ gap: 6, flexShrink: 0 }}>
-          {!isIncomplete && (
-            <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
-              <input
-                type="checkbox"
-                checked={selected.has(e.gastoId)}
-                onChange={() => toggle(e.gastoId)}
-              />
-              <span className="small">Incluir</span>
-            </label>
-          )}
-          <button className="btn secondary" onClick={() => nav(`/gastos/${e.gastoId}`)}>
-            {isIncomplete ? "Completar" : "Editar"}
-          </button>
-          <button className="btn danger" onClick={() => handleDelete(e.gastoId)}>
-            Eliminar
-          </button>
-        </div>
+        {expanded && hasImage && (
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+            <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} />
+          </div>
+        )}
       </div>
     );
   }
