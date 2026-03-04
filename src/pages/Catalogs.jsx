@@ -1,18 +1,33 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  listActiveCR,
-  upsertCR,
-  listActiveAccounts,
-  upsertAccount,
-  listActivePartidas,
-  upsertPartida,
-  listActiveClasificaciones,
-  upsertClasificacion,
+  listActiveCR, upsertCR,
+  listActiveAccounts, upsertAccount,
+  listActivePartidas, upsertPartida,
+  listActiveClasificaciones, upsertClasificacion,
+  listActiveDestinations, upsertDestination,
+  listActiveCR as listCRForSelect,
 } from "../db.js";
+import SelectField from "../components/SelectField.jsx";
 import TextField from "../components/TextField.jsx";
 
-function CatalogBlock({ title, rows, onAdd }) {
+// Muestra todos los registros (activos e inactivos) con edición inline y toggle
+function CatalogBlock({ title, rows, keyField, nameField, onSave, onAdd }) {
+  const [editing, setEditing] = useState(null); // { code, name }
+
+  function startEdit(r) {
+    setEditing({ code: r.code, name: r.name, originalCode: r.code });
+  }
+
+  async function saveEdit(r) {
+    await onSave({ ...r, code: editing.code.trim(), name: editing.name.trim(), activo: r.activo });
+    setEditing(null);
+  }
+
+  async function toggleActivo(r) {
+    await onSave({ ...r, activo: !r.activo });
+  }
+
   return (
     <div className="card">
       <h2>{title}</h2>
@@ -24,13 +39,69 @@ function CatalogBlock({ title, rows, onAdd }) {
           {rows.map((r) => (
             <div
               key={r.code}
-              className="row"
-              style={{ justifyContent: "space-between", alignItems: "center" }}
+              style={{
+                borderTop: "1px solid rgba(255,255,255,.08)",
+                paddingTop: 8,
+                opacity: r.activo === false ? 0.5 : 1,
+              }}
             >
-              <div>
-                <b>{r.code}</b> <span className="small">— {r.name}</span>
-              </div>
-              <span className="pill">{r.activo ? "activo" : "inactivo"}</span>
+              {editing?.originalCode === r.code ? (
+                // Modo edición inline
+                <div className="row" style={{ alignItems: "end", gap: 8 }}>
+                  <TextField
+                    label="Código"
+                    value={editing.code}
+                    onChange={(v) => setEditing({ ...editing, code: v })}
+                  />
+                  <TextField
+                    label="Nombre"
+                    value={editing.name}
+                    onChange={(v) => setEditing({ ...editing, name: v })}
+                  />
+                  <button
+                    className="btn"
+                    style={{ alignSelf: "end" }}
+                    onClick={() => saveEdit(r)}
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    className="btn secondary"
+                    style={{ alignSelf: "end" }}
+                    onClick={() => setEditing(null)}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                // Modo visualización
+                <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <b>{r.code}</b>
+                    <span className="small"> — {r.name}</span>
+                    <span
+                      className="pill"
+                      style={{ marginLeft: 8, fontSize: 11 }}
+                    >
+                      {r.activo !== false ? "activo" : "inactivo"}
+                    </span>
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button
+                      className="btn secondary"
+                      onClick={() => startEdit(r)}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      className="btn secondary"
+                      onClick={() => toggleActivo(r)}
+                    >
+                      {r.activo !== false ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -43,162 +114,249 @@ function CatalogBlock({ title, rows, onAdd }) {
 }
 
 export default function Catalogs() {
+  // Listas completas (activos + inactivos) para mostrar en edición
   const [crs, setCrs] = useState([]);
   const [accts, setAccts] = useState([]);
   const [parts, setParts] = useState([]);
-
   const [clasifs, setClasifs] = useState([]);
+
+  const [dests, setDests] = useState([]);
+  const [destForm, setDestForm] = useState({ destino: "", monto: "", crCodigo: "", notas: "" });
+
+  // Formulario agregar
+  const [crCodigo, setCrCodigo] = useState("");
+  const [crNombre, setCrNombre] = useState("");
+  const [ctaCodigo, setCtaCodigo] = useState("");
+  const [ctaNombre, setCtaNombre] = useState("");
+  const [partCodigo, setPartCodigo] = useState("");
+  const [partNombre, setPartNombre] = useState("");
   const [clasificacionCodigo, setClasificacionCodigo] = useState("");
   const [clasificacionNombre, setClasificacionNombre] = useState("");
 
-  const [crCodigo, setCrCodigo] = useState("");
-  const [crNombre, setCrNombre] = useState("");
-
-  const [ctaCodigo, setCtaCodigo] = useState("");
-  const [ctaNombre, setCtaNombre] = useState("");
-
-  const [partCodigo, setPartCodigo] = useState("");
-  const [partNombre, setPartNombre] = useState("");
-
   async function refresh() {
-    setCrs(await listActiveCR());
-    setAccts(await listActiveAccounts());
-    setParts(await listActivePartidas());
-    setClasifs(await listActiveClasificaciones());
+    // Cargamos todos (activos e inactivos) para que el toggle sea visible
+    const db_module = await import("../db.js");
+    const [allCR, allAccts, allParts, allClasifs, allDests] = await Promise.all([
+      db_module.getDB().then((db) => db.getAll("catalog_cr")),
+      db_module.getDB().then((db) => db.getAll("catalog_accounts")),
+      db_module.getDB().then((db) => db.getAll("catalog_partidas")),
+      db_module.getDB().then((db) => db.getAll("catalog_clasificaciones").catch(() => [])),
+      db_module.getDB().then((db) => db.getAll("catalog_destinations").catch(() => [])),
+    ]);
+    setCrs(allCR.sort((a, b) => (a.crCodigo || "").localeCompare(b.crCodigo || "")));
+    setAccts(allAccts.sort((a, b) => (a.ctaCodigo || "").localeCompare(b.ctaCodigo || "")));
+    setParts(allParts.sort((a, b) => (a.partidaCodigo || "").localeCompare(b.partidaCodigo || "")));
+    setClasifs(allClasifs.sort((a, b) => (a.clasificacionCodigo || "").localeCompare(b.clasificacionCodigo || "")));
+    setDests(allDests.sort((a, b) => (a.destino || "").localeCompare(b.destino || "")));
   }
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
-  async function addClasif() {
-    if (!clasificacionCodigo.trim() || !clasificacionNombre.trim()) return;
-    await upsertClasificacion({
-      clasificacionCodigo: clasificacionCodigo.trim(),
-      clasificacionNombre: clasificacionNombre.trim(),
-      activo: true,
-    });
-    setClasificacionCodigo("");
-    setClasificacionNombre("");
+  // Handlers de guardado para cada catálogo
+  async function saveCR({ code, name, activo }) {
+    await upsertCR({ crCodigo: code, crNombre: name, activo: activo !== false });
+    await refresh();
+  }
+  async function saveAcct({ code, name, activo }) {
+    await upsertAccount({ ctaCodigo: code, ctaNombre: name, activo: activo !== false });
+    await refresh();
+  }
+  async function savePart({ code, name, activo }) {
+    await upsertPartida({ partidaCodigo: code, partidaNombre: name, activo: activo !== false });
+    await refresh();
+  }
+  async function saveClasif({ code, name, activo }) {
+    await upsertClasificacion({ clasificacionCodigo: code, clasificacionNombre: name, activo: activo !== false });
     await refresh();
   }
 
+  // Agregar nuevos
   async function addCR() {
     if (!crCodigo.trim() || !crNombre.trim()) return;
-    await upsertCR({
-      crCodigo: crCodigo.trim(),
-      crNombre: crNombre.trim(),
-      activo: true,
-    });
-    setCrCodigo("");
-    setCrNombre("");
+    await upsertCR({ crCodigo: crCodigo.trim(), crNombre: crNombre.trim(), activo: true });
+    setCrCodigo(""); setCrNombre("");
     await refresh();
   }
-
   async function addAcct() {
     if (!ctaCodigo.trim() || !ctaNombre.trim()) return;
-    await upsertAccount({
-      ctaCodigo: ctaCodigo.trim(),
-      ctaNombre: ctaNombre.trim(),
-      activo: true,
-    });
-    setCtaCodigo("");
-    setCtaNombre("");
+    await upsertAccount({ ctaCodigo: ctaCodigo.trim(), ctaNombre: ctaNombre.trim(), activo: true });
+    setCtaCodigo(""); setCtaNombre("");
+    await refresh();
+  }
+  async function addPart() {
+    if (!partCodigo.trim() || !partNombre.trim()) return;
+    await upsertPartida({ partidaCodigo: partCodigo.trim(), partidaNombre: partNombre.trim(), activo: true });
+    setPartCodigo(""); setPartNombre("");
+    await refresh();
+  }
+  async function addClasif() {
+    if (!clasificacionCodigo.trim() || !clasificacionNombre.trim()) return;
+    await upsertClasificacion({ clasificacionCodigo: clasificacionCodigo.trim(), clasificacionNombre: clasificacionNombre.trim(), activo: true });
+    setClasificacionCodigo(""); setClasificacionNombre("");
     await refresh();
   }
 
-  async function addPart() {
-    if (!partCodigo.trim() || !partNombre.trim()) return;
-    await upsertPartida({
-      partidaCodigo: partCodigo.trim(),
-      partidaNombre: partNombre.trim(),
+  async function saveDest(item) {
+    await upsertDestination({
+      destinationId: item.destinationId,
+      destino: item.name,
+      monto: Number(item.monto) || 0,
+      crCodigo: item.crCodigo || "",
+      notas: item.notas || "",
+      activo: item.activo !== false,
+    });
+    await refresh();
+  }
+
+  async function addDest() {
+    if (!destForm.destino.trim()) return;
+    await upsertDestination({
+      destino: destForm.destino.trim(),
+      monto: Number(destForm.monto) || 0,
+      crCodigo: destForm.crCodigo || "",
+      notas: destForm.notas.trim(),
       activo: true,
     });
-    setPartCodigo("");
-    setPartNombre("");
+    setDestForm({ destino: "", monto: "", crCodigo: "", notas: "" });
     await refresh();
   }
 
   return (
     <div>
-      {/* ✅ Botón para administrar Conceptos */}
       <div className="row" style={{ marginBottom: 12 }}>
-        <Link className="btn" to="/maestros/conceptos">
-          Conceptos
-        </Link>
+        <Link className="btn" to="/maestros/conceptos">Conceptos</Link>
       </div>
 
       <div className="grid2">
         <CatalogBlock
           title="Centros de Responsabilidad (CR)"
-          rows={crs.map((x) => ({
-            code: x.crCodigo,
-            name: x.crNombre,
-            activo: x.activo,
-          }))}
+          rows={crs.map((x) => ({ code: x.crCodigo, name: x.crNombre, activo: x.activo }))}
+          onSave={saveCR}
           onAdd={
             <div className="row">
               <TextField label="Código" value={crCodigo} onChange={setCrCodigo} />
               <TextField label="Nombre" value={crNombre} onChange={setCrNombre} />
-              <button className="btn" style={{ alignSelf: "end" }} onClick={addCR}>
-                Agregar
-              </button>
+              <button className="btn" style={{ alignSelf: "end" }} onClick={addCR}>Agregar</button>
             </div>
           }
         />
 
         <CatalogBlock
           title="Cuentas Contables"
-          rows={accts.map((x) => ({
-            code: x.ctaCodigo,
-            name: x.ctaNombre,
-            activo: x.activo,
-          }))}
+          rows={accts.map((x) => ({ code: x.ctaCodigo, name: x.ctaNombre, activo: x.activo }))}
+          onSave={saveAcct}
           onAdd={
             <div className="row">
               <TextField label="Código" value={ctaCodigo} onChange={setCtaCodigo} />
               <TextField label="Nombre" value={ctaNombre} onChange={setCtaNombre} />
-              <button className="btn" style={{ alignSelf: "end" }} onClick={addAcct}>
-                Agregar
-              </button>
+              <button className="btn" style={{ alignSelf: "end" }} onClick={addAcct}>Agregar</button>
             </div>
           }
         />
 
         <CatalogBlock
           title="Partidas"
-          rows={parts.map((x) => ({
-            code: x.partidaCodigo,
-            name: x.partidaNombre,
-            activo: x.activo,
-          }))}
+          rows={parts.map((x) => ({ code: x.partidaCodigo, name: x.partidaNombre, activo: x.activo }))}
+          onSave={savePart}
           onAdd={
             <div className="row">
               <TextField label="Código" value={partCodigo} onChange={setPartCodigo} />
               <TextField label="Nombre" value={partNombre} onChange={setPartNombre} />
-              <button className="btn" style={{ alignSelf: "end" }} onClick={addPart}>
-                Agregar
-              </button>
+              <button className="btn" style={{ alignSelf: "end" }} onClick={addPart}>Agregar</button>
             </div>
           }
         />
+
         <CatalogBlock
           title="Clasificaciones"
-          rows={clasifs.map((x) => ({
-            code: x.clasificacionCodigo,
-            name: x.clasificacionNombre,
-            activo: x.activo,
-          }))}
+          rows={clasifs.map((x) => ({ code: x.clasificacionCodigo, name: x.clasificacionNombre, activo: x.activo }))}
+          onSave={saveClasif}
           onAdd={
             <div className="row">
               <TextField label="Código" value={clasificacionCodigo} onChange={setClasificacionCodigo} />
               <TextField label="Nombre" value={clasificacionNombre} onChange={setClasificacionNombre} />
-              <button className="btn" style={{ alignSelf: "end" }} onClick={addClasif}>
-                Agregar
-              </button>
+              <button className="btn" style={{ alignSelf: "end" }} onClick={addClasif}>Agregar</button>
             </div>
           }
         />
+        {/* Destinos favoritos — tiene campos extra, necesita bloque custom */}
+        <div className="card">
+          <h2>Destinos favoritos (combustible)</h2>
+          <div className="small" style={{ marginBottom: 10 }}>
+            Destinos con monto fijo por trayecto. Se pre-completan al registrar un traslado.
+          </div>
+
+          {dests.length === 0 ? (
+            <div className="small">Sin destinos favoritos.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {dests.map((d) => (
+                <div
+                  key={d.destinationId}
+                  style={{
+                    borderTop: "1px solid rgba(255,255,255,.08)",
+                    paddingTop: 8,
+                    opacity: d.activo === false ? 0.5 : 1,
+                  }}
+                >
+                  <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <b>{d.destino}</b>
+                      <span className="small"> — ${Number(d.monto || 0).toLocaleString("es-CL")}</span>
+                      {d.crCodigo && <span className="small"> · CR {d.crCodigo}</span>}
+                      {d.notas && <div className="small" style={{ opacity: 0.7 }}>{d.notas}</div>}
+                      <span className="pill" style={{ marginLeft: 8, fontSize: 11 }}>
+                        {d.activo !== false ? "activo" : "inactivo"}
+                      </span>
+                    </div>
+                    <button
+                      className="btn secondary"
+                      onClick={() => saveDest({ ...d, name: d.destino, activo: !d.activo })}
+                    >
+                      {d.activo !== false ? "Desactivar" : "Activar"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <hr />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="row">
+              <TextField
+                label="Destino"
+                value={destForm.destino}
+                onChange={(v) => setDestForm({ ...destForm, destino: v })}
+                placeholder="Ej: Proveedor ABC - Quilpué"
+              />
+              <TextField
+                label="Monto por trayecto ($)"
+                type="number"
+                value={destForm.monto}
+                onChange={(v) => setDestForm({ ...destForm, monto: v })}
+              />
+            </div>
+            <div className="row">
+              <SelectField
+                label="CR asociado"
+                value={destForm.crCodigo}
+                onChange={(v) => setDestForm({ ...destForm, crCodigo: v })}
+                options={crs.filter((x) => x.activo !== false).map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))}
+                placeholder="Opcional..."
+              />
+              <TextField
+                label="Notas"
+                value={destForm.notas}
+                onChange={(v) => setDestForm({ ...destForm, notas: v })}
+                placeholder="Opcional"
+              />
+            </div>
+            <div>
+              <button className="btn" onClick={addDest}>Agregar destino</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import {
   DOC_TYPES,
   getExpense,
   updateExpense,
+  deleteExpense,
   listConcepts,
   listActiveCR,
   listActiveAccounts,
@@ -197,6 +198,23 @@ export default function EditExpense() {
     setAtts(await listAttachmentsForExpense(gastoId));
   }
 
+  async function handleDelete() {
+    if (!confirm("¿Eliminar este gasto y sus adjuntos? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteExpense(gastoId);
+      nav("/", { replace: true });
+    } catch (e) {
+      const code = e?.code || e?.message || "error";
+      if (code === "not_deletable") {
+        setMsg(`❌ No se puede eliminar: el gasto está en estado "${e.estado}".`);
+      } else if (code === "not_found") {
+        setMsg("❌ Gasto no encontrado.");
+      } else {
+        setMsg(`❌ Error al eliminar: ${code}`);
+      }
+    }
+  }
+
   return (
     <div className="card">
       <h2>Editar gasto</h2>
@@ -354,6 +372,11 @@ export default function EditExpense() {
         <button className="btn secondary" onClick={() => nav(-1)}>
           Volver
         </button>
+        {!locked && (
+          <button className="btn danger" onClick={handleDelete}>
+            Eliminar gasto
+          </button>
+        )}
       </div>
     </div>
   );

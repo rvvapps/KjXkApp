@@ -4,7 +4,8 @@ import { v4 as uuid } from "uuid";
 const DB_NAME = "pettycash_db";
 // DB_VERSION bump: v3 adds sync stores (outbox/state/objects) without changing existing business stores.
 // DB_VERSION bump: v4 adds catalog_clasificaciones (non-breaking, additive).
-const DB_VERSION = 4;
+// DB_VERSION bump: v5 adds catalog_destinations (destinos favoritos combustible).
+const DB_VERSION = 5;
 
 // Sync
 const WORKSPACE_ID = "personal";
@@ -35,6 +36,12 @@ export async function getDB() {
       if (!db.objectStoreNames.contains("catalog_clasificaciones")) {
         const s = db.createObjectStore("catalog_clasificaciones", { keyPath: "clasificacionCodigo" });
         s.createIndex("activo", "activo");
+      }
+      // v5: destinos favoritos de combustible
+      if (!db.objectStoreNames.contains("catalog_destinations")) {
+        const s = db.createObjectStore("catalog_destinations", { keyPath: "destinationId" });
+        s.createIndex("activo", "activo");
+        s.createIndex("crCodigo", "crCodigo");
       }
 
       if (!db.objectStoreNames.contains("concepts")) {
@@ -128,6 +135,7 @@ export async function ensureSeedData() {
       crDefaultCodigo: "",
       correlativoPrefix: "RC",
       correlativoNextNumber: 1,
+      defaultOrigen: "",   // punto de partida habitual (casa/oficina)
     });
   } else {
     // Backfill identity/sync fields for existing installs (no schema break).
@@ -138,6 +146,7 @@ export async function ensureSeedData() {
     if (typeof s.localRevision !== "number") patch.localRevision = 0;
     if (s.lastSyncAt === undefined) patch.lastSyncAt = null;
     if (s.lastWeeklyBackupAt === undefined) patch.lastWeeklyBackupAt = null;
+    if (s.defaultOrigen === undefined) patch.defaultOrigen = "";
     if (Object.keys(patch).length) {
       await db.put("settings", { ...s, ...patch });
     }
@@ -720,6 +729,144 @@ export async function deleteAttachment(adjuntoId) {
   });
   await tx.done;
 }
+
+export async function deleteExpense(gastoId) {
+  const db = await getDB();
+
+  // Solo se puede borrar si está en estado pendiente
+  const expense = await db.get("expenses", gastoId);
+  if (!expense) throw Object.assign(new Error("not_found"), { code: "not_found" });
+  if (expense.estado !== "pendiente") {
+    throw Object.assign(
+      new Error("Solo se pueden eliminar gastos en estado pendiente."),
+      { code: "not_deletable", estado: expense.estado }
+    );
+  }
+
+  // Obtener adjuntos para borrarlos en la misma tx
+  const atts = await db.getAllFromIndex("attachments", "gastoId", gastoId);
+
+  const tx = db.transaction(
+    ["settings", "expenses", "attachments", "sync_outbox"],
+    "readwrite"
+  );
+  const { settings, revision } = await bumpRevisionInTx(tx);
+
+  // Borrar adjuntos
+  for (const att of atts) {
+    tx.objectStore("attachments").delete(att.adjuntoId);
+    enqueueEventInTx(tx, {
+      settings,
+      revision,
+      type: "entity.delete",
+      payload: { entityType: "attachmentMeta", entityId: att.adjuntoId, deletedAt: nowIso() },
+    });
+  }
+
+  // Borrar gasto
+  tx.objectStore("expenses").delete(gastoId);
+  enqueueEventInTx(tx, {
+    settings,
+    revision,
+    type: "entity.delete",
+    payload: { entityType: "expense", entityId: gastoId, deletedAt: nowIso() },
+  });
+
+  await tx.done;
+}
+
+export async function listActiveDestinations() {
+  const db = await getDB();
+  const all = await db.getAll("catalog_destinations");
+  return all
+    .filter((x) => x.activo !== false)
+    .sort((a, b) => (a.destino || "").localeCompare(b.destino || ""));
+}
+
+export async function upsertDestination(item) {
+  const db = await getDB();
+  if (!item.destinationId) item.destinationId = (await import("uuid")).v4();
+  await db.put("catalog_destinations", item);
+}
+
+/**
+ * Liquidar combustible:
+ * Agrupa N trayectos pendientes → 1 gasto de combustible completo.
+ * montoFinal puede ser distinto a la suma (ajuste manual en la bomba).
+ */
+export async function liquidarCombustible({ transferIds, conceptId, crCodigo, montoFinal, docTipo = "Boleta" }) {
+  const db = await getDB();
+
+  const transfers = (await Promise.all(transferIds.map((id) => db.get("transfers", id)))).filter(Boolean);
+  if (!transfers.length) throw new Error("No se encontraron traslados.");
+
+  const concept = conceptId ? await db.get("concepts", conceptId) : null;
+  const fecha = new Date().toISOString();
+
+  const lines = transfers
+    .slice()
+    .sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""))
+    .map((t) => {
+      const montoTrayecto = Number(t.monto || 0);
+      const fechaStr = new Date(t.fecha).toLocaleDateString("es-CL");
+      return `• ${fechaStr} — ${t.destino}${montoTrayecto ? ` ($${montoTrayecto.toLocaleString("es-CL")})` : ""}`;
+    })
+    .join("
+");
+
+  const sumaTramos = transfers.reduce((s, t) => s + Number(t.monto || 0), 0);
+  const monto = Number.isFinite(Number(montoFinal)) && montoFinal > 0
+    ? Number(montoFinal)
+    : sumaTramos;
+
+  const tx = db.transaction(
+    ["settings", "expenses", "transfers", "sync_outbox"],
+    "readwrite"
+  );
+  const { settings, revision } = await bumpRevisionInTx(tx);
+  const gastoId = uuid();
+
+  const expense = withAuditFields({
+    gastoId,
+    estado: "pendiente",
+    fecha,
+    monto,
+    conceptId: conceptId || "",
+    crCodigo: crCodigo || "",
+    ctaCodigo: concept?.ctaDefaultCodigo || "",
+    partidaCodigo: concept?.partidaDefaultCodigo || "",
+    clasificacionCodigo: concept?.clasificacionDefaultCodigo || "",
+    docTipo,
+    docNumero: "",
+    detalle: `Combustible — ${transfers.length} trayecto${transfers.length > 1 ? "s" : ""}:
+${lines}
+Suma tramos: $${sumaTramos.toLocaleString("es-CL")} | Monto final: $${monto.toLocaleString("es-CL")}`,
+    fromTransferIds: transferIds,
+  }, { deviceId: settings.deviceId, revision });
+
+  tx.objectStore("expenses").put(expense);
+  enqueueEventInTx(tx, {
+    settings, revision,
+    type: "entity.upsert",
+    payload: { entityType: "expense", entityId: gastoId, data: expense },
+  });
+
+  // Marcar traslados como usados
+  for (const t of transfers) {
+    const updated = withAuditFields({ ...t, estado: "usado", gastoId },
+      { deviceId: settings.deviceId, revision });
+    tx.objectStore("transfers").put(updated);
+    enqueueEventInTx(tx, {
+      settings, revision,
+      type: "entity.upsert",
+      payload: { entityType: "transfer", entityId: t.transferId, data: updated },
+    });
+  }
+
+  await tx.done;
+  return { gastoId, monto };
+}
+
 export const TRANSFER_TYPES = [
   "Vehículo propio",
   "Auto arrendado",
@@ -776,6 +923,92 @@ export async function markTransfersUsed({ transferIds, gastoId }) {
   await tx.done;
 }
 
+
+
+/**
+ * Crea N gastos pendientes (incompletos) desde un conjunto de traslados + conceptos.
+ * Cada concepto genera 1 gasto con los datos del traslado pre-completados.
+ * Los traslados quedan marcados como "usado".
+ * Los gastos nacen con monto=0 para identificarlos como incompletos.
+ */
+export async function addExpensesFromTransfer({ transferIds, conceptIds }) {
+  const db = await getDB();
+
+  // Leer traslados y conceptos antes de abrir la tx
+  const transfers = (await Promise.all(transferIds.map((id) => db.get("transfers", id)))).filter(Boolean);
+  const concepts = (await Promise.all(conceptIds.map((id) => db.get("concepts", id)))).filter(Boolean);
+
+  if (!transfers.length) throw new Error("No se encontraron traslados.");
+  if (!concepts.length) throw new Error("Selecciona al menos un concepto.");
+
+  const primaryTransfer = transfers[0];
+  const crCodigo = primaryTransfer.crCodigo || "";
+  const visita = primaryTransfer.visita || "";
+  const fecha = primaryTransfer.fecha || new Date().toISOString();
+
+  const lines = transfers
+    .slice()
+    .sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""))
+    .map((t) => `• ${new Date(t.fecha).toLocaleDateString("es-CL")} — ${t.tipo}: ${t.origen} → ${t.destino}`)
+    .join("\n");
+
+  const tx = db.transaction(
+    ["settings", "expenses", "transfers", "sync_outbox"],
+    "readwrite"
+  );
+  const { settings, revision } = await bumpRevisionInTx(tx);
+
+  const createdGastoIds = [];
+
+  // Crear 1 gasto por concepto
+  for (const concept of concepts) {
+    const gastoId = uuid();
+    const expense = withAuditFields({
+      gastoId,
+      estado: "pendiente",
+      fecha,
+      monto: 0, // incompleto — el usuario debe completarlo
+      conceptId: concept.conceptId,
+      crCodigo,
+      ctaCodigo: concept.ctaDefaultCodigo || "",
+      partidaCodigo: concept.partidaDefaultCodigo || "",
+      clasificacionCodigo: concept.clasificacionDefaultCodigo || "",
+      docTipo: "Boleta",
+      docNumero: "",
+      detalle: `Visita: ${visita}\n${lines}`,
+      fromTransferId: transferIds[0], // trazabilidad
+      fromTransferIds: transferIds,   // todos los traslados origen
+    }, { deviceId: settings.deviceId, revision });
+
+    tx.objectStore("expenses").put(expense);
+    enqueueEventInTx(tx, {
+      settings,
+      revision,
+      type: "entity.upsert",
+      payload: { entityType: "expense", entityId: gastoId, data: expense },
+    });
+    createdGastoIds.push(gastoId);
+  }
+
+  // Marcar traslados como usados
+  for (const t of transfers) {
+    const updated = withAuditFields({
+      ...t,
+      estado: "usado",
+      gastoId: createdGastoIds[0], // referencia al primer gasto creado
+    }, { deviceId: settings.deviceId, revision });
+    tx.objectStore("transfers").put(updated);
+    enqueueEventInTx(tx, {
+      settings,
+      revision,
+      type: "entity.upsert",
+      payload: { entityType: "transfer", entityId: t.transferId, data: updated },
+    });
+  }
+
+  await tx.done;
+  return { createdGastoIds };
+}
 
 /** =========================
  *  Workflow de estados

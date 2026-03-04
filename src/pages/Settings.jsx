@@ -211,6 +211,21 @@ export default function Settings() {
       <h2>Ajustes</h2>
       {msg && <div className="small" style={{padding:10, border:"1px solid rgba(255,255,255,.12)", borderRadius:12}}>{msg}</div>}
 
+      <h3>Traslados</h3>
+      <div className="row">
+        <TextField
+          label="Punto de partida habitual (casa / oficina)"
+          value={s.defaultOrigen || ""}
+          onChange={(v) => setS({ ...s, defaultOrigen: v })}
+          placeholder="Ej: Oficina Central - Santiago"
+        />
+      </div>
+      <div className="small" style={{ marginBottom: 8 }}>
+        Se usa como referencia al registrar trayectos de combustible.
+      </div>
+
+      <hr />
+
       <h3>Perfil (encabezado rendición)</h3>
       <div className="row">
         <TextField label="Nombre responsable" value={s.responsableNombre} onChange={(v)=>setS({...s, responsableNombre:v})} />
