@@ -3,7 +3,8 @@ import { v4 as uuid } from "uuid";
 
 const DB_NAME = "pettycash_db";
 // DB_VERSION bump: v3 adds sync stores (outbox/state/objects) without changing existing business stores.
-const DB_VERSION = 3;
+// DB_VERSION bump: v4 adds catalog_clasificaciones (non-breaking, additive).
+const DB_VERSION = 4;
 
 // Sync
 const WORKSPACE_ID = "personal";
@@ -28,6 +29,11 @@ export async function getDB() {
       }
       if (!db.objectStoreNames.contains("catalog_partidas")) {
         const s = db.createObjectStore("catalog_partidas", { keyPath: "partidaCodigo" });
+        s.createIndex("activo", "activo");
+      }
+      // v4: catálogo de clasificaciones (código + nombre, igual que CR/cuentas/partidas)
+      if (!db.objectStoreNames.contains("catalog_clasificaciones")) {
+        const s = db.createObjectStore("catalog_clasificaciones", { keyPath: "clasificacionCodigo" });
         s.createIndex("activo", "activo");
       }
 
@@ -164,6 +170,13 @@ export async function ensureSeedData() {
   if (anyPart.length === 0) {
     await db.put("catalog_partidas", { partidaCodigo: "01", partidaNombre: "Operación", activo: true });
     await db.put("catalog_partidas", { partidaCodigo: "02", partidaNombre: "Administración", activo: true });
+  }
+
+  // Seed clasificaciones si está vacío
+  const anyClasif = await db.getAll("catalog_clasificaciones");
+  if (anyClasif.length === 0) {
+    await db.put("catalog_clasificaciones", { clasificacionCodigo: "01", clasificacionNombre: "Nacional", activo: true });
+    await db.put("catalog_clasificaciones", { clasificacionCodigo: "02", clasificacionNombre: "Internacional", activo: true });
   }
 
   // Seed a couple concepts if missing
@@ -370,6 +383,19 @@ export async function listActivePartidas() {
 export async function upsertPartida(item) {
   const db = await getDB();
   await db.put("catalog_partidas", item);
+}
+
+export async function listActiveClasificaciones() {
+  const db = await getDB();
+  const all = await db.getAll("catalog_clasificaciones");
+  return all
+    .filter((x) => x.activo !== false)
+    .sort((a, b) => (a.clasificacionCodigo || "").localeCompare(b.clasificacionCodigo || ""));
+}
+
+export async function upsertClasificacion(item) {
+  const db = await getDB();
+  await db.put("catalog_clasificaciones", item);
 }
 
 export async function listConcepts() {

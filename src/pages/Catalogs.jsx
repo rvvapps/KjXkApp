@@ -7,6 +7,8 @@ import {
   upsertAccount,
   listActivePartidas,
   upsertPartida,
+  listActiveClasificaciones,
+  upsertClasificacion,
 } from "../db.js";
 import TextField from "../components/TextField.jsx";
 
@@ -45,6 +47,10 @@ export default function Catalogs() {
   const [accts, setAccts] = useState([]);
   const [parts, setParts] = useState([]);
 
+  const [clasifs, setClasifs] = useState([]);
+  const [clasificacionCodigo, setClasificacionCodigo] = useState("");
+  const [clasificacionNombre, setClasificacionNombre] = useState("");
+
   const [crCodigo, setCrCodigo] = useState("");
   const [crNombre, setCrNombre] = useState("");
 
@@ -58,11 +64,24 @@ export default function Catalogs() {
     setCrs(await listActiveCR());
     setAccts(await listActiveAccounts());
     setParts(await listActivePartidas());
+    setClasifs(await listActiveClasificaciones());
   }
 
   useEffect(() => {
     refresh();
   }, []);
+
+  async function addClasif() {
+    if (!clasificacionCodigo.trim() || !clasificacionNombre.trim()) return;
+    await upsertClasificacion({
+      clasificacionCodigo: clasificacionCodigo.trim(),
+      clasificacionNombre: clasificacionNombre.trim(),
+      activo: true,
+    });
+    setClasificacionCodigo("");
+    setClasificacionNombre("");
+    await refresh();
+  }
 
   async function addCR() {
     if (!crCodigo.trim() || !crNombre.trim()) return;
@@ -158,6 +177,23 @@ export default function Catalogs() {
               <TextField label="Código" value={partCodigo} onChange={setPartCodigo} />
               <TextField label="Nombre" value={partNombre} onChange={setPartNombre} />
               <button className="btn" style={{ alignSelf: "end" }} onClick={addPart}>
+                Agregar
+              </button>
+            </div>
+          }
+        />
+        <CatalogBlock
+          title="Clasificaciones"
+          rows={clasifs.map((x) => ({
+            code: x.clasificacionCodigo,
+            name: x.clasificacionNombre,
+            activo: x.activo,
+          }))}
+          onAdd={
+            <div className="row">
+              <TextField label="Código" value={clasificacionCodigo} onChange={setClasificacionCodigo} />
+              <TextField label="Nombre" value={clasificacionNombre} onChange={setClasificacionNombre} />
+              <button className="btn" style={{ alignSelf: "end" }} onClick={addClasif}>
                 Agregar
               </button>
             </div>

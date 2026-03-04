@@ -247,18 +247,20 @@ export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items
 export async function buildExportItems(gastoIds) {
   const db = await getDB();
 
-  const [expenses, concepts, crs, accounts, partidas] = await Promise.all([
+  const [expenses, concepts, crs, accounts, partidas, clasificaciones] = await Promise.all([
     Promise.all(gastoIds.map((id) => db.get("expenses", id))),
     db.getAll("concepts"),
     db.getAll("catalog_cr"),
     db.getAll("catalog_accounts"),
     db.getAll("catalog_partidas"),
+    db.getAll("catalog_clasificaciones").catch(() => []),
   ]);
 
   const conceptById = new Map(concepts.map((c) => [c.conceptId ?? c.id, c]));
   const crByCode = new Map(crs.map((c) => [c.crCodigo, c]));
   const accByCode = new Map(accounts.map((a) => [a.ctaCodigo, a]));
   const partidaByCode = new Map(partidas.map((p) => [p.partidaCodigo, p]));
+  const clasifByCode = new Map((clasificaciones || []).map((x) => [x.clasificacionCodigo, x]));
 
   return (expenses || [])
     .filter(Boolean)
@@ -289,7 +291,7 @@ export async function buildExportItems(gastoIds) {
         partidaCodigo,
         partidaNombre: part?.partidaNombre ?? "",
         clasificacionCodigo: e.clasificacionCodigo ?? e.clasificacion ?? "",
-        clasificacionNombre: e.clasificacionNombre ?? "",
+        clasificacionNombre: clasifByCode.get(e.clasificacionCodigo ?? e.clasificacion ?? "")?.clasificacionNombre ?? e.clasificacionNombre ?? "",
         monto: Number(e.monto ?? 0),
       };
     });

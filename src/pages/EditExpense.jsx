@@ -8,6 +8,7 @@ import {
   listActiveCR,
   listActiveAccounts,
   listActivePartidas,
+  listActiveClasificaciones,
   listAttachmentsForExpense,
   addAttachment,
   deleteAttachment,
@@ -27,6 +28,7 @@ export default function EditExpense() {
   const [crs, setCrs] = useState([]);
   const [accts, setAccts] = useState([]);
   const [parts, setParts] = useState([]);
+  const [clasifs, setClasifs] = useState([]);
   const [atts, setAtts] = useState([]);
 
   const prevConceptIdRef = useRef(null);
@@ -44,6 +46,7 @@ export default function EditExpense() {
       setCrs(await listActiveCR());
       setAccts(await listActiveAccounts());
       setParts(await listActivePartidas());
+      setClasifs(await listActiveClasificaciones());
       setAtts(await listAttachmentsForExpense(gastoId));
 
       // FIX: evaluar el lock apenas se carga el gasto
@@ -307,10 +310,12 @@ export default function EditExpense() {
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
           placeholder="Seleccione..."
         />
-        <TextField
-          label="Clasificación (código)"
+        <SelectField
+          label="Clasificación"
           value={expense.clasificacionCodigo || ""}
           onChange={(v) => !locked && setExpense({ ...expense, clasificacionCodigo: v })}
+          options={clasifs.map((x) => ({ value: x.clasificacionCodigo, label: `${x.clasificacionCodigo} - ${x.clasificacionNombre}` }))}
+          placeholder="Sin clasificación..."
         />
       </div>
 

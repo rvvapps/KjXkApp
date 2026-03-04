@@ -9,6 +9,7 @@ import {
   listActiveCR,
   listActiveAccounts,
   listActivePartidas,
+  listActiveClasificaciones,
   listConcepts,
   markTransfersUsed,
 } from "../db.js";
@@ -60,6 +61,7 @@ export default function NewExpense() {
   const [crs, setCrs] = useState([]);
   const [accts, setAccts] = useState([]);
   const [parts, setParts] = useState([]);
+  const [clasifs, setClasifs] = useState([]);
 
   const [conceptId, setConceptId] = useState("");
   const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
@@ -90,6 +92,7 @@ export default function NewExpense() {
       setCrs(await listActiveCR());
       setAccts(await listActiveAccounts());
       setParts(await listActivePartidas());
+      setClasifs(await listActiveClasificaciones());
 
       // Aplicar prefill (si viene desde Traslados)
       if (prefill) {
@@ -325,11 +328,12 @@ export default function NewExpense() {
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
           placeholder="Seleccione partida..."
         />
-        <TextField
-          label="Clasificación (código)"
+        <SelectField
+          label="Clasificación"
           value={clasificacionCodigo}
           onChange={setClasificacionCodigo}
-          placeholder="(opcional por ahora)"
+          options={clasifs.map((x) => ({ value: x.clasificacionCodigo, label: `${x.clasificacionCodigo} - ${x.clasificacionNombre}` }))}
+          placeholder="Sin clasificación..."
         />
       </div>
 

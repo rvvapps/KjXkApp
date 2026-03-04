@@ -7,7 +7,8 @@ import {
   activateConcept,
   listActiveAccounts,
   listActivePartidas,
-  countExpensesByConceptId, // ✅ NUEVO
+  listActiveClasificaciones,
+  countExpensesByConceptId,
 } from "../db.js";
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
@@ -28,6 +29,7 @@ export default function Concepts() {
   const [concepts, setConcepts] = useState([]);
   const [accts, setAccts] = useState([]);
   const [parts, setParts] = useState([]);
+  const [clasifs, setClasifs] = useState([]);
   const [form, setForm] = useState(emptyForm);
   const [msg, setMsg] = useState("");
 
@@ -42,6 +44,7 @@ export default function Concepts() {
     setConcepts(all);
     setAccts(await listActiveAccounts());
     setParts(await listActivePartidas());
+    setClasifs(await listActiveClasificaciones());
 
     // calcular uso para todos (1 vez por refresh)
     const pairs = await Promise.all(
@@ -224,11 +227,12 @@ export default function Concepts() {
         </div>
 
         <div className="row" style={{ marginTop: 12 }}>
-          <TextField
-            label="Clasificación por defecto (código)"
+          <SelectField
+            label="Clasificación por defecto"
             value={form.clasificacionDefaultCodigo || ""}
             onChange={(v) => setForm({ ...form, clasificacionDefaultCodigo: v })}
-            placeholder="Opcional por ahora"
+            options={clasifs.map((x) => ({ value: x.clasificacionCodigo, label: `${x.clasificacionCodigo} - ${x.clasificacionNombre}` }))}
+            placeholder="Sin clasificación..."
           />
         </div>
 
