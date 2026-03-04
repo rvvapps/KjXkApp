@@ -44,15 +44,26 @@ export async function compressImageFile(file, { maxDim = 1600, quality = 0.72 } 
 // - compute sha256 hash of final blob for OneDrive object key
 // Returns { blob, mimeType, filename, width, height, sizeBytes, contentHash }
 export async function prepareReceiptImage(file, { maxDim = 1600, quality = 0.72 } = {}) {
+  // PDFs: skip compression, store as-is
+  if (file.type === "application/pdf") {
+    const contentHash = await sha256Hex(file);
+    return {
+      blob: file,
+      mimeType: "application/pdf",
+      filename: file.name || "boleta.pdf",
+      width: null,
+      height: null,
+      sizeBytes: file.size,
+      contentHash,
+    };
+  }
+
   const compressed = await compressImageFile(file, { maxDim, quality });
-  // Determine dimensions from the compressed file (cheap: decode as image again)
   const img = document.createElement("img");
   const url = URL.createObjectURL(compressed);
   img.src = url;
   await img.decode();
   URL.revokeObjectURL(url);
-  const width = img.width;
-  const height = img.height;
 
   const blob = compressed instanceof File ? compressed : new File([compressed], "boleta", { type: compressed.type });
   const contentHash = await sha256Hex(blob);
@@ -61,8 +72,8 @@ export async function prepareReceiptImage(file, { maxDim = 1600, quality = 0.72 
     blob,
     mimeType: blob.type,
     filename: blob.name || `receipt.${blob.type === "image/webp" ? "webp" : "jpg"}`,
-    width,
-    height,
+    width: img.width,
+    height: img.height,
     sizeBytes: blob.size,
     contentHash,
   };
