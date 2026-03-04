@@ -21,7 +21,8 @@ jobs:
 
     env:
       NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
-      NODE_ENV: "development"
+      # FIX: era "development", causaba bundle sin optimizar en producción
+      NODE_ENV: "production"
       NPM_CONFIG_AUDIT: "false"
       NPM_CONFIG_FUND: "false"
       NPM_CONFIG_FETCH_TIMEOUT: "300000"
