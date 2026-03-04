@@ -22,6 +22,8 @@ function formatProgress(p) {
       if (phase === "insert_begin") return `Iniciando restauración (${p.stores ?? "?"} stores)...`;
       if (phase === "decrypt") return "Descifrando...";
       if (phase === "unzip") return "Abriendo ZIP...";
+      if (phase === "hydrate") return "Preparando boletas...";
+      if (phase === "hydrate_store") return `Preparando boletas (${p.count ?? "?"})...`;
       if (phase === "parse") return "Procesando datos...";
       if (phase === "open_db") return "Abriendo base local...";
       if (phase === "read") return "Leyendo datos...";

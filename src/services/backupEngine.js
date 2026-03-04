@@ -22,14 +22,12 @@ function withTimeout(promise, ms, code) {
   });
 }
 
-// FIX v0.1.1: dumpAllStores recibe tick y timeoutMs como parámetros
 async function dumpAllStores(tick, timeoutMs) {
   tick("open_db");
   const db = await withTimeout(getDB(), timeoutMs, "open_db_timeout");
   const storeNames = Array.from(db.objectStoreNames);
   const stores = {};
   const storeCounts = {};
-
   for (const name of storeNames) {
     const tx = db.transaction(name, "readonly");
     const all = await tx.objectStore(name).getAll();
@@ -40,7 +38,6 @@ async function dumpAllStores(tick, timeoutMs) {
   return { stores, storeCounts };
 }
 
-// FIX v0.1.1: opts es ahora parámetro explícito
 export async function buildPlainBackupZipBytes(opts = {}) {
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
@@ -111,7 +108,7 @@ export async function generateEncryptedBackupBlob(passphrase, opts = {}) {
   return { blob: encBlob, storeCounts };
 }
 
-// FIX v0.1.2: clear por cursor en lugar de .clear() que puede colgarse
+// Clear por cursor — 1 tx por store, sin awaits externos que expiren la tx
 async function clearStoreByCursor(db, storeName) {
   const tx = db.transaction(storeName, "readwrite");
   const store = tx.objectStore(storeName);
@@ -123,6 +120,30 @@ async function clearStoreByCursor(db, storeName) {
   await tx.done;
 }
 
+// FIX v0.1.3: pre-hidratar todos los blobs ANTES de abrir la tx de insert.
+// El error "transaction has finished" ocurre cuando hay awaits lentos (ej: descomprimir
+// un blob del ZIP) DENTRO de una transacción IDB activa. La solución es separar
+// completamente la fase async-lenta (pre-hydration) de la fase de escritura IDB.
+async function preHydrateStoreRows(storeName, rows, zip) {
+  if (storeName !== "attachments") return rows;
+
+  const hydrated = [];
+  for (const rec of rows) {
+    if (rec && rec.__blobRef) {
+      // Este await puede tardar — lo hacemos FUERA de cualquier tx IDB
+      const buf = await zip.file(rec.__blobRef)?.async("arraybuffer");
+      const blob = buf
+        ? new Blob([buf], { type: rec.mimeType || "application/octet-stream" })
+        : null;
+      const { __blobRef, ...rest } = rec;
+      hydrated.push({ ...rest, blob });
+    } else {
+      hydrated.push(rec);
+    }
+  }
+  return hydrated;
+}
+
 export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts = {}) {
   if (!fileBlob) throw new Error("missing_file");
   if (!passphrase || passphrase.length < 6) {
@@ -131,13 +152,13 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
     throw err;
   }
 
-  // FIX v0.1.1: tick y timeoutMs definidos al inicio
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 60000;
   const tick = (phase, extra) => { try { onProgress && onProgress({ phase, ...extra }); } catch {} };
 
   tick("decrypt");
   const plainBytes = await withTimeout(decryptToBytes(passphrase, fileBlob), timeoutMs, "decrypt_timeout");
+
   tick("unzip");
   const zip = await withTimeout(JSZip.loadAsync(plainBytes), timeoutMs, "unzip_timeout");
 
@@ -159,36 +180,44 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
   const db = await getDB();
   const storeNames = Array.from(db.objectStoreNames);
 
-  // FIX v0.1.2: clear por cursor, 1 tx por store (evita colgado de .clear() en tx multi-store)
+  // FASE 1 — Pre-hidratar blobs (lento, FUERA de cualquier tx IDB)
+  tick("hydrate");
+  const hydratedStores = {};
+  for (const name of storeNames) {
+    const rows = stores[name];
+    if (!Array.isArray(rows)) {
+      hydratedStores[name] = [];
+      continue;
+    }
+    if (name === "attachments") {
+      tick("hydrate_store", { store: name, count: rows.length });
+    }
+    hydratedStores[name] = await preHydrateStoreRows(name, rows, zip);
+  }
+
+  // FASE 2 — Clear por cursor, 1 tx por store
   tick("clear_stores", { stores: storeNames.length });
   for (const name of storeNames) {
     tick("clear_store", { store: name });
     await clearStoreByCursor(db, name);
   }
 
-  // Insert store data — 1 transacción por store (evita "transaction has finished")
+  // FASE 3 — Insert: 1 tx por store, SIN awaits externos dentro de la tx
   tick("insert_begin", { stores: storeNames.length });
   for (const name of storeNames) {
-    const rows = stores[name];
-    if (!Array.isArray(rows)) continue;
+    const rows = hydratedStores[name];
+    if (!rows.length) continue;
 
     insertedCounts[name] = rows.length;
     tick("insert_store", { store: name, count: rows.length });
 
+    // Todos los registros ya están hidratados — solo puts síncronos dentro de la tx
     const tx = db.transaction(name, "readwrite");
     const os = tx.objectStore(name);
-
     for (const rec of rows) {
-      if (name === "attachments" && rec && rec.__blobRef) {
-        const buf = await zip.file(rec.__blobRef)?.async("arraybuffer");
-        const blob = buf ? new Blob([buf], { type: rec.mimeType || "application/octet-stream" }) : null;
-        const { __blobRef, ...rest } = rec;
-        await os.put({ ...rest, blob });
-      } else {
-        await os.put(rec);
-      }
+      os.put(rec); // SIN await — encolar todos los puts y dejar que IDB los procese
     }
-    await tx.done;
+    await tx.done; // esperar que la tx complete todos los puts
   }
 
   tick("done", { insertedCounts });
