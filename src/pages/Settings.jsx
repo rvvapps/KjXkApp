@@ -130,6 +130,8 @@ export default function Settings() {
           setBackupMsg(`❌ Error subiendo backup: ${r.error || "put_failed"}`);
           return;
         }
+        await saveSettings({ lastBackupAt: new Date().toISOString(), lastBackupName: fileName });
+        setSettings(await getSettings());
         setBackupMsg(`✅ Backup subido a OneDrive: exports/${fileName} (Gastos: ${storeCounts.expenses ?? 0}, Rendiciones: ${storeCounts.reimbursements ?? 0}, Boletas: ${storeCounts.attachments ?? 0})`);
       } else {
         const url = URL.createObjectURL(blob);
@@ -140,6 +142,8 @@ export default function Settings() {
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        await saveSettings({ lastBackupAt: new Date().toISOString(), lastBackupName: fileName });
+        setSettings(await getSettings());
         setBackupMsg(`✅ Backup generado: ${fileName} (Gastos: ${storeCounts.expenses ?? 0}, Rendiciones: ${storeCounts.reimbursements ?? 0}, Boletas: ${storeCounts.attachments ?? 0})`);
       }
     } catch (e) {

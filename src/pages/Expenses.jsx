@@ -28,13 +28,22 @@ export default function Expenses() {
     const [exps, concs] = await Promise.all([listPendingExpenses(), listConcepts()]);
     setExpenses(exps);
     setConcepts(concs);
+    // Adjuntos se cargan lazy al primer click en el ícono (ver loadAtts)
+    // Solo refrescamos los que ya estaban cargados
+    setAttachData((prev) => {
+      const next = { ...prev };
+      // Eliminar entradas de gastos que ya no existen
+      for (const id of Object.keys(next)) {
+        if (!exps.find((e) => e.gastoId === id)) delete next[id];
+      }
+      return next;
+    });
+  }
 
-    // Cargar adjuntos por gasto
-    const data = {};
-    await Promise.all(exps.map(async (e) => {
-      data[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
-    }));
-    setAttachData(data);
+  async function loadAtts(gastoId) {
+    if (attachData[gastoId]) return; // ya cargado
+    const atts = await listAttachmentsForExpense(gastoId).catch(() => []);
+    setAttachData((prev) => ({ ...prev, [gastoId]: atts }));
   }
 
   useEffect(() => { refresh(); }, [location.pathname]);
@@ -91,7 +100,8 @@ export default function Expenses() {
         problems.push(`Falta partida en: "${label}"`);
       if (concept?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
         problems.push(`Falta N° doc en: "${label}"`);
-      if (concept?.requiereRespaldo && (attachData[id]?.length ?? 0) === 0)
+      const attsForValidation = attachData[id] ?? await listAttachmentsForExpense(id).catch(() => []);
+      if (concept?.requiereRespaldo && attsForValidation.length === 0)
         problems.push(`Falta respaldo (foto) en: "${label}"`);
     }
     return problems;
@@ -159,7 +169,7 @@ export default function Expenses() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
               {isIncomplete && <span title="Falta completar monto" style={{ color: "#facc15" }}>⚠️</span>}
-              <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} />
+              <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} onExpand={() => loadAtts(e.gastoId)} />
               {label}
             </div>
             <div className="small">

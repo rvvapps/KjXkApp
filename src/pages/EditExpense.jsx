@@ -204,7 +204,7 @@ export default function EditExpense() {
     if (!confirm("¿Eliminar este gasto y sus adjuntos? Esta acción no se puede deshacer.")) return;
     try {
       await deleteExpense(gastoId);
-      nav("/", { replace: true });
+      nav("/gastos", { replace: true });
     } catch (e) {
       const code = e?.code || e?.message || "error";
       if (code === "not_deletable") {

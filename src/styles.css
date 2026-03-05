@@ -24,3 +24,10 @@ hr { border: 0; border-top: 1px solid rgba(255,255,255,.10); margin: 14px 0; }
 .pill { padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); font-size: 12px; opacity: .9; }
 .grid2 { display:grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 760px){ .grid2{ grid-template-columns: 1fr 1fr; } }
+/* Nav responsive */
+.nav-mobile { display: none; }
+.nav-desktop { display: flex; }
+@media (max-width: 640px) {
+  .nav-mobile { display: block; }
+  .nav-desktop { display: none; }
+}

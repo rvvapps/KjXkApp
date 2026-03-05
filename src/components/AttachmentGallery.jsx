@@ -10,7 +10,7 @@ import React from "react";
  *   onRemove   — fn(adjuntoId), opcional
  *   showIcon   — bool (default true), muestra el ícono 📎 como trigger
  */
-export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true }) {
+export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true, onExpand }) {
   const [expanded, setExpanded] = React.useState(false);
   const [lightbox, setLightbox] = React.useState(null); // { url, filename }
 
@@ -30,9 +30,11 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
   const single = items.length === 1;
 
   function handleIconClick() {
+    if (!hasAtts && !onExpand) return;
+    // Lazy load: si no hay adjuntos cargados aún, disparar onExpand y esperar
+    if (onExpand) onExpand();
     if (!hasAtts) return;
     if (single) {
-      // Abrir lightbox directo si es imagen, o nueva pestaña si es PDF
       const a = items[0];
       if (a.isImage && a.objectUrl) setLightbox({ url: a.objectUrl, filename: a.filename });
       else if (a.objectUrl) window.open(a.objectUrl, "_blank");
@@ -47,15 +49,16 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
       {showIcon && (
         <span
           title={
-            !hasAtts ? "Sin imagen adjunta"
+            !hasAtts && !onExpand ? "Sin imagen adjunta"
+            : !hasAtts ? "Click para cargar adjuntos"
             : single ? "Ver adjunto"
             : `${items.length} adjuntos — click para ver`
           }
           onClick={handleIconClick}
           style={{
             fontSize: 15,
-            opacity: hasAtts ? 1 : 0.25,
-            cursor: hasAtts ? "pointer" : "default",
+            opacity: (hasAtts || onExpand) ? 1 : 0.25,
+            cursor: (hasAtts || onExpand) ? "pointer" : "default",
             userSelect: "none",
           }}
         >📎</span>

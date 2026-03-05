@@ -15,12 +15,12 @@ import { ensureSeedData } from "./db.js";
 
 export default function App() {
   const [openMenu, setOpenMenu] = React.useState(false);
+  const [openHamburger, setOpenHamburger] = React.useState(false);
 
   useEffect(() => {
     ensureSeedData();
   }, []);
 
-  // Cerrar el menú Maestros al hacer click fuera
   useEffect(() => {
     if (!openMenu) return;
     const handler = (e) => {
@@ -30,58 +30,90 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handler);
   }, [openMenu]);
 
+  useEffect(() => {
+    if (!openHamburger) return;
+    const handler = (e) => {
+      if (!e.target.closest("[data-menu='hamburger']")) setOpenHamburger(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [openHamburger]);
+
+  function NavLink({ to, children }) {
+    return (
+      <Link className="btn secondary" to={to} onClick={() => setOpenHamburger(false)}>
+        {children}
+      </Link>
+    );
+  }
+
   return (
     <div className="container">
-      <header className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div>
           <h1 style={{ margin: 0 }}>Caja Chica</h1>
-          <div className="small">Offline-first · Exporta Excel (template) + PDF respaldos</div>
+          <div className="small">Offline-first · Exporta Excel + PDF</div>
         </div>
 
-        <nav className="row" style={{ position: "relative" }}>
+        {/* Nav desktop — oculto en móvil */}
+        <nav className="row nav-desktop" style={{ position: "relative" }}>
           <Link className="btn secondary" to="/">Inicio</Link>
           <Link className="btn secondary" to="/traslados">Traslados</Link>
           <Link className="btn secondary" to="/gastos">Gastos</Link>
           <Link className="btn secondary" to="/rendiciones">Rendiciones</Link>
 
-          {/* Dropdown Maestros */}
           <div data-menu="maestros" style={{ position: "relative" }}>
-            <button
-              className="btn secondary"
-              onClick={() => setOpenMenu((v) => !v)}
-            >
+            <button className="btn secondary" onClick={() => setOpenMenu((v) => !v)}>
               Maestros ▼
             </button>
-
             {openMenu && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "110%",
-                  left: 0,
-                  background: "#111",
-                  border: "1px solid rgba(255,255,255,.15)",
-                  borderRadius: 12,
-                  padding: 8,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                  minWidth: 160,
-                  zIndex: 1000,
-                }}
-              >
-                <Link className="btn secondary" to="/maestros" onClick={() => setOpenMenu(false)}>
-                  Catálogos
-                </Link>
-                <Link className="btn secondary" to="/maestros/conceptos" onClick={() => setOpenMenu(false)}>
-                  Conceptos
-                </Link>
+              <div style={{
+                position: "absolute", top: "110%", left: 0,
+                background: "#111", border: "1px solid rgba(255,255,255,.15)",
+                borderRadius: 12, padding: 8,
+                display: "flex", flexDirection: "column", gap: 6,
+                minWidth: 160, zIndex: 1000,
+              }}>
+                <Link className="btn secondary" to="/maestros" onClick={() => setOpenMenu(false)}>Catálogos</Link>
+                <Link className="btn secondary" to="/maestros/conceptos" onClick={() => setOpenMenu(false)}>Conceptos</Link>
               </div>
             )}
           </div>
 
           <Link className="btn secondary" to="/ajustes">Ajustes</Link>
         </nav>
+
+        {/* Hamburguesa — solo en móvil */}
+        <div data-menu="hamburger" className="nav-mobile" style={{ position: "relative" }}>
+          <button
+            className="btn secondary"
+            onClick={() => setOpenHamburger((v) => !v)}
+            style={{ fontSize: 20, padding: "6px 14px" }}
+          >
+            {openHamburger ? "✕" : "☰"}
+          </button>
+
+          {openHamburger && (
+            <div style={{
+              position: "absolute", top: "110%", right: 0,
+              background: "#111", border: "1px solid rgba(255,255,255,.15)",
+              borderRadius: 14, padding: 10,
+              display: "flex", flexDirection: "column", gap: 8,
+              minWidth: 180, zIndex: 1000,
+              boxShadow: "0 8px 32px rgba(0,0,0,.5)",
+            }}>
+              <NavLink to="/">🏠 Inicio</NavLink>
+              <NavLink to="/traslados">🚗 Traslados</NavLink>
+              <NavLink to="/gastos">📋 Gastos</NavLink>
+              <NavLink to="/rendiciones">📑 Rendiciones</NavLink>
+              <div style={{ borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                <NavLink to="/maestros">📂 Catálogos</NavLink>
+                <NavLink to="/maestros/conceptos">🏷️ Conceptos</NavLink>
+                <NavLink to="/ajustes">⚙️ Ajustes</NavLink>
+              </div>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* ErrorBanner: visible en todas las páginas, se oculta solo */}

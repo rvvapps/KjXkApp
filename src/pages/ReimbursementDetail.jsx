@@ -60,12 +60,12 @@ export default function ReimbursementDetail() {
       const its = await listReimbursementItems(rendicionId);
       setItems(its);
 
-      const exps = [];
-      for (const it of its) {
-        const e = await getExpense(it.gastoId);
-        if (e) exps.push({ ...e, _orden: it.orden ?? 0 });
-      }
-      exps.sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
+      // Cargar gastos en paralelo
+      const rawExps = await Promise.all(its.map((it) => getExpense(it.gastoId)));
+      const exps = rawExps
+        .map((e, i) => e ? { ...e, _orden: its[i].orden ?? 0 } : null)
+        .filter(Boolean)
+        .sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
       setExpenses(exps);
 
       // Cargar gastos pendientes para panel "agregar"
@@ -94,12 +94,11 @@ export default function ReimbursementDetail() {
     setReim(r);
     const its = await listReimbursementItems(rendicionId);
     setItems(its);
-    const exps = [];
-    for (const it of its) {
-      const e = await getExpense(it.gastoId);
-      if (e) exps.push({ ...e, _orden: it.orden ?? 0 });
-    }
-    exps.sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
+    const rawExps = await Promise.all(its.map((it) => getExpense(it.gastoId)));
+    const exps = rawExps
+      .map((e, i) => e ? { ...e, _orden: its[i].orden ?? 0 } : null)
+      .filter(Boolean)
+      .sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
     setExpenses(exps);
     setPendingExpenses(await listPendingExpenses());
     // Recargar adjuntos
