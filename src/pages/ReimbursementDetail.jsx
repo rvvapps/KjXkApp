@@ -8,6 +8,7 @@ import {
   sendReimbursement,
   returnReimbursement,
   approveReimbursement,
+  markReimbursementPagada,
   setReimbursementSnapshot,
   listAttachmentsForExpense,
   listConcepts,
@@ -414,6 +415,32 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
             </>
           )}
 
+          {reim.estado === "aprobada" && (
+            <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <div className="small" style={{ marginBottom: 10, opacity: 0.8 }}>
+                ✅ Rendición aprobada — marca como pagada cuando recibas el depósito.
+              </div>
+              <button
+                className="btn"
+                disabled={busy}
+                style={{ background: "#22c55e", color: "#001a0a" }}
+                onClick={async () => {
+                  if (!confirm("¿Marcar esta rendición como pagada?\n\nEsta acción confirma que recibiste el depósito.")) return;
+                  setBusy(true);
+                  try {
+                    await markReimbursementPagada({ rendicionId: reim.rendicionId });
+                    setMsg("✅ Rendición marcada como pagada.");
+                    await reloadAll();
+                  } catch (e) {
+                    setMsg("Error: " + (e?.message || "No se pudo marcar como pagada."));
+                  } finally { setBusy(false); }
+                }}
+              >
+                💰 Marcar como pagada
+              </button>
+            </div>
+          )}
+
           {reim.estado === "devuelta" && (
             <button
               className="btn"
@@ -555,7 +582,33 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
                     ) : (
                       <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>Editar</Link>
                     )}
-                    {reim.estado === "devuelta" && (
+                    {reim.estado === "aprobada" && (
+            <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+              <div className="small" style={{ marginBottom: 10, opacity: 0.8 }}>
+                ✅ Rendición aprobada — marca como pagada cuando recibas el depósito.
+              </div>
+              <button
+                className="btn"
+                disabled={busy}
+                style={{ background: "#22c55e", color: "#001a0a" }}
+                onClick={async () => {
+                  if (!confirm("¿Marcar esta rendición como pagada?\n\nEsta acción confirma que recibiste el depósito.")) return;
+                  setBusy(true);
+                  try {
+                    await markReimbursementPagada({ rendicionId: reim.rendicionId });
+                    setMsg("✅ Rendición marcada como pagada.");
+                    await reloadAll();
+                  } catch (e) {
+                    setMsg("Error: " + (e?.message || "No se pudo marcar como pagada."));
+                  } finally { setBusy(false); }
+                }}
+              >
+                💰 Marcar como pagada
+              </button>
+            </div>
+          )}
+
+          {reim.estado === "devuelta" && (
                       <>
                         <button className="btn secondary" disabled={busy} onClick={() => handleRemoveExpense(e.gastoId)}>
                           Quitar

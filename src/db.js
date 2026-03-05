@@ -1212,3 +1212,18 @@ export async function setReimbursementSnapshot({ rendicionId, excelBlob = null, 
   await db.put("reimbursements", r);
   return r;
 }
+
+export async function markReimbursementPagada({ rendicionId }) {
+  const db = await getDB();
+  const r = await db.get("reimbursements", rendicionId);
+  if (!r) throw new Error("Rendición no encontrada.");
+  if (r.estado !== "aprobada") throw Object.assign(
+    new Error(`Solo se puede marcar como pagada una rendición aprobada (estado actual: "${r.estado}").`),
+    { code: "invalid_state" }
+  );
+  r.estado = "pagada";
+  r.pagadaAt = new Date().toISOString();
+  r.updatedAt = new Date().toISOString();
+  await db.put("reimbursements", r);
+  return r;
+}

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { listReimbursements } from "../db.js";
 
-const ESTADOS = ["todos", "borrador", "enviada", "devuelta", "aprobada"];
+const ESTADOS = ["todos", "borrador", "enviada", "devuelta", "aprobada", "pagada"];
 
 const ESTADO_LABEL = {
   todos: "Todos",
@@ -10,13 +10,15 @@ const ESTADO_LABEL = {
   enviada: "Enviada",
   devuelta: "Devuelta",
   aprobada: "Aprobada",
+  pagada: "Pagada",
 };
 
 const ESTADO_COLOR = {
-  borrador: "rgba(148,163,184,.2)",
-  enviada:  "rgba(99,102,241,.25)",
-  devuelta: "rgba(250,204,21,.2)",
-  aprobada: "rgba(34,197,94,.2)",
+  borrador: "rgba(148,163,184,.08)",
+  enviada:  "rgba(14,165,233,.10)",
+  devuelta: "rgba(239,68,68,.10)",
+  aprobada: "rgba(99,102,241,.10)",
+  pagada:   "rgba(34,197,94,.10)",
 };
 
 export default function Reimbursements() {
