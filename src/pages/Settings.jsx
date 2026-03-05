@@ -115,17 +115,17 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
                   <button className="btn secondary" style={{ alignSelf: "end" }} onClick={() => setEditing(null)}>✕</button>
                 </div>
               ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 120 }}>
                     <b>{r.code}</b><span className="small"> — {r.name}</span>
                     {r.activo === false && <span className="small" style={{ opacity: 0.6 }}> · inactivo</span>}
                   </div>
-                  <div className="row" style={{ gap: 4 }}>
-                    <button className="btn secondary" onClick={() => setEditing({ code: r.code, name: r.name, originalCode: r.code })}>Editar</button>
-                    <button className="btn secondary" onClick={() => onSave({ ...r, activo: r.activo === false ? true : false })}>
-                      {r.activo === false ? "Activar" : "Desactivar"}
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <button className="btn secondary" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => setEditing({ code: r.code, name: r.name, originalCode: r.code })}>Editar</button>
+                    <button className="btn secondary" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => onSave({ ...r, activo: r.activo === false ? true : false })}>
+                      {r.activo === false ? "Activar" : "Desact."}
                     </button>
-                    <button className="btn danger" onClick={() => handleDelete(r)}>Eliminar</button>
+                    <button className="btn danger" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => handleDelete(r)}>Elim.</button>
                   </div>
                 </div>
               )}
