@@ -154,7 +154,7 @@ export default function Dashboard() {
         {/* ── GASTOS PENDIENTES ── */}
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Pendiente</h2>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Pendiente</h2>
             <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13 }}>+ Nuevo gasto</Link>
           </div>
 
@@ -174,7 +174,7 @@ export default function Dashboard() {
         {/* ── RENDICIONES ── */}
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Rendiciones</h2>
+            <h2 style={{ margin: 0, fontSize: 16 }}>Rendiciones</h2>
             <Link className="btn secondary" to="/rendiciones" style={{ fontSize: 13 }}>Ver todas</Link>
           </div>
 

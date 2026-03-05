@@ -201,8 +201,11 @@ function TabApp() {
       <div className="row" style={{ gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {SECTIONS.map((sec) => (
           <button key={sec.id} className="btn secondary" onClick={() => setSection(sec.id)} style={{
-            background: section === sec.id ? "rgba(255,255,255,.12)" : "transparent",
-            fontWeight: section === sec.id ? 800 : 400,
+            background: section === sec.id ? "rgba(255,255,255,.15)" : "rgba(255,255,255,.04)",
+            border: section === sec.id ? "1px solid rgba(255,255,255,.35)" : "1px solid rgba(255,255,255,.12)",
+            color: section === sec.id ? "#fff" : "rgba(255,255,255,.7)",
+            fontWeight: section === sec.id ? 700 : 500,
+            fontSize: 13,
           }}>
             {sec.label}
           </button>
@@ -531,9 +534,11 @@ export default function Settings() {
         <div className="row" style={{ gap: 6 }}>
           {TABS.map((t) => (
             <button key={t} className="btn" onClick={() => setTab(t)} style={{
-              background: tab === t ? "rgba(255,255,255,.15)" : "transparent",
-              border: tab === t ? "1px solid rgba(255,255,255,.4)" : "1px solid rgba(255,255,255,.12)",
-              fontWeight: tab === t ? 800 : 400,
+              background: tab === t ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
+              border: tab === t ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
+              color: tab === t ? "#fff" : "rgba(255,255,255,.75)",
+              fontWeight: tab === t ? 800 : 500,
+              fontSize: 14,
             }}>{t}</button>
           ))}
         </div>
@@ -542,7 +547,6 @@ export default function Settings() {
       {/* ── PERFIL ── */}
       {tab === "Perfil" && (
         <div className="card">
-          <h2>Perfil</h2>
           <h3>Datos personales</h3>
           <div className="row">
             <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
@@ -578,7 +582,6 @@ export default function Settings() {
       {/* ── DATOS ── */}
       {tab === "Datos" && (
         <div className="card">
-          <h2>Datos</h2>
 
           {/* Estado backup */}
           {s.lastBackupAt && (

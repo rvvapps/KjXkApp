@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Routes, Route, Link, Navigate } from "react-router-dom";
+import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.jsx";
 import NewExpense from "./pages/NewExpense.jsx";
 import Reimbursements from "./pages/Reimbursements.jsx";
@@ -11,13 +11,50 @@ import Expenses from "./pages/Expenses.jsx";
 import ErrorBanner from "./components/ErrorBanner.jsx";
 import { ensureSeedData } from "./db.js";
 
-export default function App() {
+const PAGE_TITLES = {
+  "/":            "Inicio",
+  "/traslados":   "Traslados",
+  "/gastos":      "Gastos",
+  "/gastos/nuevo":"Nuevo gasto",
+  "/rendiciones": "Rendiciones",
+  "/ajustes":     "Ajustes",
+};
+
+function getPageTitle(pathname) {
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  if (pathname.startsWith("/gastos/")) return "Editar gasto";
+  if (pathname.startsWith("/rendiciones/")) return "Detalle rendición";
+  return "Caja Chica";
+}
+
+function NavItem({ to, label, currentPath, onClick }) {
+  const active = currentPath === to || (to !== "/" && currentPath.startsWith(to));
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      style={{
+        padding: "6px 14px",
+        borderRadius: 10,
+        border: active ? "1px solid rgba(255,255,255,.35)" : "1px solid transparent",
+        background: active ? "rgba(255,255,255,.10)" : "transparent",
+        color: active ? "#fff" : "rgba(255,255,255,.6)",
+        fontWeight: active ? 700 : 400,
+        fontSize: 14,
+        textDecoration: "none",
+        whiteSpace: "nowrap",
+        transition: "all .15s",
+      }}
+    >
+      {label}
+    </Link>
+  );
+}
+
+function AppContent() {
+  const location = useLocation();
   const [openHamburger, setOpenHamburger] = React.useState(false);
-
-  useEffect(() => {
-    ensureSeedData();
-  }, []);
-
+  const pageTitle = getPageTitle(location.pathname);
 
   useEffect(() => {
     if (!openHamburger) return;
@@ -28,38 +65,48 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handler);
   }, [openHamburger]);
 
-  function NavLink({ to, children }) {
-    return (
-      <Link className="btn secondary" to={to} onClick={() => setOpenHamburger(false)}>
-        {children}
-      </Link>
-    );
-  }
+  // Cerrar hamburguesa al navegar
+  useEffect(() => { setOpenHamburger(false); }, [location.pathname]);
+
+  const navLinks = [
+    { to: "/",           label: "Inicio" },
+    { to: "/traslados",  label: "Traslados" },
+    { to: "/gastos",     label: "Gastos" },
+    { to: "/rendiciones",label: "Rendiciones" },
+    { to: "/ajustes",    label: "Ajustes" },
+  ];
 
   return (
     <div className="container">
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Caja Chica</h1>
-          <div className="small">Offline-first · Exporta Excel + PDF</div>
-        </div>
+      {/* ── Top bar ── */}
+      <header style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 12, paddingBottom: 8,
+        borderBottom: "1px solid rgba(255,255,255,.07)",
+      }}>
+        {/* Marca — pequeña, siempre visible */}
+        <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.5)", letterSpacing: ".5px" }}>
+            CAJA CHICA
+          </span>
+        </Link>
 
-        {/* Nav desktop — oculto en móvil */}
-        <nav className="row nav-desktop" style={{ position: "relative" }}>
-          <Link className="btn secondary" to="/">Inicio</Link>
-          <Link className="btn secondary" to="/traslados">Traslados</Link>
-          <Link className="btn secondary" to="/gastos">Gastos</Link>
-          <Link className="btn secondary" to="/rendiciones">Rendiciones</Link>
-
-          <Link className="btn secondary" to="/ajustes">Ajustes</Link>
+        {/* Nav desktop */}
+        <nav className="nav-desktop" style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          {navLinks.map((n) => (
+            <NavItem key={n.to} to={n.to} label={n.label} currentPath={location.pathname} />
+          ))}
         </nav>
 
-        {/* Hamburguesa — solo en móvil */}
+        {/* Hamburguesa móvil */}
         <div data-menu="hamburger" className="nav-mobile" style={{ position: "relative" }}>
           <button
-            className="btn secondary"
             onClick={() => setOpenHamburger((v) => !v)}
-            style={{ fontSize: 20, padding: "6px 14px" }}
+            style={{
+              background: "transparent", border: "1px solid rgba(255,255,255,.2)",
+              borderRadius: 10, color: "#e5e7eb", fontSize: 18,
+              padding: "5px 12px", cursor: "pointer",
+            }}
           >
             {openHamburger ? "✕" : "☰"}
           </button>
@@ -67,30 +114,32 @@ export default function App() {
           {openHamburger && (
             <div style={{
               position: "absolute", top: "110%", right: 0,
-              background: "#111", border: "1px solid rgba(255,255,255,.15)",
+              background: "#0f172a", border: "1px solid rgba(255,255,255,.12)",
               borderRadius: 14, padding: 10,
-              display: "flex", flexDirection: "column", gap: 8,
-              minWidth: 180, zIndex: 1000,
-              boxShadow: "0 8px 32px rgba(0,0,0,.5)",
+              display: "flex", flexDirection: "column", gap: 4,
+              minWidth: 190, zIndex: 1000,
+              boxShadow: "0 8px 32px rgba(0,0,0,.6)",
             }}>
-              <NavLink to="/">🏠 Inicio</NavLink>
-              <NavLink to="/traslados">🚗 Traslados</NavLink>
-              <NavLink to="/gastos">📋 Gastos</NavLink>
-              <NavLink to="/rendiciones">📑 Rendiciones</NavLink>
-              <div style={{ borderTop: "1px solid rgba(255,255,255,.1)", paddingTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                <NavLink to="/ajustes">⚙️ Ajustes</NavLink>
-              </div>
+              {navLinks.map((n) => (
+                <NavItem
+                  key={n.to} to={n.to} label={n.label}
+                  currentPath={location.pathname}
+                  onClick={() => setOpenHamburger(false)}
+                />
+              ))}
             </div>
           )}
         </div>
       </header>
 
-      {/* ErrorBanner: visible en todas las páginas, se oculta solo */}
-      <div style={{ marginTop: 12 }}>
-        <ErrorBanner />
+      {/* ── Título de página ── */}
+      <div style={{ marginTop: 16, marginBottom: 4 }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>{pageTitle}</h1>
       </div>
 
-      <main style={{ marginTop: 8 }}>
+      <ErrorBanner />
+
+      <main style={{ marginTop: 12 }}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/traslados" element={<Transfers />} />
@@ -105,4 +154,9 @@ export default function App() {
       </main>
     </div>
   );
+}
+
+export default function App() {
+  useEffect(() => { ensureSeedData(); }, []);
+  return <AppContent />;
 }

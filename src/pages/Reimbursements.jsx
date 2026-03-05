@@ -45,26 +45,25 @@ export default function Reimbursements() {
     <div>
       {/* Filtros */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-          <h2 style={{ margin: 0 }}>Rendiciones</h2>
-          <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {ESTADOS.map((e) => (
               <button
                 key={e}
                 onClick={() => setFiltro(e)}
                 className="btn"
                 style={{
-                  background: filtro === e ? "rgba(255,255,255,.15)" : "transparent",
-                  border: filtro === e ? "1px solid rgba(255,255,255,.4)" : "1px solid rgba(255,255,255,.12)",
-                  fontWeight: filtro === e ? 800 : 400,
-                  opacity: counts[e] ? 1 : 0.4,
+                  background: filtro === e ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
+                  border: filtro === e ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
+                  color: filtro === e ? "#fff" : "rgba(255,255,255,.75)",
+                  fontWeight: filtro === e ? 800 : 500,
+                  opacity: counts[e] || e === "todos" ? 1 : 0.35,
+                  fontSize: 13,
                 }}
               >
                 {ESTADO_LABEL[e]}
                 {counts[e] ? <span style={{ marginLeft: 6, opacity: 0.7 }}>({counts[e]})</span> : null}
               </button>
             ))}
-          </div>
         </div>
       </div>
 
@@ -102,7 +101,12 @@ export default function Reimbursements() {
                       </div>
                     </div>
                     <div className="row" style={{ gap: 8, alignItems: "center" }}>
-                      <span className="pill">{r.estado}</span>
+                      <span style={{
+                        padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+                        background: ESTADO_COLOR[r.estado] || "rgba(255,255,255,.06)",
+                        border: "1px solid rgba(255,255,255,.15)",
+                        color: "#e5e7eb",
+                      }}>{ESTADO_LABEL[r.estado] || r.estado}</span>
                       <span style={{ opacity: 0.5, fontSize: 16 }}>›</span>
                     </div>
                   </div>
