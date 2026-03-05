@@ -222,10 +222,20 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 16 }}>
-            <KpiCard label="Gastado" value={fmt(totalGastadoAnio)} sub="enviadas+aprobadas+pagadas" />
-            <KpiCard label="Cobrado" value={fmt(totalCobradoAnio)} color="#86efac" sub="pagadas" />
-            <KpiCard label="Por cobrar" value={fmt(totalPorCobrar)} color={totalPorCobrar > 0 ? "#7dd3fc" : undefined} sub="enviadas+aprobadas" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+            {[
+              { label: "Gastado",     value: fmt(totalGastadoAnio), sub: "enviadas + aprobadas + pagadas",  color: "#e5e7eb" },
+              { label: "Cobrado",     value: fmt(totalCobradoAnio), sub: "pagadas",                         color: "#86efac" },
+              { label: "Por cobrar",  value: fmt(totalPorCobrar),   sub: "enviadas + aprobadas",            color: totalPorCobrar > 0 ? "#7dd3fc" : "#e5e7eb" },
+            ].map(({ label, value, sub, color }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <span style={{ fontWeight: 700 }}>{label}</span>
+                  <span className="small" style={{ opacity: 0.5, marginLeft: 6 }}>{sub}</span>
+                </div>
+                <span style={{ fontWeight: 800, fontSize: 18, color }}>{value}</span>
+              </div>
+            ))}
           </div>
 
           {totalGastadoAnio > 0 && (
