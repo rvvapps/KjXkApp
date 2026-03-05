@@ -107,7 +107,7 @@ export default function Dashboard() {
     if (balanceYear === "todos") return reims;
     return reims.filter((r) => (r.fechaCreacion || "").startsWith(balanceYear));
   }, [reims, balanceYear]);
-  const totalGastadoAnio = useMemo(() => reimsBalance.reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
+  const totalGastadoAnio = useMemo(() => reimsBalance.filter((r) => ["enviada", "aprobada", "pagada"].includes(r.estado)).reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
   const totalCobradoAnio = useMemo(() => reimsBalance.filter((r) => r.estado === "pagada").reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
   const totalPorCobrar   = useMemo(() => reimsBalance.filter((r) => ["enviada", "aprobada"].includes(r.estado)).reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
 
@@ -223,8 +223,8 @@ export default function Dashboard() {
           </div>
 
           <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 16 }}>
-            <KpiCard label="Gastado" value={fmt(totalGastadoAnio)} />
-            <KpiCard label="Cobrado" value={fmt(totalCobradoAnio)} color="#86efac" />
+            <KpiCard label="Gastado" value={fmt(totalGastadoAnio)} sub="enviadas+aprobadas+pagadas" />
+            <KpiCard label="Cobrado" value={fmt(totalCobradoAnio)} color="#86efac" sub="pagadas" />
             <KpiCard label="Por cobrar" value={fmt(totalPorCobrar)} color={totalPorCobrar > 0 ? "#7dd3fc" : undefined} sub="enviadas+aprobadas" />
           </div>
 
