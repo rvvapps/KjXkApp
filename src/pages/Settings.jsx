@@ -66,7 +66,7 @@ function MsgBox({ msg }) {
 
 function SaveBtn({ busy, onClick, label = "Guardar" }) {
   return (
-    <div className="row" style={{ marginTop: 16 }}>
+    <div className="row row-form" style={{ marginTop: 16 }}>
       <button className="btn" disabled={busy} onClick={onClick}>{busy ? "Guardando..." : label}</button>
     </div>
   );
@@ -75,6 +75,7 @@ function SaveBtn({ busy, onClick, label = "Guardar" }) {
 // ── Componente reutilizable para catálogos código+nombre ─────────────────────
 function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", nameLabel = "Nombre" }) {
   const [editing, setEditing] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(null); // code del item con menú abierto
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [err, setErr] = useState("");
@@ -85,7 +86,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
   }
 
   async function handleDelete(r) {
-    setErr("");
+    setErr(""); setMenuOpen(null);
     if (!confirm(`¿Eliminar "${r.name}" (${r.code})?`)) return;
     try { await onDelete(r.code); } catch (e) { setErr(e?.message || "No se puede eliminar."); }
   }
@@ -104,28 +105,62 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
       {rows.length === 0 ? (
         <div className="small" style={{ opacity: 0.5, marginBottom: 8 }}>Sin registros.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
           {rows.map((r) => (
             <div key={r.code} style={{ opacity: r.activo === false ? 0.5 : 1 }}>
               {editing?.originalCode === r.code ? (
-                <div className="row" style={{ alignItems: "end", gap: 6 }}>
-                  <TextField label={codeLabel} value={editing.code} onChange={(v) => setEditing({ ...editing, code: v })} />
-                  <TextField label={nameLabel} value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
-                  <button className="btn" style={{ alignSelf: "end" }} onClick={() => saveEdit(r)}>OK</button>
-                  <button className="btn secondary" style={{ alignSelf: "end" }} onClick={() => setEditing(null)}>✕</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px", background: "rgba(255,255,255,.05)", borderRadius: 10 }}>
+                  <div className="row row-form" style={{ gap: 8 }}>
+                    <TextField label={codeLabel} value={editing.code} onChange={(v) => setEditing({ ...editing, code: v })} />
+                    <TextField label={nameLabel} value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn" onClick={() => saveEdit(r)}>Guardar</button>
+                    <button className="btn secondary" onClick={() => setEditing(null)}>Cancelar</button>
+                  </div>
                 </div>
               ) : (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 120 }}>
-                    <b>{r.code}</b><span className="small"> — {r.name}</span>
-                    {r.activo === false && <span className="small" style={{ opacity: 0.6 }}> · inactivo</span>}
+                <div style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "8px 4px", borderBottom: "1px solid rgba(255,255,255,.07)", position: "relative",
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <b>{r.code}</b>
+                    <span className="small" style={{ marginLeft: 6 }}>{r.name}</span>
+                    {r.activo === false && <span className="small" style={{ opacity: 0.5, marginLeft: 4 }}>· inactivo</span>}
                   </div>
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <button className="btn secondary" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => setEditing({ code: r.code, name: r.name, originalCode: r.code })}>Editar</button>
-                    <button className="btn secondary" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => onSave({ ...r, activo: r.activo === false ? true : false })}>
-                      {r.activo === false ? "Activar" : "Desact."}
-                    </button>
-                    <button className="btn danger" style={{ padding: "5px 10px", fontSize: 12 }} onClick={() => handleDelete(r)}>Elim.</button>
+                  {/* Botón ⋯ */}
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={() => setMenuOpen(menuOpen === r.code ? null : r.code)}
+                      style={{
+                        background: "transparent", border: "1px solid rgba(255,255,255,.15)",
+                        borderRadius: 8, color: "#e5e7eb", fontSize: 18, padding: "2px 10px",
+                        cursor: "pointer", lineHeight: 1,
+                      }}
+                    >⋯</button>
+                    {menuOpen === r.code && (
+                      <div style={{
+                        position: "absolute", right: 0, top: "110%", zIndex: 100,
+                        background: "#0f172a", border: "1px solid rgba(255,255,255,.15)",
+                        borderRadius: 12, padding: 6, minWidth: 150,
+                        boxShadow: "0 8px 24px rgba(0,0,0,.6)",
+                        display: "flex", flexDirection: "column", gap: 4,
+                      }}>
+                        <button className="btn secondary" style={{ textAlign: "left", fontSize: 13 }}
+                          onClick={() => { setEditing({ code: r.code, name: r.name, originalCode: r.code }); setMenuOpen(null); }}>
+                          ✏️ Editar
+                        </button>
+                        <button className="btn secondary" style={{ textAlign: "left", fontSize: 13 }}
+                          onClick={() => { onSave({ ...r, activo: r.activo === false ? true : false }); setMenuOpen(null); }}>
+                          {r.activo === false ? "✅ Activar" : "⏸ Desactivar"}
+                        </button>
+                        <button className="btn danger" style={{ textAlign: "left", fontSize: 13 }}
+                          onClick={() => handleDelete(r)}>
+                          🗑 Eliminar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -134,10 +169,13 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
         </div>
       )}
 
-      <div className="row" style={{ alignItems: "end", gap: 6 }}>
-        <TextField label={`Nuevo — ${codeLabel}`} value={newCode} onChange={setNewCode} />
-        <TextField label={nameLabel} value={newName} onChange={setNewName} />
-        <button className="btn" style={{ alignSelf: "end" }} onClick={handleAdd}>Agregar</button>
+      {/* Agregar nuevo */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+        <div className="row row-form" style={{ gap: 8 }}>
+          <TextField label={`Nuevo — ${codeLabel}`} value={newCode} onChange={setNewCode} />
+          <TextField label={nameLabel} value={newName} onChange={setNewName} />
+        </div>
+        <button className="btn" style={{ alignSelf: "flex-start" }} onClick={handleAdd}>+ Agregar</button>
       </div>
     </div>
   );
@@ -198,7 +236,7 @@ function TabApp() {
       <h2>App</h2>
 
       {/* Sub-nav */}
-      <div className="row" style={{ gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="row row-form" style={{ gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {SECTIONS.map((sec) => (
           <button key={sec.id} className="btn secondary" onClick={() => setSection(sec.id)} style={{
             background: section === sec.id ? "rgba(255,255,255,.15)" : "rgba(255,255,255,.04)",
@@ -252,7 +290,7 @@ function TabApp() {
         <div>
           {conceptForm === null ? (
             <div>
-              <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div className="row row-form" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                 <div className="small" style={{ opacity: 0.7 }}>Define cuenta y partida por defecto para agilizar el ingreso de gastos.</div>
                 <button className="btn" onClick={() => setConceptForm({ conceptId: "", nombre: "", ctaDefaultCodigo: "", partidaDefaultCodigo: "", clasificacionDefaultCodigo: "", requiereDoc: true, requiereRespaldo: true, favorito: false })}>
                   + Nuevo
@@ -272,7 +310,7 @@ function TabApp() {
                         <div className="small">CTA {c.ctaDefaultCodigo || "—"} · Part {c.partidaDefaultCodigo || "—"}</div>
                         <div className="small">Doc: {c.requiereDoc ? "sí" : "no"} · Respaldo: {c.requiereRespaldo ? "sí" : "no"}{usedCount > 0 ? ` · ${usedCount} uso(s)` : ""}</div>
                       </div>
-                      <div className="row" style={{ gap: 4 }}>
+                      <div className="row row-form" style={{ gap: 4 }}>
                         <button className="btn secondary" onClick={() => setConceptForm({ ...c })}>Editar</button>
                         <button className="btn secondary" onClick={async () => { await upsertConcept({ ...c, favorito: !c.favorito }); await refresh(); }}>
                           {c.favorito ? "✩" : "⭐"}
@@ -290,20 +328,20 @@ function TabApp() {
           ) : (
             <div>
               <div style={{ fontWeight: 800, marginBottom: 12 }}>{conceptForm.conceptId ? "Editar concepto" : "Nuevo concepto"}</div>
-              <div className="row">
+              <div className="row row-form">
                 <TextField label="Nombre" value={conceptForm.nombre} onChange={(v) => setConceptForm({ ...conceptForm, nombre: v })} placeholder="Ej: Combustible" />
               </div>
-              <div className="row" style={{ marginTop: 12 }}>
+              <div className="row row-form" style={{ marginTop: 12 }}>
                 <SelectField label="Cuenta por defecto" value={conceptForm.ctaDefaultCodigo} onChange={(v) => setConceptForm({ ...conceptForm, ctaDefaultCodigo: v })}
                   options={acctsFull.map((x) => ({ value: x.ctaCodigo, label: `${x.ctaCodigo} - ${x.ctaNombre}` }))} placeholder="Seleccione..." />
                 <SelectField label="Partida por defecto" value={conceptForm.partidaDefaultCodigo} onChange={(v) => setConceptForm({ ...conceptForm, partidaDefaultCodigo: v })}
                   options={partsFull.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))} placeholder="Seleccione..." />
               </div>
-              <div className="row" style={{ marginTop: 12 }}>
+              <div className="row row-form" style={{ marginTop: 12 }}>
                 <SelectField label="Clasificación por defecto" value={conceptForm.clasificacionDefaultCodigo || ""} onChange={(v) => setConceptForm({ ...conceptForm, clasificacionDefaultCodigo: v })}
                   options={clasifsFull.map((x) => ({ value: x.clasificacionCodigo, label: `${x.clasificacionCodigo} - ${x.clasificacionNombre}` }))} placeholder="Sin clasificación..." />
               </div>
-              <div className="row" style={{ marginTop: 12, gap: 16 }}>
+              <div className="row row-form" style={{ marginTop: 12, gap: 16 }}>
                 <label style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
                   <input type="checkbox" checked={!!conceptForm.requiereDoc} onChange={(e) => setConceptForm({ ...conceptForm, requiereDoc: e.target.checked })} />
                   <span className="small">Requiere documento</span>
@@ -317,7 +355,7 @@ function TabApp() {
                   <span className="small">Favorito ⭐</span>
                 </label>
               </div>
-              <div className="row" style={{ marginTop: 14 }}>
+              <div className="row row-form" style={{ marginTop: 14 }}>
                 <button className="btn" onClick={async () => {
                   setMsg("");
                   if (!conceptForm.nombre.trim()) return setMsg("Ingresa el nombre.");
@@ -354,7 +392,7 @@ function TabApp() {
                     {d.crCodigo && <span className="small"> · CR {d.crCodigo}</span>}
                     {d.notas && <div className="small" style={{ opacity: 0.6 }}>{d.notas}</div>}
                   </div>
-                  <div className="row" style={{ gap: 4 }}>
+                  <div className="row row-form" style={{ gap: 4 }}>
                     <button className="btn secondary" onClick={async () => { await upsertDestination({ ...d, activo: d.activo === false ? true : false }); await refresh(); }}>
                       {d.activo === false ? "Activar" : "Desactivar"}
                     </button>
@@ -369,17 +407,17 @@ function TabApp() {
           )}
           <hr />
           <div style={{ fontWeight: 700, marginBottom: 8 }}>Agregar destino</div>
-          <div className="row">
+          <div className="row row-form">
             <TextField label="Destino" value={destForm.destino} onChange={(v) => setDestForm({ ...destForm, destino: v })} placeholder="Ej: Aeropuerto" />
             <TextField label="Monto ($)" type="number" value={destForm.monto} onChange={(v) => setDestForm({ ...destForm, monto: v })} />
           </div>
-          <div className="row" style={{ marginTop: 8 }}>
+          <div className="row row-form" style={{ marginTop: 8 }}>
             <SelectField label="CR" value={destForm.crCodigo} onChange={(v) => setDestForm({ ...destForm, crCodigo: v })}
               options={[{ value: "", label: "Opcional..." }, ...crs.filter((x) => x.activo !== false).map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))]}
             />
             <TextField label="Notas" value={destForm.notas} onChange={(v) => setDestForm({ ...destForm, notas: v })} placeholder="Opcional" />
           </div>
-          <div className="row" style={{ marginTop: 10 }}>
+          <div className="row row-form" style={{ marginTop: 10 }}>
             <button className="btn" onClick={async () => {
               if (!destForm.destino.trim()) return;
               await upsertDestination({ destino: destForm.destino.trim(), monto: Number(destForm.monto) || 0, crCodigo: destForm.crCodigo || "", notas: destForm.notas.trim(), activo: true });
@@ -408,7 +446,7 @@ function TabGeneral() {
     <div>
       <h3 style={{ marginTop: 0 }}>Correlativo de rendiciones</h3>
       <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Número asignado automáticamente al crear cada rendición.</div>
-      <div className="row">
+      <div className="row row-form">
         <TextField label="Prefijo" value={s.correlativoPrefix || ""} onChange={(v) => setS({ ...s, correlativoPrefix: v })} placeholder="Ej: RC" />
         <TextField label="Siguiente N°" type="number" value={s.correlativoNextNumber || 1} onChange={(v) => setS({ ...s, correlativoNextNumber: Number(v) })} />
       </div>
@@ -417,7 +455,7 @@ function TabGeneral() {
       </div>
       <hr />
       <h3>Dispositivo</h3>
-      <div className="row">
+      <div className="row row-form">
         <TextField label="Nombre del dispositivo" value={s.deviceLabel || ""} onChange={(v) => setS({ ...s, deviceLabel: v })} placeholder="Ej: iPhone Rodolfo" />
       </div>
       <div className="small" style={{ marginTop: 8, opacity: 0.6 }}>
@@ -531,7 +569,7 @@ export default function Settings() {
     <div>
       {/* Tab bar */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="row" style={{ gap: 6 }}>
+        <div className="row row-form" style={{ gap: 6 }}>
           {TABS.map((t) => (
             <button key={t} className="btn" onClick={() => setTab(t)} style={{
               background: tab === t ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
@@ -548,15 +586,15 @@ export default function Settings() {
       {tab === "Perfil" && (
         <div className="card">
           <h3>Datos personales</h3>
-          <div className="row">
+          <div className="row row-form">
             <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
             <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => setS({ ...s, responsableRut: v })} placeholder="12.345.678-9" />
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row row-form" style={{ marginTop: 12 }}>
             <TextField label="Cargo" value={s.cargo || ""} onChange={(v) => setS({ ...s, cargo: v })} />
             <TextField label="Empresa" value={s.empresa || ""} onChange={(v) => setS({ ...s, empresa: v })} />
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row row-form" style={{ marginTop: 12 }}>
             <TextField label="Tel / Cel" value={s.telefono || ""} onChange={(v) => setS({ ...s, telefono: v })} placeholder="+56 9 1234 5678" />
             <SelectField label="CR por defecto" value={s.crDefaultCodigo || ""} onChange={(v) => setS({ ...s, crDefaultCodigo: v })}
               options={crs.map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))} placeholder="Seleccione..." />
@@ -564,11 +602,11 @@ export default function Settings() {
           <hr />
           <h3>Datos bancarios</h3>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se incluyen en el formulario de rendición para el pago.</div>
-          <div className="row">
+          <div className="row row-form">
             <TextField label="Banco" value={s.banco || ""} onChange={(v) => setS({ ...s, banco: v })} placeholder="Ej: Banco Estado" />
             <SelectField label="Tipo de cuenta" value={s.tipoCuenta || ""} onChange={(v) => setS({ ...s, tipoCuenta: v })} options={TIPO_CUENTA_OPTIONS} />
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row row-form" style={{ marginTop: 12 }}>
             <TextField label="N° de cuenta" value={s.numeroCuenta || ""} onChange={(v) => setS({ ...s, numeroCuenta: v })} />
           </div>
           <MsgBox msg={msgPerfil} />
@@ -594,10 +632,10 @@ export default function Settings() {
 
           <h3>Backup</h3>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Genera un archivo <b>.cczip</b> cifrado con todos tus datos y boletas.</div>
-          <div className="row">
+          <div className="row row-form">
             <TextField label="Contraseña (mín. 6 caracteres)" value={backupPass} onChange={setBackupPass} type="password" />
           </div>
-          <div className="row" style={{ marginTop: 12, gap: 10 }}>
+          <div className="row row-form" style={{ marginTop: 12, gap: 10 }}>
             <button className="btn" disabled={backupBusy} onClick={() => doGenerateBackup({ uploadToOneDrive: false })}>
               {backupBusy ? "Generando..." : "Descargar .cczip"}
             </button>
@@ -611,14 +649,14 @@ export default function Settings() {
 
           <h3>Restaurar</h3>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Reemplaza los datos locales con el contenido del archivo. Cierra otras pestañas antes de restaurar.</div>
-          <div className="row">
+          <div className="row row-form">
             <div style={{ flex: 1 }}>
               <label>Archivo .cczip</label>
               <input className="input" type="file" accept=".cczip,application/octet-stream" onChange={(e) => setRestoreFile(e.target.files?.[0] || null)} />
             </div>
             <TextField label="Contraseña" value={restorePass} onChange={setRestorePass} type="password" />
           </div>
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row row-form" style={{ marginTop: 12 }}>
             <button className="btn danger" disabled={backupBusy} onClick={doRestoreBackup}>Restaurar (reemplaza datos locales)</button>
           </div>
           <MsgBox msg={typeof restoreMsg === "string" ? restoreMsg : formatProgress(restoreMsg)} />
@@ -633,11 +671,11 @@ export default function Settings() {
             <div><div className="small" style={{ opacity: 0.6 }}>Última sync</div><div style={{ fontWeight: 700 }}>{s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleString("es-CL") : "—"}</div></div>
             <div><div className="small" style={{ opacity: 0.6 }}>Conectado el</div><div style={{ fontWeight: 700 }}>{sync?.auth?.connectedAt ? new Date(sync.auth.connectedAt).toLocaleString("es-CL") : "—"}</div></div>
           </div>
-          <div className="row">
+          <div className="row row-form">
             <TextField label="Tenant ID" value={sync?.auth?.tenantId || "organizations"} onChange={(v) => saveOneDriveConfig({ tenantId: v })} />
             <TextField label="Client ID" value={sync?.auth?.clientId || ""} onChange={(v) => saveOneDriveConfig({ clientId: v })} />
           </div>
-          <div className="row" style={{ marginTop: 14, gap: 10, flexWrap: "wrap" }}>
+          <div className="row row-form" style={{ marginTop: 14, gap: 10, flexWrap: "wrap" }}>
             <button className="btn" onClick={() => connectOneDrive("approot")}>Conectar (AppFolder)</button>
             <button className="btn" onClick={() => connectOneDrive("folder")}>Conectar (Carpeta)</button>
             <button className="btn secondary" onClick={doSyncNow}>Sincronizar ahora</button>

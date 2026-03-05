@@ -215,7 +215,7 @@ export default function Transfers() {
           </div>
         )}
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <TextField
             label="Fecha"
             type="date"
@@ -232,7 +232,7 @@ export default function Transfers() {
 
         {/* Selector destino favorito */}
         {destinations.length > 0 && (
-          <div className="row" style={{ marginTop: 12 }}>
+          <div className="row row-form" style={{ marginTop: 12 }}>
             <SelectField
               label="Destino favorito (opcional)"
               value={form.destinationId}
@@ -246,7 +246,7 @@ export default function Transfers() {
           </div>
         )}
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <TextField
             label="Destino"
             value={form.destino}
@@ -262,7 +262,7 @@ export default function Transfers() {
           />
         </div>
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <SelectField
             label="CR"
             value={form.crCodigo}
@@ -278,7 +278,7 @@ export default function Transfers() {
           />
         </div>
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <div style={{ flex: 1 }}>
             <label>Notas</label>
             <textarea
@@ -290,7 +290,7 @@ export default function Transfers() {
           </div>
         </div>
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <button className="btn" onClick={saveTransfer}>Guardar trayecto</button>
         </div>
 
@@ -310,7 +310,7 @@ export default function Transfers() {
               suma estimada: <b>${sumaSeleccionados.toLocaleString("es-CL")}</b>
             </div>
 
-            <div className="row" style={{ marginBottom: 10 }}>
+            <div className="row row-form" style={{ marginBottom: 10 }}>
               <TextField
                 label="Monto final a pagar en bomba (opcional)"
                 type="number"
@@ -331,7 +331,7 @@ export default function Transfers() {
               />
             </div>
 
-            <div className="row" style={{ gap: 8 }}>
+            <div className="row row-form" style={{ gap: 8 }}>
               <button className="btn" disabled={busy} onClick={doLiquidar}>
                 {busy ? "Creando…" : `Crear gasto $${montoLiquidar.toLocaleString("es-CL")}`}
               </button>
@@ -345,7 +345,7 @@ export default function Transfers() {
 
       {/* Listado */}
       <div className="card">
-        <div className="row" style={{ justifyContent: "space-between", alignItems: "end" }}>
+        <div className="row row-form" style={{ justifyContent: "space-between", alignItems: "end" }}>
           <div>
             <h2 style={{ marginBottom: 4 }}>Trayectos</h2>
             <div className="small">
@@ -371,7 +371,7 @@ export default function Transfers() {
         </div>
 
         {view === "usado" && listSorted.length > USED_RECENT_LIMIT && (
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 10 }}>
+          <div className="row row-form" style={{ justifyContent: "space-between", marginTop: 10 }}>
             <div className="small">
               Mostrando {showOlderUsed ? listSorted.length : Math.min(USED_RECENT_LIMIT, listSorted.length)} de {listSorted.length}
             </div>
@@ -404,7 +404,7 @@ export default function Transfers() {
                   {transfers.map((t) => (
                     <div
                       key={t.transferId}
-                      className="row"
+                      className="row row-form"
                       style={{
                         justifyContent: "space-between",
                         alignItems: "center",

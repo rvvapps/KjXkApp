@@ -120,7 +120,7 @@ export default function EditExpense() {
           No se encontró el gasto con ID:
           <div style={{ fontWeight: 800, marginTop: 8 }}>{gastoId}</div>
         </div>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row row-form" style={{ marginTop: 12 }}>
           <button className="btn secondary" onClick={() => nav(-1)}>Volver</button>
         </div>
       </div>
@@ -247,7 +247,7 @@ export default function EditExpense() {
         </div>
       )}
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
           label="Concepto"
           value={expense.conceptId}
@@ -267,7 +267,7 @@ export default function EditExpense() {
         />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <TextField
           label="Monto ($)"
           type="number"
@@ -287,7 +287,7 @@ export default function EditExpense() {
         />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <label>Detalle / Glosa</label>
           <textarea
@@ -302,7 +302,7 @@ export default function EditExpense() {
 
       <hr />
 
-      <div className="row">
+      <div className="row row-form">
         <SelectField
           label="Centro de Responsabilidad (CR)"
           value={expense.crCodigo}
@@ -319,7 +319,7 @@ export default function EditExpense() {
         />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
           label="Partida"
           value={expense.partidaCodigo || ""}
@@ -341,7 +341,7 @@ export default function EditExpense() {
       <h3>Respaldos</h3>
       <AttachmentGallery atts={atts} locked={locked} onRemove={removeAtt} />
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         {locked ? (
           <div className="small">🔒 No se pueden agregar respaldos mientras la rendición esté ENVIADA/APROBADA.</div>
         ) : (
@@ -349,7 +349,7 @@ export default function EditExpense() {
         )}
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <button className="btn" disabled={busy || locked} onClick={save}>
           {busy ? "Guardando..." : "Guardar cambios"}
         </button>

@@ -253,7 +253,7 @@ export default function NewExpense() {
 
       <MsgBox msg={msg} />
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
           label="Concepto"
           value={conceptId}
@@ -264,7 +264,7 @@ export default function NewExpense() {
         <TextField label="Fecha" type="date" value={fecha} onChange={setFecha} />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <TextField label="Monto ($)" type="number" value={monto} onChange={setMonto} placeholder="Ej: 12500" />
         <SelectField
           label="Tipo Doc"
@@ -275,7 +275,7 @@ export default function NewExpense() {
         <TextField label="N° Doc" value={docNumero} onChange={setDocNumero} placeholder="Ej: 123456" />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <div style={{ flex: 1, minWidth: 220 }}>
           <label>Detalle / Glosa</label>
           <textarea
@@ -290,7 +290,7 @@ export default function NewExpense() {
 
       <hr />
 
-      <div className="row">
+      <div className="row row-form">
         <SelectField
           label="Centro de Responsabilidad (CR)"
           value={crCodigo}
@@ -307,7 +307,7 @@ export default function NewExpense() {
         />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
           label="Partida"
           value={partidaCodigo}
@@ -324,7 +324,7 @@ export default function NewExpense() {
         />
       </div>
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <FileCapture onFiles={onPickFiles} />
       </div>
 
@@ -339,7 +339,7 @@ export default function NewExpense() {
         </div>
       )}
 
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="row row-form" style={{ marginTop: 12 }}>
         <button className="btn" disabled={busy} onClick={() => handleSave({ withFiles: true })}>
           {busy ? "Guardando..." : "Guardar"}
         </button>
