@@ -19,9 +19,7 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
   const [concepts, setConcepts] = useState([]);
   const [selected, setSelected] = useState(new Set());
-  const [attachCounts, setAttachCounts] = useState({}); // gastoId -> count
   const [attachData, setAttachData] = useState({});    // gastoId -> atts[]
-  const [expandedAtts, setExpandedAtts] = useState(new Set());
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [showRendicion, setShowRendicion] = useState(false);
@@ -32,14 +30,10 @@ export default function Expenses() {
     setConcepts(concs);
 
     // Cargar adjuntos por gasto
-    const counts = {};
     const data = {};
     await Promise.all(exps.map(async (e) => {
-      const atts = await listAttachmentsForExpense(e.gastoId).catch(() => []);
-      counts[e.gastoId] = atts.length;
-      data[e.gastoId] = atts;
+      data[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
     }));
-    setAttachCounts(counts);
     setAttachData(data);
   }
 
@@ -97,7 +91,7 @@ export default function Expenses() {
         problems.push(`Falta partida en: "${label}"`);
       if (concept?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
         problems.push(`Falta N° doc en: "${label}"`);
-      if (concept?.requiereRespaldo && (attachCounts[id] ?? 0) === 0)
+      if (concept?.requiereRespaldo && (attachData[id]?.length ?? 0) === 0)
         problems.push(`Falta respaldo (foto) en: "${label}"`);
     }
     return problems;
@@ -158,30 +152,14 @@ export default function Expenses() {
     const isIncomplete = !Number(e.monto);
     const concept = conceptById.get(e.conceptId);
     const label = concept?.nombre || e.detalle?.split("\\n")[0]?.slice(0, 40) || "Sin detalle";
-    const hasImage = (attachCounts[e.gastoId] ?? 0) > 0;
-    const expanded = expandedAtts.has(e.gastoId);
-
-    function toggleAtts() {
-      setExpandedAtts((prev) => {
-        const next = new Set(prev);
-        if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
-        return next;
-      });
-    }
 
     return (
-      <div style={{
-        paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)",
-      }}>
+      <div style={{ paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
               {isIncomplete && <span title="Falta completar monto" style={{ color: "#facc15" }}>⚠️</span>}
-              <span
-                title={hasImage ? `${attachCounts[e.gastoId]} adjunto(s) — click para ver` : "Sin imagen adjunta"}
-                onClick={hasImage ? toggleAtts : undefined}
-                style={{ fontSize: 15, opacity: hasImage ? 1 : 0.25, cursor: hasImage ? "pointer" : "default" }}
-              >📎</span>
+              <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} />
               {label}
             </div>
             <div className="small">
@@ -197,11 +175,7 @@ export default function Expenses() {
           <div className="row" style={{ gap: 6, flexShrink: 0 }}>
             {!isIncomplete && (
               <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={selected.has(e.gastoId)}
-                  onChange={() => toggle(e.gastoId)}
-                />
+                <input type="checkbox" checked={selected.has(e.gastoId)} onChange={() => toggle(e.gastoId)} />
                 <span className="small">Incluir</span>
               </label>
             )}
@@ -214,11 +188,7 @@ export default function Expenses() {
           </div>
         </div>
 
-        {expanded && hasImage && (
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.06)" }}>
-            <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} />
-          </div>
-        )}
+        {/* Thumbnails expandidos (2+ adjuntos) se renderizan dentro del componente */}
       </div>
     );
   }

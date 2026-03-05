@@ -51,7 +51,6 @@ export default function ReimbursementDetail() {
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [expAtts, setExpAtts] = useState({}); // gastoId -> atts[]
-  const [expandedAtts, setExpandedAtts] = useState(new Set()); // gastoIds con galería abierta
 
   useEffect(() => {
     (async () => {
@@ -538,22 +537,12 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
         <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
           {expenses.map((e) => {
             const atts = expAtts[e.gastoId] || [];
-            const hasAtts = atts.length > 0;
-            const expanded = expandedAtts.has(e.gastoId);
             return (
               <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
                 <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-                      <span
-                        title={hasAtts ? `${atts.length} adjunto(s) — click para ver` : "Sin imagen"}
-                        onClick={hasAtts ? () => setExpandedAtts((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(e.gastoId)) next.delete(e.gastoId); else next.add(e.gastoId);
-                          return next;
-                        }) : undefined}
-                        style={{ fontSize: 15, opacity: hasAtts ? 1 : 0.2, cursor: hasAtts ? "pointer" : "default" }}
-                      >📎</span>
+                      <AttachmentGallery atts={atts} locked={true} />
                       {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
                     </div>
                     <div className="small">
@@ -579,11 +568,6 @@ Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
                     )}
                   </div>
                 </div>
-                {expanded && hasAtts && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
-                    <AttachmentGallery atts={atts} locked={true} />
-                  </div>
-                )}
               </div>
             );
           })}
