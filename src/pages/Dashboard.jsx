@@ -51,6 +51,7 @@ export default function Dashboard() {
   const [transfers, setTransfers] = useState([]);
   const [attachCounts, setAttachCounts] = useState({});
   const [concepts, setConcepts] = useState([]);
+  const [balanceYear, setBalanceYear] = useState("todos");
 
   useEffect(() => {
     (async () => {
@@ -95,12 +96,20 @@ export default function Dashboard() {
 
   const totalByEstado = (estado) => reimsByEstado[estado].reduce((s, r) => s + Number(r.total || 0), 0);
 
-  // Balance anual
-  const thisYear = new Date().getFullYear();
-  const reimsThisYear = useMemo(() => reims.filter((r) => (r.fechaCreacion || "").startsWith(String(thisYear))), [reims, thisYear]);
-  const totalGastadoAnio = useMemo(() => reimsThisYear.reduce((s, r) => s + Number(r.total || 0), 0), [reimsThisYear]);
-  const totalCobradoAnio = useMemo(() => reimsThisYear.filter((r) => r.estado === "pagada").reduce((s, r) => s + Number(r.total || 0), 0), [reimsThisYear]);
-  const totalPorCobrar   = useMemo(() => reimsThisYear.filter((r) => ["enviada", "aprobada"].includes(r.estado)).reduce((s, r) => s + Number(r.total || 0), 0), [reimsThisYear]);
+  // Años disponibles en rendiciones
+  const availableYears = useMemo(() => {
+    const years = new Set(reims.map((r) => (r.fechaCreacion || "").slice(0, 4)).filter(Boolean));
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [reims]);
+
+  // Balance — histórico o filtrado por año
+  const reimsBalance = useMemo(() => {
+    if (balanceYear === "todos") return reims;
+    return reims.filter((r) => (r.fechaCreacion || "").startsWith(balanceYear));
+  }, [reims, balanceYear]);
+  const totalGastadoAnio = useMemo(() => reimsBalance.reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
+  const totalCobradoAnio = useMemo(() => reimsBalance.filter((r) => r.estado === "pagada").reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
+  const totalPorCobrar   = useMemo(() => reimsBalance.filter((r) => ["enviada", "aprobada"].includes(r.estado)).reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
 
   // Últimas rendiciones activas (no pagadas ni borrador vacío)
   const lastReims = reims.slice(0, 5);
@@ -192,9 +201,26 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── BALANCE AÑO ── */}
+        {/* ── BALANCE ── */}
         <div className="card">
-          <h2>Balance {thisYear}</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h2 style={{ margin: 0 }}>
+              Balance {balanceYear === "todos" ? "histórico" : balanceYear}
+            </h2>
+            {availableYears.length > 0 && (
+              <select
+                value={balanceYear}
+                onChange={(e) => setBalanceYear(e.target.value)}
+                style={{
+                  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
+                  borderRadius: 8, color: "#e5e7eb", padding: "4px 8px", fontSize: 12, cursor: "pointer",
+                }}
+              >
+                <option value="todos">Histórico</option>
+                {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+          </div>
 
           <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 16 }}>
             <KpiCard label="Gastado" value={fmt(totalGastadoAnio)} />
@@ -202,30 +228,32 @@ export default function Dashboard() {
             <KpiCard label="Por cobrar" value={fmt(totalPorCobrar)} color={totalPorCobrar > 0 ? "#7dd3fc" : undefined} sub="enviadas+aprobadas" />
           </div>
 
-          {/* Barra de progreso cobrado vs gastado */}
           {totalGastadoAnio > 0 && (
             <div style={{ marginBottom: 8 }}>
               <div className="small" style={{ marginBottom: 4, opacity: 0.7 }}>
-                Cobrado {totalGastadoAnio > 0 ? Math.round(totalCobradoAnio / totalGastadoAnio * 100) : 0}% del total gastado
+                Cobrado {Math.round(totalCobradoAnio / totalGastadoAnio * 100)}% del total gastado
               </div>
               <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
                 <div style={{
                   height: "100%", borderRadius: 99,
                   background: "linear-gradient(90deg, #22c55e, #86efac)",
-                  width: `${Math.min(100, totalGastadoAnio > 0 ? Math.round(totalCobradoAnio / totalGastadoAnio * 100) : 0)}%`,
+                  width: `${Math.min(100, Math.round(totalCobradoAnio / totalGastadoAnio * 100))}%`,
                   transition: "width .4s ease",
                 }} />
               </div>
               {totalPorCobrar > 0 && (
                 <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,.04)", overflow: "hidden", marginTop: 3 }}>
                   <div style={{
-                    height: "100%", borderRadius: 99,
-                    background: "rgba(14,165,233,.5)",
+                    height: "100%", borderRadius: 99, background: "rgba(14,165,233,.5)",
                     width: `${Math.min(100, Math.round(totalPorCobrar / totalGastadoAnio * 100))}%`,
                   }} />
                 </div>
               )}
             </div>
+          )}
+
+          {totalGastadoAnio === 0 && (
+            <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>
           )}
         </div>
 
