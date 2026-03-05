@@ -46,7 +46,14 @@ export default function Expenses() {
     setAttachData((prev) => ({ ...prev, [gastoId]: atts }));
   }
 
-  useEffect(() => { refresh(); }, [location.pathname]);
+  useEffect(() => {
+    refresh();
+    if (location.state?.flashMsg) {
+      setMsg(location.state.flashMsg);
+      // Limpiar el state para que no reaparezca al navegar
+      window.history.replaceState({}, "");
+    }
+  }, [location.pathname]);
 
   const conceptById = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
   const incomplete = useMemo(() => expenses.filter((e) => !Number(e.monto)), [expenses]);

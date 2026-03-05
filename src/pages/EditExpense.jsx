@@ -147,11 +147,8 @@ export default function EditExpense() {
     setBusy(true);
     try {
       await updateExpense({ ...expense, monto: Math.round(Number(expense.monto)) });
-      if (!atts || atts.length === 0) {
-        setMsg("✅ Gasto guardado sin imagen.");
-      } else {
-        setMsg("✅ Guardado.");
-      }
+      const flashMsg = (!atts || atts.length === 0) ? "✅ Gasto guardado sin imagen." : "✅ Gasto guardado.";
+      nav(-1, { state: { flashMsg } });
     } catch (e) {
       console.error(e);
       setMsg("Error al guardar.");

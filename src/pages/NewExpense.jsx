@@ -218,27 +218,14 @@ export default function NewExpense() {
         return;
       }
 
-      // Reset normal
-      setMonto("");
-      setDocNumero("");
-      setDetalle(concept?.nombre || "");
-      setSelectedFiles([]);
-
-      if (!fileList.length) {
-        // ✅ Mensaje solicitado: mismo check pero en amarillo
-        setMsg({ tone: "warn", text: "✅ Gasto guardado sin imagen." });
-
-        // Si concept requiere respaldo, agregamos la advertencia en la misma caja
-        if (requiereRespaldo) {
-          setMsg({
-            tone: "warn",
-            text: `✅ Gasto guardado sin imagen.
-⚠️ Este concepto requiere respaldo. Agrega la foto al editar (MVP).`,
-          });
-        }
-      } else {
-        setMsg({ tone: "success", text: "✅ Gasto guardado." });
-      }
+      // Volver a /gastos tras guardar exitosamente
+      const sinImagen = !fileList.length;
+      const msgText = sinImagen
+        ? (requiereRespaldo
+            ? "✅ Gasto guardado sin imagen.\n⚠️ Este concepto requiere respaldo — agrégalo editando el gasto."
+            : "✅ Gasto guardado sin imagen.")
+        : "✅ Gasto guardado.";
+      navigate("/gastos", { replace: true, state: { flashMsg: msgText } });
     } catch (e) {
       console.error(e);
       setMsg({ tone: "danger", text: "Error al guardar." });
