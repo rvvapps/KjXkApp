@@ -79,13 +79,10 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
 }
 
 function downloadSnapshotBlob(blob, filename) {
-  // iOS Safari: crear objectURL y abrir directamente
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
-  a.target = "_blank";
-  a.rel = "noopener";
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -175,8 +172,6 @@ export default function ReimbursementDetail() {
       const a = document.createElement("a");
       a.href = url;
       a.download = `Rendicion_${corr}.xlsx`;
-      a.target = "_blank";
-      a.rel = "noopener";
       document.body.appendChild(a);
       a.click();
       a.remove();
