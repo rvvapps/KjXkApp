@@ -164,24 +164,38 @@ export default function EditExpense() {
     }
     setMsg("");
     setBusy(true);
+    let added = 0;
     try {
       for (const f of files) {
-        const prepared = await prepareReceiptImage(f);
-        await addAttachment({
-          gastoId,
-          filename: prepared.filename,
-          mimeType: prepared.mimeType,
-          blob: prepared.blob,
-          width: prepared.width,
-          height: prepared.height,
-          contentHash: prepared.contentHash,
-        });
+        try {
+          const prepared = await prepareReceiptImage(f);
+          // iOS: re-leer blob via FileReader para evitar corrupción en IndexedDB
+          const safeBlob = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(new Blob([reader.result], { type: prepared.mimeType || "image/jpeg" }));
+            reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+            reader.readAsArrayBuffer(prepared.blob);
+          });
+          await addAttachment({
+            gastoId,
+            filename: prepared.filename,
+            mimeType: prepared.mimeType,
+            blob: safeBlob,
+            width: prepared.width,
+            height: prepared.height,
+            contentHash: prepared.contentHash,
+          });
+          added++;
+        } catch (attachErr) {
+          console.error("Error guardando adjunto:", attachErr);
+          setMsg(`⚠️ No se pudo guardar la foto: ${attachErr?.message || "error desconocido"}`);
+        }
       }
       setAtts(await listAttachmentsForExpense(gastoId));
-      setMsg("✅ Respaldo agregado.");
+      if (added > 0) setMsg(`✅ ${added} respaldo${added > 1 ? "s" : ""} agregado${added > 1 ? "s" : ""}.`);
     } catch (e) {
       console.error(e);
-      setMsg("Error agregando respaldo.");
+      setMsg(`Error agregando respaldo: ${e?.message || "desconocido"}`);
     } finally {
       setBusy(false);
     }
