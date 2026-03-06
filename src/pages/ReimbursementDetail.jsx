@@ -5,7 +5,7 @@ import {
   cancelReimbursement, sendReimbursement, returnReimbursement,
   approveReimbursement, markReimbursementPagada, setReimbursementSnapshot,
   listAttachmentsForExpense, listConcepts, removeExpenseFromReimbursement,
-  addExpenseToReimbursement, deleteExpense, listPendingExpenses, getSettings,
+  addExpenseToReimbursement, deleteExpense, listPendingExpenses,
 } from "../db.js";
 import AttachmentGallery from "../components/AttachmentGallery.jsx";
 import { buildExportItems, exportBatchXlsx, splitIntoBatches, generateBatchXlsxBlob } from "../services/excelExport.js";
@@ -119,7 +119,6 @@ export default function ReimbursementDetail() {
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [expAtts, setExpAtts] = useState({});
   const [pdfViewer, setPdfViewer] = useState(null); // { url, filename }
-  const [xlsxPreview, setXlsxPreview] = useState(null); // { blob, filename, items, header }
 
   function setOk(text)  { setMsg({ text, type: "success" }); }
   function setErr(text) { setMsg({ text, type: "error" }); }
@@ -184,16 +183,10 @@ export default function ReimbursementDetail() {
     try {
       const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
-      const settings = await getSettings();
       const corr = reim.correlativo;
-      // Solo guardamos los datos para el preview — el blob se genera al confirmar
-      // así el share/download ocurre desde un click directo del usuario
-      setXlsxPreview({
-        filename: `Rendicion_${corr}.xlsx`,
-        items: exportItems,
-        header: { ...settings },
-        correlativo: corr,
-      });
+      const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
+      const filename = `Rendicion_${corr}.xlsx`;
+      await shareOrDownload(blob, filename);
     } catch (e) {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
@@ -338,154 +331,6 @@ export default function ReimbursementDetail() {
 
   if (!reim) return <div className="card"><div className="small">Cargando...</div></div>;
 
-
-  // ── Preview Excel ─────────────────────────────────────────────────────────
-  if (xlsxPreview) {
-    const { blob, filename, items: prevItems, header, correlativo: corr } = xlsxPreview;
-    const total = prevItems.reduce((s, it) => s + Number(it.monto ?? 0), 0);
-    const fmt = (n) => "$" + Number(n).toLocaleString("es-CL");
-    const fmtDate = (s) => s || "";
-    const codeName = (code, name) => {
-      const c = (code ?? "").toString().trim();
-      const n = (name ?? "").toString().trim();
-      if (c && n) return `${c} - ${n}`;
-      return c || n;
-    };
-    const sorted = [...prevItems].sort((a, b) => {
-      const da = a.fechaISO ? new Date(a.fechaISO.split("-").reverse().join("-")) : new Date(0);
-      const db = b.fechaISO ? new Date(b.fechaISO.split("-").reverse().join("-")) : new Date(0);
-      return da - db;
-    });
-
-    const cellSt = {
-      border: "1px solid #334155", padding: "4px 6px",
-      fontSize: 11, color: "#e2e8f0", whiteSpace: "nowrap",
-    };
-    const headSt = {
-      ...cellSt, background: "#1e3a5f", fontWeight: 700,
-      color: "#93c5fd", textAlign: "center",
-    };
-    const labelSt = { ...cellSt, fontWeight: 700, color: "#94a3b8", background: "#1a1d2e" };
-    const valueSt = { ...cellSt, background: "#0f172a", textAlign: "center" };
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#0f1117" }}>
-        {/* Header */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 16px", background: "#1a1d2e",
-          borderBottom: "1px solid rgba(255,255,255,.1)", flexShrink: 0,
-        }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#e5e7eb" }}>
-            📊 Vista previa — {filename}
-          </span>
-          <button onClick={() => setXlsxPreview(null)} style={{
-            background: "rgba(255,255,255,.1)", border: "none", borderRadius: 8,
-            color: "#e5e7eb", padding: "6px 14px", fontWeight: 700, fontSize: 13, cursor: "pointer",
-          }}>✕ Cerrar</button>
-        </div>
-
-        {/* Contenido scrollable */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "16px", WebkitOverflowScrolling: "touch" }}>
-
-          {/* Sección responsable */}
-          <div style={{ background: "#1e3a5f", borderRadius: 6, padding: "6px 12px", marginBottom: 8, fontWeight: 700, color: "#93c5fd", fontSize: 13 }}>
-            Información del responsable
-          </div>
-          <div style={{ overflowX: "auto", marginBottom: 12 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 400 }}>
-              <tbody>
-                <tr>
-                  <td style={labelSt}>Nombre</td>
-                  <td style={{ ...valueSt, width: "40%" }}>{header.responsableNombre || "—"}</td>
-                  <td style={labelSt}>RUT</td>
-                  <td style={valueSt}>{header.responsableRut || "—"}</td>
-                </tr>
-                <tr>
-                  <td style={labelSt}>Cargo</td>
-                  <td style={valueSt}>{header.cargo || "—"}</td>
-                  <td style={labelSt}>Teléfono</td>
-                  <td style={valueSt}>{header.telefono || "—"}</td>
-                </tr>
-                <tr>
-                  <td style={labelSt}>Empresa</td>
-                  <td style={valueSt}>{header.empresa || "—"}</td>
-                  <td style={labelSt}>Fecha</td>
-                  <td style={valueSt}>{new Date().toLocaleDateString("es-CL")}</td>
-                </tr>
-                <tr>
-                  <td style={labelSt}>Tipo Cuenta</td>
-                  <td style={valueSt}>{header.tipoCuenta || "—"}</td>
-                  <td style={labelSt}>Banco</td>
-                  <td style={valueSt}>{header.banco || "—"}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* Sección gastos */}
-          <div style={{ background: "#1e3a5f", borderRadius: 6, padding: "6px 12px", marginBottom: 8, fontWeight: 700, color: "#93c5fd", fontSize: 13 }}>
-            Información de la rendición — {corr}
-          </div>
-          <div style={{ overflowX: "auto", marginBottom: 12 }}>
-            <table style={{ borderCollapse: "collapse", minWidth: 700 }}>
-              <thead>
-                <tr>
-                  {["Tipo Doc", "Fecha", "N° Doc", "Descripción", "CR", "Cuenta", "Partida", "Clasificación", "Monto"].map(h => (
-                    <th key={h} style={headSt}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((it, i) => (
-                  <tr key={i}>
-                    <td style={cellSt}>{it.docTipo || ""}</td>
-                    <td style={{ ...cellSt, textAlign: "center" }}>{fmtDate(it.fechaISO)}</td>
-                    <td style={{ ...cellSt, textAlign: "center" }}>{it.docNumero || ""}</td>
-                    <td style={{ ...cellSt, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis" }}>{it.detalle || ""}</td>
-                    <td style={cellSt}>{codeName(it.crCodigo, it.crNombre)}</td>
-                    <td style={cellSt}>{codeName(it.ctaCodigo, it.ctaNombre)}</td>
-                    <td style={{ ...cellSt, textAlign: "center" }}>{codeName(it.partidaCodigo, it.partidaNombre)}</td>
-                    <td style={{ ...cellSt, textAlign: "center" }}>{codeName(it.clasificacionCodigo, it.clasificacionNombre)}</td>
-                    <td style={{ ...cellSt, textAlign: "right", fontWeight: 700 }}>{fmt(it.monto)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td colSpan={8} style={{ ...cellSt, textAlign: "right", fontWeight: 700, color: "#93c5fd", background: "#1a1d2e" }}>Total</td>
-                  <td style={{ ...cellSt, textAlign: "right", fontWeight: 700, color: "#4ade80", background: "#1a1d2e" }}>{fmt(total)}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
-
-        {/* Botones fijos abajo */}
-        <div style={{
-          padding: "12px 16px", background: "#1a1d2e",
-          borderTop: "1px solid rgba(255,255,255,.1)",
-          display: "flex", gap: 10, flexShrink: 0,
-        }}>
-          <button onClick={() => setXlsxPreview(null)} style={{
-            flex: 1, padding: "12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)",
-            background: "transparent", color: "#94a3b8", fontWeight: 600, fontSize: 14, cursor: "pointer",
-          }}>Cancelar</button>
-          <button onClick={async () => {
-            const { filename: fn, items: its, correlativo: cr } = xlsxPreview;
-            setXlsxPreview(null);
-            try {
-              const blob = await generateBatchXlsxBlob({ correlativo: cr, items: its });
-              await shareOrDownload(blob, fn);
-            } catch (e) { setErr(e?.message || "Error al exportar"); }
-          }} style={{
-            flex: 2, padding: "12px", borderRadius: 10, border: "none",
-            background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
-          }}>⬆ Compartir / Descargar Excel</button>
-        </div>
-      </div>
-    );
-  }
 
   // ── Visor PDF ─────────────────────────────────────────────────────────────
   if (pdfViewer) {
