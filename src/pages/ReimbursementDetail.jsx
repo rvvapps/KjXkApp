@@ -166,25 +166,22 @@ export default function ReimbursementDetail() {
   async function reExportExcel() {
     if (!reim) return;
     clearMsg(); setBusy(true);
-    // iOS Safari: window.open ANTES del await para conservar el gesto de usuario
-    const win = window.open("", "_blank");
     try {
       const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
       const corr = reim.correlativo;
       const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
       const url = URL.createObjectURL(blob);
-      if (win) {
-        win.location.href = url;  // activa action sheet nativo en iOS
-      } else {
-        // fallback por si el popup fue bloqueado
-        const a = document.createElement("a");
-        a.href = url; a.download = `Rendicion_${corr}.xlsx`;
-        document.body.appendChild(a); a.click(); a.remove();
-      }
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Rendicion_${corr}.xlsx`;
+      a.target = "_blank";
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) {
-      if (win) win.close();
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
   }
