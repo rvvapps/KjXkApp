@@ -435,6 +435,8 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
+const APP_VERSION = "0.12.10";
+
 function TabGeneral() {
   const [s, setS] = useState(null);
   const [msg, setMsg] = useState("");
@@ -464,6 +466,10 @@ function TabGeneral() {
       </div>
       <MsgBox msg={msg} />
       <SaveBtn onClick={async () => { await saveSettings(s); setMsg("✅ Guardado."); }} />
+      <hr />
+      <div style={{ opacity: 0.45, fontSize: 12, marginTop: 8 }}>
+        Versión {APP_VERSION}
+      </div>
     </div>
   );
 }
