@@ -156,7 +156,7 @@ export default function ReimbursementDetail() {
   }
 
   // ── Re-export ───────────────────────────────────────────────────────────────
-  async function reExport() {
+  async function reExportExcel() {
     if (!reim) return;
     clearMsg(); setBusy(true);
     try {
@@ -167,17 +167,26 @@ export default function ReimbursementDetail() {
         const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
         await exportBatchXlsx({ correlativo: corr, items: batches[i] });
       }
-      try {
-        for (let i = 0; i < batches.length; i++) {
-          const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
-          await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
-        }
-        setOk("Excel y PDF exportados.");
-      } catch (pdfErr) {
-        setMsg({ text: `Excel exportado.\n⚠️ PDF: ${pdfErr?.message || "error"}`, type: "warning" });
-      }
+      setOk("Excel descargado.");
     } catch (e) {
-      setErr(`Error al exportar: ${e?.message || "desconocido"}`);
+      setErr(`Error Excel: ${e?.message || "desconocido"}`);
+    } finally { setBusy(false); }
+  }
+
+  async function reExportPdf() {
+    if (!reim) return;
+    clearMsg(); setBusy(true);
+    try {
+      const gastoIds = gastoIdsOrdered();
+      const batches = splitIntoBatches(await buildExportItems(gastoIds));
+      for (let i = 0; i < batches.length; i++) {
+        const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
+        await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
+      }
+      setOk("PDF descargado.");
+    } catch (e) {
+      const detail = [e?.message, e?.stack?.split("\n")?.[1]?.trim()].filter(Boolean).join(" — ");
+      setErr(`Error PDF: ${detail || "desconocido"}`);
     } finally { setBusy(false); }
   }
 
@@ -236,7 +245,11 @@ export default function ReimbursementDetail() {
         const xlsxBlob = await generateBatchXlsxBlob({ correlativo: reim.correlativo, items: batches[0] || [] });
         let pdfBlob = null;
         try { pdfBlob = await generateReceiptsPdfBlob({ correlativo: reim.correlativo, orderedGastoIds: ids.slice(0, 42) }); }
-        catch (pe) { console.warn("PDF snapshot failed:", pe?.message); }
+        catch (pe) { 
+          const det = [pe?.message, pe?.stack?.split("\n")?.[1]?.trim()].filter(Boolean).join(" — ");
+          console.warn("PDF snapshot failed:", det);
+          setMsg({ text: `⚠️ PDF no generado: ${det}`, type: "warning" });
+        }
         await setReimbursementSnapshot({ rendicionId: reim.rendicionId, excelBlob: xlsxBlob, pdfBlob, exportedAt: new Date().toISOString() });
       }
       await approveReimbursement({ rendicionId: reim.rendicionId });
@@ -323,9 +336,12 @@ export default function ReimbursementDetail() {
         {/* ── Acciones según estado ─────────────────────────────────────────── */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 
-          {/* Re-exportar — siempre disponible excepto pagada */}
+          {/* Exportar Excel y PDF por separado */}
           {reim.estado !== "pagada" && (
-            <IconBtn icon={<><IconExcel /><IconPdf /></>} label="Exportar" onClick={reExport} disabled={busy} title="Re-exportar Excel + PDF" />
+            <IconBtn icon={<IconExcel />} label="Excel" onClick={reExportExcel} disabled={busy} title="Descargar Excel" />
+          )}
+          {reim.estado !== "pagada" && (
+            <IconBtn icon={<IconPdf />} label="PDF" onClick={reExportPdf} disabled={busy} title="Descargar PDF de respaldos" />
           )}
 
           {/* BORRADOR */}

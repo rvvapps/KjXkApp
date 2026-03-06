@@ -34,6 +34,8 @@ export default function Expenses() {
   const [attachData, setAttachData] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [lastCorrelativo, setLastCorrelativo] = useState("");
+  const [lastRendicionId, setLastRendicionId] = useState("");
 
   async function refresh() {
     const [exps, concs] = await Promise.all([listPendingExpenses(), listConcepts()]);
@@ -145,19 +147,10 @@ export default function Expenses() {
         await exportBatchXlsx({ correlativo: corr, items: batches[i] });
       }
 
-      // Export PDF — separado para capturar error sin bloquear
-      try {
-        for (let i = 0; i < batches.length; i++) {
-          const corr = batches.length === 1 ? correlativo : `${correlativo}_P${i + 1}`;
-          await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
-        }
-        setMsg(`✅ Rendición ${correlativo} creada. Excel y PDF exportados.`);
-      } catch (pdfErr) {
-        console.error("PDF error:", pdfErr);
-        const detail = [pdfErr?.message, pdfErr?.stack?.split("\n")?.[1]?.trim()].filter(Boolean).join(" — ");
-        setMsg(`✅ Rendición ${correlativo} creada. Excel exportado.\n⚠️ PDF: ${detail || "error desconocido"}`);
-      }
-
+      setMsg(`✅ Rendición ${correlativo} creada. Excel descargado.
+📄 Ve al detalle para descargar el PDF de respaldos.`);
+      setLastCorrelativo(correlativo);
+      setLastRendicionId(rendicionId);
       setSelected(new Set());
       await refresh();
     } catch (e) {
