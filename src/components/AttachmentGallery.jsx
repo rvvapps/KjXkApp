@@ -10,7 +10,7 @@ import React from "react";
  *   onRemove   — fn(adjuntoId), opcional
  *   showIcon   — bool (default true), muestra el ícono 📎 como trigger
  */
-export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true, onExpand }) {
+export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true, onExpand, hasCount }) {
   const [expanded, setExpanded] = React.useState(false);
   const [lightbox, setLightbox] = React.useState(null); // { url, filename }
 
@@ -26,7 +26,9 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
     return () => { items.forEach((i) => { if (i.objectUrl) URL.revokeObjectURL(i.objectUrl); }); };
   }, [items]);
 
-  const hasAtts = items.length > 0;
+  // hasCount viene del conteo liviano — permite mostrar indicador sin cargar blobs
+  const hasAtts = items.length > 0 || (hasCount != null ? hasCount > 0 : false);
+  const count = items.length > 0 ? items.length : (hasCount ?? 0);
   const single = items.length === 1;
 
   function handleIconClick() {
@@ -51,7 +53,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
             !hasAtts && !onExpand ? "Sin imagen adjunta"
             : !hasAtts ? "Cargar adjuntos"
             : single ? "Ver adjunto"
-            : `${items.length} adjuntos`
+            : `${count} adjunto${count !== 1 ? "s" : ""}`
           }
           onClick={handleIconClick}
           style={{
