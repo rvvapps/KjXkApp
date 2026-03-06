@@ -1,42 +1,88 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
-  getReimbursement,
-  listReimbursementItems,
-  getExpense,
-  cancelReimbursement,
-  sendReimbursement,
-  returnReimbursement,
-  approveReimbursement,
-  markReimbursementPagada,
-  setReimbursementSnapshot,
-  listAttachmentsForExpense,
-  listConcepts,
-  removeExpenseFromReimbursement,
-  addExpenseToReimbursement,
-  deleteExpense,
-  listPendingExpenses,
+  getReimbursement, listReimbursementItems, getExpense,
+  cancelReimbursement, sendReimbursement, returnReimbursement,
+  approveReimbursement, markReimbursementPagada, setReimbursementSnapshot,
+  listAttachmentsForExpense, listConcepts, removeExpenseFromReimbursement,
+  addExpenseToReimbursement, deleteExpense, listPendingExpenses,
 } from "../db.js";
 import AttachmentGallery from "../components/AttachmentGallery.jsx";
-import {
-  buildExportItems,
-  exportBatchXlsx,
-  splitIntoBatches,
-  generateBatchXlsxBlob,
-} from "../services/excelExport.js";
-import {
-  exportReceiptsPdf,
-  generateReceiptsPdfBlob,
-} from "../services/pdfExport.js";
+import { buildExportItems, exportBatchXlsx, splitIntoBatches, generateBatchXlsxBlob } from "../services/excelExport.js";
+import { exportReceiptsPdf, generateReceiptsPdfBlob } from "../services/pdfExport.js";
+
+// ── Íconos ──────────────────────────────────────────────────────────────────
+const IconBack    = () => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 4L6 10l6 6"/></svg>;
+const IconHome    = () => <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M8 18v-6h4v6"/></svg>;
+const IconExcel   = () => <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="14" height="14" rx="2"/><path d="M7 7l6 6M13 7l-6 6"/></svg>;
+const IconPdf     = () => <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="4" y="2" width="12" height="16" rx="2"/><path d="M8 6h4M8 10h4M8 14h2"/></svg>;
+const IconSend    = () => <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 10L17 3l-4 7 4 7L3 10z"/></svg>;
+const IconReturn  = () => <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 14l-5-4 5-4"/><path d="M4 10h12a3 3 0 000-6h-2"/></svg>;
+const IconApprove = () => <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 10l5 5L16 6"/></svg>;
+const IconPaid    = () => <span style={{fontSize:15}}>💰</span>;
+const IconEdit    = () => <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14.7 2.3a1 1 0 011.4 1.4l-9.9 9.9L3 15l1.4-3.2 9.9-9.9z"/></svg>;
+const IconTrash   = () => <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 5h14M8 5V3h4v2M6 5l1 12h6l1-12"/></svg>;
+const IconRemove  = () => <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 10h10"/></svg>;
+
+// ── Estado → pill color ──────────────────────────────────────────────────────
+const ESTADO_COLOR = {
+  borrador: "rgba(255,255,255,.12)",
+  enviada:  "#1d4ed8",
+  devuelta: "#b91c1c",
+  aprobada: "#4f46e5",
+  pagada:   "#15803d",
+};
+
+function EstadoPill({ estado }) {
+  return (
+    <span style={{
+      padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+      background: ESTADO_COLOR[estado] || "rgba(255,255,255,.1)",
+      color: "#fff", letterSpacing: ".3px",
+    }}>{estado}</span>
+  );
+}
+
+// ── Banner legible ───────────────────────────────────────────────────────────
+function Banner({ type = "info", children }) {
+  const colors = {
+    info:    { bg: "rgba(99,102,241,.15)",  border: "rgba(99,102,241,.35)",  icon: "🔒" },
+    success: { bg: "rgba(34,197,94,.12)",   border: "rgba(34,197,94,.35)",   icon: "✅" },
+    error:   { bg: "rgba(239,68,68,.12)",   border: "rgba(239,68,68,.35)",   icon: "❌" },
+    warning: { bg: "rgba(250,204,21,.12)",  border: "rgba(250,204,21,.35)",  icon: "⚠️" },
+  };
+  const s = colors[type] || colors.info;
+  return (
+    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: "8px 12px", marginTop: 10 }}>
+      <div className="small" style={{ whiteSpace: "pre-wrap", color: "#e5e7eb" }}>{children}</div>
+    </div>
+  );
+}
+
+// ── Botón con ícono ──────────────────────────────────────────────────────────
+function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title, style = {} }) {
+  const base = {
+    display: "inline-flex", alignItems: "center", gap: 5,
+    padding: "7px 12px", borderRadius: 10, fontWeight: 600, fontSize: 13,
+    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
+    border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "#e5e7eb",
+    ...style,
+  };
+  if (variant === "primary") { base.background = "#0ea5e9"; base.color = "#001018"; base.border = "none"; }
+  if (variant === "success")  { base.background = "#22c55e"; base.color = "#001a0a"; base.border = "none"; }
+  if (variant === "danger")   { base.background = "transparent"; base.border = "1px solid rgba(239,68,68,.4)"; base.color = "#f87171"; }
+  return (
+    <button style={base} onClick={onClick} disabled={disabled} title={title || label}>
+      {icon}{label && <span>{label}</span>}
+    </button>
+  );
+}
 
 function downloadSnapshotBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -47,48 +93,15 @@ export default function ReimbursementDetail() {
   const [reim, setReim] = useState(null);
   const [items, setItems] = useState([]);
   const [expenses, setExpenses] = useState([]);
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState({ text: "", type: "info" });
   const [busy, setBusy] = useState(false);
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [showAddPanel, setShowAddPanel] = useState(false);
-  const [expAtts, setExpAtts] = useState({}); // gastoId -> atts[]
+  const [expAtts, setExpAtts] = useState({});
 
-  useEffect(() => {
-    (async () => {
-      const r = await getReimbursement(rendicionId);
-      setReim(r);
-
-      const its = await listReimbursementItems(rendicionId);
-      setItems(its);
-
-      // Cargar gastos en paralelo
-      const rawExps = await Promise.all(its.map((it) => getExpense(it.gastoId)));
-      const exps = rawExps
-        .map((e, i) => e ? { ...e, _orden: its[i].orden ?? 0 } : null)
-        .filter(Boolean)
-        .sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
-      setExpenses(exps);
-
-      // Cargar gastos pendientes para panel "agregar"
-      setPendingExpenses(await listPendingExpenses());
-    })();
-  }, [rendicionId]);
-
-  // Cargar adjuntos cuando cambian los gastos
-  useEffect(() => {
-    if (!expenses.length) return;
-    (async () => {
-      const map = {};
-      await Promise.all(expenses.map(async (e) => {
-        map[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
-      }));
-      setExpAtts(map);
-    })();
-  }, [expenses]);
-
-  const total = useMemo(() => {
-    return (expenses || []).reduce((acc, e) => acc + (Number(e.monto) || 0), 0);
-  }, [expenses]);
+  function setOk(text)  { setMsg({ text, type: "success" }); }
+  function setErr(text) { setMsg({ text, type: "error" }); }
+  function clearMsg()   { setMsg({ text: "", type: "info" }); }
 
   async function reloadAll() {
     const r = await getReimbursement(rendicionId);
@@ -98,11 +111,9 @@ export default function ReimbursementDetail() {
     const rawExps = await Promise.all(its.map((it) => getExpense(it.gastoId)));
     const exps = rawExps
       .map((e, i) => e ? { ...e, _orden: its[i].orden ?? 0 } : null)
-      .filter(Boolean)
-      .sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
+      .filter(Boolean).sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
     setExpenses(exps);
     setPendingExpenses(await listPendingExpenses());
-    // Recargar adjuntos
     const map = {};
     await Promise.all(exps.map(async (e) => {
       map[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
@@ -110,521 +121,337 @@ export default function ReimbursementDetail() {
     setExpAtts(map);
   }
 
-  // 🔒 Validación fuerte (misma lógica que en "Crear rendición")
-  async function validateBeforeStateChange(gastoIds) {
-    const concepts = await listConcepts(); // activos
-    const conceptById = new Map(concepts.map((c) => [c.conceptId, c]));
-    const problems = [];
+  useEffect(() => { reloadAll(); }, [rendicionId]);
 
+  const total = useMemo(() => expenses.reduce((s, e) => s + (Number(e.monto) || 0), 0), [expenses]);
+
+  // ── Validación ──────────────────────────────────────────────────────────────
+  async function validateBeforeStateChange(gastoIds) {
+    const concepts = await listConcepts();
+    const byId = new Map(concepts.map((c) => [c.conceptId, c]));
+    const problems = [];
     for (const id of gastoIds) {
       const exp = await getExpense(id);
       if (!exp) continue;
-
-      const labelBase =
-        String(exp.docNumero || "").trim()
-          ? `${exp.docTipo || "Doc"} ${String(exp.docNumero).trim()}`
-          : exp.detalle || "Gasto";
-
-      if (!exp.monto || Number(exp.monto) <= 0) {
-        problems.push(`Monto inválido (<= 0) en: "${labelBase}"`);
-      }
-
-      if (!exp.fecha) {
-        problems.push(`Falta fecha en: "${labelBase}"`);
-      }
-
-      if (!String(exp.docTipo || "").trim()) {
-        problems.push(`Falta Tipo Doc en: "${labelBase}"`);
-      }
-
-      if (!String(exp.crCodigo || "").trim()) {
-        problems.push(`Falta Centro de Responsabilidad (CR) en: "${labelBase}"`);
-      }
-
-      if (!String(exp.ctaCodigo || "").trim()) {
-        problems.push(`Falta Cuenta Contable en: "${labelBase}"`);
-      }
-
-      if (!String(exp.partidaCodigo || "").trim()) {
-        problems.push(`Falta Partida en: "${labelBase}"`);
-      }
-
-      const concept = conceptById.get(exp.conceptId);
-      const requiereDoc = !!concept?.requiereDoc;
-      const requiereRespaldo = !!concept?.requiereRespaldo;
-
-      if (requiereDoc) {
-        if (String(exp.docTipo || "") !== "SinDoc" && !String(exp.docNumero || "").trim()) {
-          problems.push(`Falta N° Doc en: "${labelBase}"`);
-        }
-        const noDoc = exp.docTipo === "SinDoc" || !String(exp.docNumero || "").trim();
-        if (noDoc) {
-          problems.push(`Falta documento (tipo/número) en: "${exp.detalle || "Gasto"}"`);
-        }
-      }
-
-      if (requiereRespaldo) {
+      const lbl = exp.docNumero ? `${exp.docTipo} ${exp.docNumero}` : (exp.detalle || "Gasto");
+      if (!exp.monto || Number(exp.monto) <= 0) problems.push(`Monto inválido en "${lbl}"`);
+      if (!exp.fecha) problems.push(`Falta fecha en "${lbl}"`);
+      if (!String(exp.docTipo || "").trim()) problems.push(`Falta tipo doc en "${lbl}"`);
+      if (!String(exp.crCodigo || "").trim()) problems.push(`Falta CR en "${lbl}"`);
+      if (!String(exp.ctaCodigo || "").trim()) problems.push(`Falta cuenta contable en "${lbl}"`);
+      if (!String(exp.partidaCodigo || "").trim()) problems.push(`Falta partida en "${lbl}"`);
+      const c = byId.get(exp.conceptId);
+      if (c?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
+        problems.push(`Falta N° doc en "${lbl}"`);
+      if (c?.requiereRespaldo) {
         const atts = await listAttachmentsForExpense(id);
-        if (!atts || atts.length === 0) {
-          problems.push(`Falta respaldo (foto) en: "${labelBase}"`);
-        }
+        if (!atts?.length) problems.push(`Falta foto en "${lbl}"`);
       }
     }
-
     return problems;
   }
 
-  function formatProblemsBlock(title, problems) {
-    const first = problems.slice(0, 6).map((p) => `• ${p}`).join("\n");
-    const more = problems.length > 6 ? `\n…y ${problems.length - 6} más.` : "";
-    return `❌ ${title}\n\nCorrige estos puntos:\n${first}${more}\n\nTip: entra a “Editar” el gasto con problema, corrige y vuelve a intentar.`;
+  function gastoIdsOrdered() {
+    return (items || []).slice().sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).map((it) => it.gastoId);
   }
 
+  // ── Re-export ───────────────────────────────────────────────────────────────
   async function reExport() {
     if (!reim) return;
-    setMsg("");
-    setBusy(true);
+    clearMsg(); setBusy(true);
     try {
-      // Orden canónico de gastoIds según reimbursement_items.orden
-      const gastoIds = (items || [])
-        .slice()
-        .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-        .map((it) => it.gastoId);
-
-      // Excel por lotes
+      const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
       const batches = splitIntoBatches(exportItems);
-
       for (let i = 0; i < batches.length; i++) {
         const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
         await exportBatchXlsx({ correlativo: corr, items: batches[i] });
-
-        // PDF por batch
-        const batchIds = gastoIds.slice(i * 42, i * 42 + 42);
-        await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: batchIds });
       }
-
-      setMsg("✅ Exportación lista (Excel + PDF).");
+      try {
+        for (let i = 0; i < batches.length; i++) {
+          const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
+          await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
+        }
+        setOk("Excel y PDF exportados.");
+      } catch (pdfErr) {
+        setMsg({ text: `Excel exportado.\n⚠️ PDF: ${pdfErr?.message || "error"}`, type: "warning" });
+      }
     } catch (e) {
-      console.error(e);
-      setMsg("❌ Error al exportar. Revisa la consola (F12).");
-    } finally {
-      setBusy(false);
-    }
+      setErr(`Error al exportar: ${e?.message || "desconocido"}`);
+    } finally { setBusy(false); }
   }
 
+  // ── Cancelar borrador ────────────────────────────────────────────────────────
   async function onCancelDraft() {
     if (!reim) return;
-
-    const ok = window.confirm(`¿Cancelar este borrador?
-
-Esto eliminará la rendición y devolverá sus gastos a 'pendiente'.`);
-    if (!ok) return;
-
-    setBusy(true);
-    setMsg("");
+    if (!confirm("¿Cancelar este borrador?\nLos gastos volverán a estar pendientes.")) return;
+    setBusy(true); clearMsg();
     try {
       await cancelReimbursement({ rendicionId: reim.rendicionId });
-      setMsg("✅ Borrador cancelado.");
       nav("/rendiciones");
-    } catch (e) {
-      console.error(e);
-      setMsg("❌ No se pudo cancelar el borrador. Revisa la consola (F12).");
-    } finally {
-      setBusy(false);
-    }
+    } catch (e) { setErr(e?.message || "No se pudo cancelar."); } finally { setBusy(false); }
+  }
+
+  // ── Enviar ──────────────────────────────────────────────────────────────────
+  async function onSend() {
+    setBusy(true); clearMsg();
+    try {
+      const ids = gastoIdsOrdered();
+      const problems = await validateBeforeStateChange(ids);
+      if (problems.length > 0) {
+        setErr("Corrige antes de enviar:\n" + problems.slice(0, 5).map(p => `• ${p}`).join("\n"));
+        return;
+      }
+      await sendReimbursement({ rendicionId: reim.rendicionId });
+      setOk("Rendición ENVIADA · gastos congelados");
+      await reloadAll();
+    } catch (e) { setErr(e?.message || "Error al enviar."); } finally { setBusy(false); }
+  }
+
+  // ── Devolver ────────────────────────────────────────────────────────────────
+  async function onReturn() {
+    const motivo = window.prompt("Motivo de devolución (opcional):", "") ?? "";
+    setBusy(true); clearMsg();
+    try {
+      await returnReimbursement({ rendicionId: reim.rendicionId, motivo });
+      setOk("Rendición DEVUELTA · ya se puede editar");
+      await reloadAll();
+    } catch (e) { setErr(e?.message || "Error."); } finally { setBusy(false); }
+  }
+
+  // ── Aprobar ─────────────────────────────────────────────────────────────────
+  async function onApprove() {
+    if (!confirm("¿Aprobar esta rendición?\nSe guardará un snapshot Excel+PDF.")) return;
+    setBusy(true); clearMsg();
+    try {
+      const ids = gastoIdsOrdered();
+      const problems = await validateBeforeStateChange(ids);
+      if (problems.length > 0) {
+        setErr("Corrige antes de aprobar:\n" + problems.slice(0, 5).map(p => `• ${p}`).join("\n"));
+        return;
+      }
+      if (!reim.snapshotExcelBlob || !reim.snapshotPdfBlob) {
+        const exportItems = await buildExportItems(ids);
+        const batches = splitIntoBatches(exportItems);
+        const xlsxBlob = await generateBatchXlsxBlob({ correlativo: reim.correlativo, items: batches[0] || [] });
+        let pdfBlob = null;
+        try { pdfBlob = await generateReceiptsPdfBlob({ correlativo: reim.correlativo, orderedGastoIds: ids.slice(0, 42) }); }
+        catch (pe) { console.warn("PDF snapshot failed:", pe?.message); }
+        await setReimbursementSnapshot({ rendicionId: reim.rendicionId, excelBlob: xlsxBlob, pdfBlob, exportedAt: new Date().toISOString() });
+      }
+      await approveReimbursement({ rendicionId: reim.rendicionId });
+      setOk("Rendición APROBADA · descarga Excel/PDF cuando quieras");
+      await reloadAll();
+    } catch (e) { setErr(e?.message || "Error al aprobar."); } finally { setBusy(false); }
+  }
+
+  // ── Marcar pagada ───────────────────────────────────────────────────────────
+  async function onMarkPagada() {
+    if (!confirm("¿Confirmar que recibiste el depósito?\nSe marcará la rendición como PAGADA.")) return;
+    setBusy(true); clearMsg();
+    try {
+      await markReimbursementPagada({ rendicionId: reim.rendicionId });
+      setOk("Rendición PAGADA ✓");
+      await reloadAll();
+    } catch (e) { setErr(e?.message || "Error."); } finally { setBusy(false); }
+  }
+
+  // ── Re-enviar (devuelta → enviada) ──────────────────────────────────────────
+  async function onReSend() {
+    setBusy(true); clearMsg();
+    try {
+      const ids = gastoIdsOrdered();
+      const problems = await validateBeforeStateChange(ids);
+      if (problems.length > 0) {
+        setErr("Corrige antes de re-enviar:\n" + problems.slice(0, 5).map(p => `• ${p}`).join("\n"));
+        return;
+      }
+      await sendReimbursement({ rendicionId: reim.rendicionId });
+      setOk("Rendición RE-ENVIADA · gastos congelados");
+      await reloadAll();
+    } catch (e) { setErr(e?.message || "Error al re-enviar."); } finally { setBusy(false); }
   }
 
   async function handleRemoveExpense(gastoId) {
-    if (!confirm("¿Quitar este gasto de la rendición? Volverá a estar pendiente y podrás incorporarlo a otra rendición.")) return;
-    setBusy(true); setMsg("");
-    try {
-      await removeExpenseFromReimbursement({ rendicionId, gastoId });
-      await reloadAll();
-      setMsg("✅ Gasto quitado. Vuelve a estado pendiente.");
-    } catch (e) {
-      setMsg(`❌ ${e?.message || "Error al quitar gasto."}`);
-    } finally { setBusy(false); }
+    if (!confirm("¿Quitar este gasto? Volverá a estar pendiente.")) return;
+    setBusy(true); clearMsg();
+    try { await removeExpenseFromReimbursement({ rendicionId, gastoId }); await reloadAll(); setOk("Gasto quitado."); }
+    catch (e) { setErr(e?.message || "Error."); } finally { setBusy(false); }
   }
 
   async function handleDeleteExpense(gastoId) {
-    if (!confirm("¿Eliminar este gasto definitivamente? Esta acción no se puede deshacer.")) return;
-    setBusy(true); setMsg("");
-    try {
-      await deleteExpense(gastoId);
-      await reloadAll();
-      setMsg("✅ Gasto eliminado.");
-    } catch (e) {
-      setMsg(`❌ ${e?.message || "Error al eliminar gasto."}`);
-    } finally { setBusy(false); }
+    if (!confirm("¿Eliminar este gasto definitivamente?")) return;
+    setBusy(true); clearMsg();
+    try { await deleteExpense(gastoId); await reloadAll(); setOk("Gasto eliminado."); }
+    catch (e) { setErr(e?.message || "Error."); } finally { setBusy(false); }
   }
 
   async function handleAddExpense(gastoId) {
-    setBusy(true); setMsg("");
-    try {
-      await addExpenseToReimbursement({ rendicionId, gastoId });
-      await reloadAll();
-      setShowAddPanel(false);
-      setMsg("✅ Gasto incorporado a la rendición.");
-    } catch (e) {
-      setMsg(`❌ ${e?.message || "Error al agregar gasto."}`);
-    } finally { setBusy(false); }
+    setBusy(true); clearMsg();
+    try { await addExpenseToReimbursement({ rendicionId, gastoId }); await reloadAll(); setShowAddPanel(false); setOk("Gasto incorporado."); }
+    catch (e) { setErr(e?.message || "Error."); } finally { setBusy(false); }
   }
 
-  if (!reim) {
-    return (
-      <div className="card">
-        <h2>Rendición</h2>
-        <div className="small">Cargando...</div>
-      </div>
-    );
-  }
+  if (!reim) return <div className="card"><div className="small">Cargando...</div></div>;
+
+  const frozen = reim.estado === "enviada" || reim.estado === "aprobada" || reim.estado === "pagada";
 
   return (
-    <div className="card">
-      <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-        <div>
-          <h2 style={{ marginBottom: 6 }}>Rendición {reim.correlativo}</h2>
-          <div className="small">
-            Estado: <span className="pill">{reim.estado}</span> · Creada:{" "}
-            {reim.fechaCreacion ? new Date(reim.fechaCreacion).toLocaleString("es-CL") : "—"} · Total:{" "}
-            ${total.toLocaleString("es-CL")}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="card">
+        {/* Navegación */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <IconBtn icon={<IconHome />} label="Inicio" onClick={() => nav("/")} />
+          <IconBtn icon={<IconBack />} label="Rendiciones" onClick={() => nav("/rendiciones")} />
+        </div>
+
+        {/* Info rendición */}
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>{reim.correlativo}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <EstadoPill estado={reim.estado} />
+            <span className="small" style={{ opacity: 0.6 }}>
+              {reim.fechaCreacion ? new Date(reim.fechaCreacion).toLocaleDateString("es-CL") : "—"}
+            </span>
+            <span style={{ fontWeight: 800 }}>${total.toLocaleString("es-CL")}</span>
+            {reim.pagadaAt && <span className="small" style={{ opacity: 0.6 }}>Pagada {new Date(reim.pagadaAt).toLocaleDateString("es-CL")}</span>}
           </div>
         </div>
 
-        <div className="row" style={{ gap: 8 }}>
-          <Link className="btn secondary" to="/rendiciones">Volver</Link>
+        {/* ── Acciones según estado ─────────────────────────────────────────── */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 
-          <button className="btn" onClick={reExport} disabled={busy || reim.estado === "aprobada"}>
-            {busy ? "Procesando..." : "Re-exportar Excel/PDF"}
-          </button>
-
-          {reim.estado === "borrador" && (
-            <button
-              className="btn"
-              onClick={async () => {
-                setBusy(true);
-                setMsg("");
-                try {
-                  const gastoIds = (items || [])
-                    .slice()
-                    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-                    .map((it) => it.gastoId);
-
-                  const problems = await validateBeforeStateChange(gastoIds);
-                  if (problems.length > 0) {
-                    setMsg(formatProblemsBlock("No puedes enviar la rendición.", problems));
-                    return;
-                  }
-
-                  await sendReimbursement({ rendicionId: reim.rendicionId });
-                  setReim(await getReimbursement(reim.rendicionId));
-                  setMsg("✅ Rendición marcada como ENVIADA (gastos congelados).");
-                } catch (e) {
-                  console.error(e);
-                  setMsg("❌ No se pudo enviar. Revisa la consola (F12).");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={busy}
-            >
-              Enviar rendición
-            </button>
+          {/* Re-exportar — siempre disponible excepto pagada */}
+          {reim.estado !== "pagada" && (
+            <IconBtn icon={<><IconExcel /><IconPdf /></>} label="Exportar" onClick={reExport} disabled={busy} title="Re-exportar Excel + PDF" />
           )}
 
-          {reim.estado === "enviada" && (
-            <>
-              <button
-                className="btn"
-                onClick={async () => {
-                  const motivo = window.prompt("Motivo de devolución (opcional):", "") ?? "";
-                  setBusy(true);
-                  setMsg("");
-                  try {
-                    await returnReimbursement({ rendicionId: reim.rendicionId, motivo });
-                    setReim(await getReimbursement(reim.rendicionId));
-                    setMsg("✅ Rendición marcada como DEVUELTA (ya se puede editar).");
-                  } catch (e) {
-                    console.error(e);
-                    setMsg("❌ No se pudo marcar devuelta. Revisa la consola (F12).");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy}
-              >
-                Marcar devuelta
-              </button>
+          {/* BORRADOR */}
+          {reim.estado === "borrador" && <>
+            <IconBtn icon={<IconSend />} label="Enviar" onClick={onSend} disabled={busy} variant="primary" />
+            <IconBtn icon={<IconTrash />} label="Cancelar" onClick={onCancelDraft} disabled={busy} variant="danger" />
+          </>}
 
-              <button
-                className="btn"
-                onClick={async () => {
-                  const ok = window.confirm(
-                    "¿Aprobar esta rendición?\n\nSe guardará un 'snapshot' (Excel/PDF) y quedará cerrada sin re-export."
-                  );
-                  if (!ok) return;
+          {/* ENVIADA */}
+          {reim.estado === "enviada" && <>
+            <IconBtn icon={<IconReturn />} label="Devolver" onClick={onReturn} disabled={busy} />
+            <IconBtn icon={<IconApprove />} label="Aprobar" onClick={onApprove} disabled={busy} variant="primary" />
+          </>}
 
-                  setBusy(true);
-                  setMsg("");
-                  try {
-                    const gastoIds = (items || [])
-                      .slice()
-                      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-                      .map((it) => it.gastoId);
+          {/* APROBADA — descargas + marcar pagada */}
+          {reim.estado === "aprobada" && <>
+            {reim.snapshotExcelBlob && (
+              <IconBtn icon={<IconExcel />} label="Excel" onClick={() => downloadSnapshotBlob(reim.snapshotExcelBlob, `Rendicion_${reim.correlativo}.xlsx`)} disabled={busy} title="Descargar Excel guardado" />
+            )}
+            {reim.snapshotPdfBlob && (
+              <IconBtn icon={<IconPdf />} label="PDF" onClick={() => downloadSnapshotBlob(reim.snapshotPdfBlob, `Respaldos_${reim.correlativo}.pdf`)} disabled={busy} title="Descargar PDF guardado" />
+            )}
+            <IconBtn icon={<IconPaid />} label="Pagada" onClick={onMarkPagada} disabled={busy} variant="success" title="Marcar como pagada al recibir depósito" />
+          </>}
 
-                    const problems = await validateBeforeStateChange(gastoIds);
-                    if (problems.length > 0) {
-                      setMsg(formatProblemsBlock("No puedes aprobar la rendición.", problems));
-                      return;
-                    }
+          {/* PAGADA — solo descargas */}
+          {reim.estado === "pagada" && <>
+            {reim.snapshotExcelBlob && (
+              <IconBtn icon={<IconExcel />} label="Excel" onClick={() => downloadSnapshotBlob(reim.snapshotExcelBlob, `Rendicion_${reim.correlativo}.xlsx`)} title="Descargar Excel" />
+            )}
+            {reim.snapshotPdfBlob && (
+              <IconBtn icon={<IconPdf />} label="PDF" onClick={() => downloadSnapshotBlob(reim.snapshotPdfBlob, `Respaldos_${reim.correlativo}.pdf`)} title="Descargar PDF" />
+            )}
+          </>}
 
-                    // Snapshot SOLO al aprobar (B)
-                    if (!reim.snapshotExcelBlob || !reim.snapshotPdfBlob) {
-                      const exportItems = await buildExportItems(gastoIds);
-                      const batches = splitIntoBatches(exportItems);
-                      const firstBatchItems = batches[0] || [];
-                      const firstBatchIds = gastoIds.slice(0, 42);
-                      const corr = reim.correlativo;
+          {/* DEVUELTA */}
+          {reim.estado === "devuelta" && <>
+            <IconBtn icon={<IconSend />} label="Re-enviar" onClick={onReSend} disabled={busy} variant="primary" />
+            <IconBtn icon={<IconTrash />} label="Cancelar" onClick={onCancelDraft} disabled={busy} variant="danger" />
+          </>}
+        </div>
 
-                      const xlsxBlob = await generateBatchXlsxBlob({ correlativo: corr, items: firstBatchItems });
-                      const pdfBlob = await generateReceiptsPdfBlob({ correlativo: corr, orderedGastoIds: firstBatchIds });
+        {/* Banner estado congelado */}
+        {frozen && reim.estado !== "pagada" && (
+          <Banner type="info">🔒 {reim.estado.toUpperCase()} · gastos congelados{reim.estado !== "enviada" ? "" : " hasta DEVUELTA"}</Banner>
+        )}
 
-                      await setReimbursementSnapshot({
-                        rendicionId: reim.rendicionId,
-                        excelBlob: xlsxBlob,
-                        pdfBlob,
-                        exportedAt: new Date().toISOString(),
-                      });
-                    }
+        {/* Mensaje operación */}
+        {msg.text && <Banner type={msg.type}>{msg.text}</Banner>}
+      </div>
 
-                    await approveReimbursement({ rendicionId: reim.rendicionId });
-                    setReim(await getReimbursement(reim.rendicionId));
-                    setMsg("✅ Rendición APROBADA. Puedes descargar el PDF/Excel guardado.");
-                  } catch (e) {
-                    console.error(e);
-                    setMsg("❌ No se pudo aprobar. Revisa la consola (F12).");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy}
-              >
-                Aprobar
-              </button>
-            </>
-          )}
-
-          {reim.estado === "aprobada" && (
-            <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.08)" }}>
-              <div className="small" style={{ marginBottom: 10, opacity: 0.8 }}>
-                ✅ Rendición aprobada — marca como pagada cuando recibas el depósito.
-              </div>
-              <button
-                className="btn"
-                disabled={busy}
-                style={{ background: "#22c55e", color: "#001a0a" }}
-                onClick={async () => {
-                  if (!confirm("¿Marcar esta rendición como pagada?\n\nEsta acción confirma que recibiste el depósito.")) return;
-                  setBusy(true);
-                  try {
-                    await markReimbursementPagada({ rendicionId: reim.rendicionId });
-                    setMsg("✅ Rendición marcada como pagada.");
-                    await reloadAll();
-                  } catch (e) {
-                    setMsg("Error: " + (e?.message || "No se pudo marcar como pagada."));
-                  } finally { setBusy(false); }
-                }}
-              >
-                💰 Marcar como pagada
-              </button>
-            </div>
-          )}
-
+      {/* ── Lista de gastos ─────────────────────────────────────────────────── */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ fontWeight: 700 }}>Gastos incluidos ({expenses.length})</div>
           {reim.estado === "devuelta" && (
-            <button
-              className="btn"
-              onClick={async () => {
-                setBusy(true);
-                setMsg("");
-                try {
-                  const gastoIds = (items || [])
-                    .slice()
-                    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
-                    .map((it) => it.gastoId);
-
-                  const problems = await validateBeforeStateChange(gastoIds);
-                  if (problems.length > 0) {
-                    setMsg(formatProblemsBlock("No puedes re-enviar la rendición.", problems));
-                    return;
-                  }
-
-                  await sendReimbursement({ rendicionId: reim.rendicionId });
-                  setReim(await getReimbursement(reim.rendicionId));
-                  setMsg("✅ Rendición re-enviada como ENVIADA (gastos congelados).");
-                } catch (e) {
-                  console.error(e);
-                  setMsg("❌ No se pudo re-enviar. Revisa la consola (F12).");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-              disabled={busy}
-            >
-              Re-enviar
-            </button>
-          )}
-
-          {(reim.estado === "aprobada" || reim.snapshotExcelBlob || reim.snapshotPdfBlob) && (
-            <>
-              {reim.snapshotExcelBlob && (
-                <button
-                  className="btn secondary"
-                  onClick={() => downloadSnapshotBlob(reim.snapshotExcelBlob, `Rendicion_${reim.correlativo}.xlsx`)}
-                  disabled={busy}
-                >
-                  Descargar Excel guardado
-                </button>
-              )}
-              {reim.snapshotPdfBlob && (
-                <button
-                  className="btn secondary"
-                  onClick={() => downloadSnapshotBlob(reim.snapshotPdfBlob, `Respaldos_${reim.correlativo}.pdf`)}
-                  disabled={busy}
-                >
-                  Descargar PDF guardado
-                </button>
-              )}
-            </>
-          )}
-
-          {(reim.estado === "borrador" || reim.estado === "devuelta") && (
-            <button className="btn danger" onClick={onCancelDraft} disabled={busy}>
-              {reim.estado === "devuelta" ? "Cancelar rendición" : "Cancelar borrador"}
+            <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setShowAddPanel((v) => !v)}>
+              {showAddPanel ? "Cancelar" : "+ Agregar"}
             </button>
           )}
         </div>
-      </div>
 
-      {(reim.estado === "enviada" || reim.estado === "aprobada") && (
-        <pre style={{ whiteSpace: "pre-wrap", marginTop: 12, background: "#fff7ed", padding: 10, borderRadius: 8 }}>
-          🔒 Esta rendición está {reim.estado.toUpperCase()}. Los gastos quedan congelados hasta estado DEVUELTA.
-        </pre>
-      )}
+        {/* Panel agregar */}
+        {showAddPanel && reim.estado === "devuelta" && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.25)", borderRadius: 10 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Selecciona un gasto pendiente:</div>
+            {pendingExpenses.filter((p) => Number(p.monto) > 0).length === 0 ? (
+              <div className="small">No hay gastos pendientes disponibles.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {pendingExpenses.filter((p) => Number(p.monto) > 0).map((p) => (
+                  <div key={p.gastoId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>{p.detalle?.split("\n")[0]?.slice(0, 50) || "Sin detalle"}</div>
+                      <div className="small">{new Date(p.fecha).toLocaleDateString("es-CL")} · ${Number(p.monto).toLocaleString("es-CL")}</div>
+                    </div>
+                    <button className="btn" style={{ fontSize: 12, padding: "5px 10px" }} disabled={busy} onClick={() => handleAddExpense(p.gastoId)}>Agregar</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-      {msg && (
-        <pre style={{ whiteSpace: "pre-wrap", marginTop: 12, background: "#f8fafc", padding: 10, borderRadius: 8, color: "#111827" }}>
-          {msg}
-        </pre>
-      )}
-
-      <div style={{ marginTop: 18, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h3 style={{ margin: 0 }}>Gastos incluidos ({expenses.length})</h3>
-        {reim.estado === "devuelta" && (
-          <button className="btn secondary" onClick={() => setShowAddPanel((v) => !v)}>
-            {showAddPanel ? "Cancelar" : "+ Agregar gasto"}
-          </button>
+        {expenses.length === 0 ? (
+          <div className="small" style={{ opacity: 0.6 }}>No hay gastos en esta rendición.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {expenses.map((e) => {
+              const atts = expAtts[e.gastoId] || [];
+              return (
+                <div key={e.gastoId} style={{ padding: "10px 0", borderTop: "1px solid rgba(255,255,255,.07)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                        <AttachmentGallery atts={atts} locked={frozen} />
+                        {e.docTipo || "Doc"} {e.docNumero || "S/n"} · ${Number(e.monto || 0).toLocaleString("es-CL")}
+                      </div>
+                      <div className="small" style={{ marginTop: 2 }}>
+                        {e.detalle?.split("\n")[0]?.slice(0, 55) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
+                      </div>
+                      <div className="small" style={{ opacity: 0.6 }}>
+                        CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}
+                      </div>
+                    </div>
+                    {/* Acciones por gasto */}
+                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                      {frozen ? (
+                        <span style={{ fontSize: 12, opacity: 0.4, padding: "6px 8px" }}>🔒</span>
+                      ) : (
+                        <>
+                          <IconBtn icon={<IconEdit />} onClick={() => nav(`/gastos/${e.gastoId}`)} title="Editar gasto" />
+                          {reim.estado === "devuelta" && <>
+                            <IconBtn icon={<IconRemove />} onClick={() => handleRemoveExpense(e.gastoId)} disabled={busy} title="Quitar de rendición" />
+                            <IconBtn icon={<IconTrash />} onClick={() => handleDeleteExpense(e.gastoId)} disabled={busy} variant="danger" title="Eliminar gasto" />
+                          </>}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
-
-      {/* Panel agregar gasto pendiente */}
-      {showAddPanel && reim.estado === "devuelta" && (
-        <div style={{
-          marginTop: 10, padding: "12px 14px",
-          background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.3)",
-          borderRadius: 14,
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>Selecciona un gasto pendiente para agregar:</div>
-          {pendingExpenses.filter((p) => Number(p.monto) > 0).length === 0 ? (
-            <div className="small">No hay gastos pendientes disponibles.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {pendingExpenses.filter((p) => Number(p.monto) > 0).map((p) => (
-                <div key={p.gastoId} className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{p.detalle?.split("\n")[0]?.slice(0, 50) || "Sin detalle"}</div>
-                    <div className="small">
-                      {new Date(p.fecha).toLocaleDateString("es-CL")} · {p.docTipo} {p.docNumero || ""} · ${Number(p.monto).toLocaleString("es-CL")}
-                    </div>
-                  </div>
-                  <button className="btn" disabled={busy} onClick={() => handleAddExpense(p.gastoId)}>
-                    Agregar
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {expenses.length === 0 ? (
-        <div className="small" style={{ marginTop: 10 }}>No hay gastos asociados a esta rendición.</div>
-      ) : (
-        <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-          {expenses.map((e) => {
-            const atts = expAtts[e.gastoId] || [];
-            return (
-              <div key={e.gastoId || e.id} className="card" style={{ border: "1px solid rgba(255,255,255,.1)" }}>
-                <div className="row" style={{ alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-                      <AttachmentGallery atts={atts} locked={true} />
-                      {e.docTipo || "Doc"} {e.docNumero || ""} · ${Number(e.monto || 0).toLocaleString("es-CL")}
-                    </div>
-                    <div className="small">
-                      {e.detalle?.split("\n")[0]?.slice(0, 60) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
-                    </div>
-                    <div className="small">CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}</div>
-                  </div>
-                  <div className="row" style={{ gap: 6 }}>
-                    {(reim.estado === "enviada" || reim.estado === "aprobada") ? (
-                      <span className="btn secondary" style={{ opacity: 0.5, cursor: "not-allowed" }}>Editar</span>
-                    ) : (
-                      <Link className="btn secondary" to={`/gastos/${e.gastoId || e.id}`}>Editar</Link>
-                    )}
-                    {reim.estado === "aprobada" && (
-            <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,.08)" }}>
-              <div className="small" style={{ marginBottom: 10, opacity: 0.8 }}>
-                ✅ Rendición aprobada — marca como pagada cuando recibas el depósito.
-              </div>
-              <button
-                className="btn"
-                disabled={busy}
-                style={{ background: "#22c55e", color: "#001a0a" }}
-                onClick={async () => {
-                  if (!confirm("¿Marcar esta rendición como pagada?\n\nEsta acción confirma que recibiste el depósito.")) return;
-                  setBusy(true);
-                  try {
-                    await markReimbursementPagada({ rendicionId: reim.rendicionId });
-                    setMsg("✅ Rendición marcada como pagada.");
-                    await reloadAll();
-                  } catch (e) {
-                    setMsg("Error: " + (e?.message || "No se pudo marcar como pagada."));
-                  } finally { setBusy(false); }
-                }}
-              >
-                💰 Marcar como pagada
-              </button>
-            </div>
-          )}
-
-          {reim.estado === "devuelta" && (
-                      <>
-                        <button className="btn secondary" disabled={busy} onClick={() => handleRemoveExpense(e.gastoId)}>
-                          Quitar
-                        </button>
-                        <button className="btn danger" disabled={busy} onClick={() => handleDeleteExpense(e.gastoId)}>
-                          Eliminar
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

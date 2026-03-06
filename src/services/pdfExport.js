@@ -95,6 +95,7 @@ async function blobToUint8(blob) {
 }
 
 async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = {}) {
+  // pdf-lib solo soporta JPEG y PNG — siempre convertir a JPEG via canvas
   try {
     const imgUrl = URL.createObjectURL(blob);
     const img = new Image();
@@ -102,14 +103,15 @@ async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = 
     img.src = imgUrl;
     await new Promise((res, rej) => {
       img.onload = () => res();
-      img.onerror = rej;
+      img.onerror = () => rej(new Error("img_load_failed"));
+      setTimeout(() => rej(new Error("img_timeout")), 8000);
     });
 
     const w0 = img.naturalWidth || img.width;
     const h0 = img.naturalHeight || img.height;
     URL.revokeObjectURL(imgUrl);
 
-    if (!w0 || !h0) return blob;
+    if (!w0 || !h0) throw new Error("no_dimensions");
 
     const scale = Math.min(1, maxSide / Math.max(w0, h0));
     const w = Math.max(1, Math.round(w0 * scale));
@@ -119,14 +121,19 @@ async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = 
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return blob;
+    if (!ctx) throw new Error("no_canvas_ctx");
 
+    // Fondo blanco para transparencias PNG
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, w, h);
     ctx.drawImage(img, 0, 0, w, h);
 
     const out = await new Promise((res) => canvas.toBlob(res, "image/jpeg", jpegQuality));
-    return out || blob;
-  } catch {
-    return blob;
+    if (!out) throw new Error("toBlob_failed");
+    return out;
+  } catch (err) {
+    console.warn("compressImageBlob fallback:", err?.message);
+    return blob; // devolver original, embedImage intentará PNG
   }
 }
 

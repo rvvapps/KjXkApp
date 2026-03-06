@@ -294,53 +294,6 @@ export default function Transfers() {
           <button className="btn" onClick={saveTransfer}>Guardar trayecto</button>
         </div>
 
-        {/* Panel liquidación — aparece al seleccionar trayectos */}
-        {hasSelection && (
-          <div style={{
-            marginTop: 16, padding: "14px 16px",
-            background: "rgba(34,197,94,.08)",
-            border: "1px solid rgba(34,197,94,.25)",
-            borderRadius: 14,
-          }}>
-            <div style={{ fontWeight: 800, marginBottom: 4 }}>
-              🔋 Liquidar combustible
-            </div>
-            <div className="small" style={{ marginBottom: 10 }}>
-              {selected.size} trayecto{selected.size > 1 ? "s" : ""} seleccionado{selected.size > 1 ? "s" : ""} —
-              suma estimada: <b>${sumaSeleccionados.toLocaleString("es-CL")}</b>
-            </div>
-
-            <div className="row row-form" style={{ marginBottom: 10 }}>
-              <TextField
-                label="Monto final a pagar en bomba (opcional)"
-                type="number"
-                value={montoAjustado}
-                onChange={setMontoAjustado}
-                placeholder={`$${sumaSeleccionados.toLocaleString("es-CL")} (calculado)`}
-              />
-            </div>
-
-            <div className="small" style={{ marginBottom: 10 }}>
-              Concepto:{" "}
-              <SelectField
-                label=""
-                value={combustibleConceptId}
-                onChange={setCombustibleConceptId}
-                options={concepts.map((c) => ({ value: c.conceptId, label: c.nombre }))}
-                placeholder="Seleccione concepto..."
-              />
-            </div>
-
-            <div className="row row-form" style={{ gap: 8 }}>
-              <button className="btn" disabled={busy} onClick={doLiquidar}>
-                {busy ? "Creando…" : `Crear gasto $${montoLiquidar.toLocaleString("es-CL")}`}
-              </button>
-              <button className="btn secondary" onClick={() => { setSelected(new Set()); setMontoAjustado(""); }}>
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Listado */}
@@ -456,6 +409,47 @@ export default function Transfers() {
           </div>
         )}
       </div>
+      {/* Panel liquidación — debajo de la lista */}
+      {hasSelection && (
+        <div style={{
+          marginTop: 12, padding: "14px 16px",
+          background: "rgba(34,197,94,.08)",
+          border: "1px solid rgba(34,197,94,.25)",
+          borderRadius: 14,
+        }}>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>🔋 Liquidar combustible</div>
+          <div className="small" style={{ marginBottom: 10 }}>
+            {selected.size} trayecto{selected.size > 1 ? "s" : ""} · suma estimada: <b>${sumaSeleccionados.toLocaleString("es-CL")}</b>
+          </div>
+          <div className="row row-form" style={{ marginBottom: 10 }}>
+            <TextField
+              label="Monto final a pagar en bomba (opcional)"
+              type="number"
+              value={montoAjustado}
+              onChange={setMontoAjustado}
+              placeholder={`$${sumaSeleccionados.toLocaleString("es-CL")} (calculado)`}
+            />
+          </div>
+          <div className="small" style={{ marginBottom: 10 }}>
+            Concepto:{" "}
+            <SelectField
+              label=""
+              value={combustibleConceptId}
+              onChange={setCombustibleConceptId}
+              options={concepts.map((c) => ({ value: c.conceptId, label: c.nombre }))}
+              placeholder="Seleccione concepto..."
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" disabled={busy} onClick={doLiquidar}>
+              {busy ? "Creando…" : `Crear gasto $${montoLiquidar.toLocaleString("es-CL")}`}
+            </button>
+            <button className="btn secondary" onClick={() => { setSelected(new Set()); setMontoAjustado(""); }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

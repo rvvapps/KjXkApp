@@ -99,7 +99,9 @@ function AppContent() {
         </nav>
 
         {/* Hamburguesa móvil */}
-        <div data-menu="hamburger" className="nav-mobile" style={{ position: "relative" }}>
+        <div className="nav-mobile" style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <Link to="/" style={{ display:"flex", alignItems:"center", padding:"6px 10px", borderRadius:10, border:"1px solid rgba(255,255,255,.2)", color:"#e5e7eb", fontSize:16, lineHeight:1 }} title="Inicio">🏠</Link>
+        <div data-menu="hamburger" style={{ position: "relative" }}>
           <button
             onClick={() => setOpenHamburger((v) => !v)}
             style={{
@@ -129,6 +131,7 @@ function AppContent() {
               ))}
             </div>
           )}
+        </div>
         </div>
       </header>
 

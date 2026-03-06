@@ -45,6 +45,63 @@ function AlertBanner({ color, icon, children }) {
   );
 }
 
+
+function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableYears, balanceYear, setBalanceYear, fmt }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,.07)", paddingTop: 10 }}>
+      <div
+        onClick={() => setOpen((v) => !v)}
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 700, fontSize: 13, opacity: 0.8 }}>Balance</span>
+          {!open && totalPorCobrar > 0 && (
+            <span style={{ fontSize: 13, fontWeight: 800, color: "#7dd3fc" }}>{fmt(totalPorCobrar)} por cobrar</span>
+          )}
+        </div>
+        <span style={{ fontSize: 12, opacity: 0.5 }}>{open ? "▲" : "▼"}</span>
+      </div>
+
+      {open && (
+        <div style={{ marginTop: 10 }}>
+          {availableYears.length > 0 && (
+            <select
+              value={balanceYear}
+              onChange={(e) => setBalanceYear(e.target.value)}
+              style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, color: "#e5e7eb", padding: "4px 8px", fontSize: 12, marginBottom: 10 }}
+            >
+              <option value="todos">Histórico</option>
+              {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[
+              { label: "Gastado",    value: fmt(totalGastado),    color: "#e5e7eb" },
+              { label: "Cobrado",    value: fmt(totalCobrado),    color: "#86efac" },
+              { label: "Por cobrar", value: fmt(totalPorCobrar),  color: totalPorCobrar > 0 ? "#7dd3fc" : "#e5e7eb" },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, opacity: 0.8 }}>{label}</span>
+                <span style={{ fontWeight: 800, fontSize: 15, color }}>{value}</span>
+              </div>
+            ))}
+          </div>
+          {totalGastado > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <div style={{ height: 6, borderRadius: 99, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
+                <div style={{ height: "100%", borderRadius: 99, background: "linear-gradient(90deg,#22c55e,#86efac)", width: `${Math.min(100, Math.round(totalCobrado / totalGastado * 100))}%`, transition: "width .4s" }} />
+              </div>
+              <div className="small" style={{ opacity: 0.5, marginTop: 4 }}>Cobrado {Math.round(totalCobrado / totalGastado * 100)}%</div>
+            </div>
+          )}
+          {totalGastado === 0 && <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const [pending, setPending] = useState([]);
   const [reims, setReims] = useState([]);
@@ -149,140 +206,81 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid2">
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-        {/* ── GASTOS PENDIENTES ── */}
+        {/* ── PENDIENTE ── */}
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Pendiente</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8 }}>Pendiente</span>
             <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13 }}>+ Nuevo gasto</Link>
           </div>
-
-          <div className="row" style={{ gap: 0, flexWrap: "wrap" }}>
-            <KpiCard label="Listos para rendir" value={complete.length} sub={complete.length > 0 ? fmt(totalPending) : "sin gastos"} color={complete.length > 0 ? "#e5e7eb" : undefined} />
+          <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 10 }}>
+            <KpiCard label="Listos" value={complete.length} sub={complete.length > 0 ? fmt(totalPending) : "sin gastos"} color={complete.length > 0 ? "#e5e7eb" : undefined} />
             <KpiCard label="Incompletos" value={incomplete.length} color={incomplete.length > 0 ? "#fde047" : undefined} />
             <KpiCard label="Trayectos" value={transfers.length} sub="sin gasto" color={transfers.length > 0 ? "#7dd3fc" : undefined} />
           </div>
-
-          <hr />
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8 }}>
             <Link className="btn secondary" to="/gastos" style={{ fontSize: 13 }}>Ver gastos</Link>
             <Link className="btn secondary" to="/traslados" style={{ fontSize: 13 }}>Traslados</Link>
           </div>
         </div>
 
-        {/* ── RENDICIONES ── */}
+        {/* ── RENDICIONES + BALANCE (unificado) ── */}
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 16 }}>Rendiciones</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8 }}>Rendiciones</span>
             <Link className="btn secondary" to="/rendiciones" style={{ fontSize: 13 }}>Ver todas</Link>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {["borrador", "enviada", "devuelta", "aprobada", "pagada"].map((estado) => {
-              const items = reimsByEstado[estado];
-              const total = totalByEstado(estado);
-              const s = ESTADO_STYLE[estado];
-              if (items.length === 0) return null;
-              return (
-                <div key={estado} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  background: s.bg, border: `1px solid ${s.border}`,
-                  borderRadius: 10, padding: "6px 12px",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <StatePill estado={estado} />
-                    <span style={{ fontWeight: 700 }}>{items.length}</span>
-                  </div>
-                  <span className="small" style={{ color: s.color, fontWeight: 700 }}>{fmt(total)}</span>
+          {/* Por estado */}
+          {["devuelta", "enviada", "aprobada", "borrador", "pagada"].map((estado) => {
+            const its = reimsByEstado[estado];
+            const tot = totalByEstado(estado);
+            const s = ESTADO_STYLE[estado];
+            if (its.length === 0) return null;
+            return (
+              <div key={estado} style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                background: s.bg, border: `1px solid ${s.border}`,
+                borderRadius: 8, padding: "5px 10px", marginBottom: 4,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <StatePill estado={estado} />
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>{its.length}</span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── BALANCE ── */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>
-              Balance {balanceYear === "todos" ? "histórico" : balanceYear}
-            </h2>
-            {availableYears.length > 0 && (
-              <select
-                value={balanceYear}
-                onChange={(e) => setBalanceYear(e.target.value)}
-                style={{
-                  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-                  borderRadius: 8, color: "#e5e7eb", padding: "4px 8px", fontSize: 12, cursor: "pointer",
-                }}
-              >
-                <option value="todos">Histórico</option>
-                {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            )}
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {[
-              { label: "Gastado",     value: fmt(totalGastadoAnio), sub: "enviadas + aprobadas + pagadas",  color: "#e5e7eb" },
-              { label: "Cobrado",     value: fmt(totalCobradoAnio), sub: "pagadas",                         color: "#86efac" },
-              { label: "Por cobrar",  value: fmt(totalPorCobrar),   sub: "enviadas + aprobadas",            color: totalPorCobrar > 0 ? "#7dd3fc" : "#e5e7eb" },
-            ].map(({ label, value, sub, color }) => (
-              <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <span style={{ fontWeight: 700 }}>{label}</span>
-                  <span className="small" style={{ opacity: 0.5, marginLeft: 6 }}>{sub}</span>
-                </div>
-                <span style={{ fontWeight: 800, fontSize: 18, color }}>{value}</span>
+                <span style={{ fontSize: 13, color: s.color, fontWeight: 700 }}>{fmt(tot)}</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
 
-          {totalGastadoAnio > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div className="small" style={{ marginBottom: 4, opacity: 0.7 }}>
-                Cobrado {Math.round(totalCobradoAnio / totalGastadoAnio * 100)}% del total gastado
-              </div>
-              <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: 99,
-                  background: "linear-gradient(90deg, #22c55e, #86efac)",
-                  width: `${Math.min(100, Math.round(totalCobradoAnio / totalGastadoAnio * 100))}%`,
-                  transition: "width .4s ease",
-                }} />
-              </div>
-              {totalPorCobrar > 0 && (
-                <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,.04)", overflow: "hidden", marginTop: 3 }}>
-                  <div style={{
-                    height: "100%", borderRadius: 99, background: "rgba(14,165,233,.5)",
-                    width: `${Math.min(100, Math.round(totalPorCobrar / totalGastadoAnio * 100))}%`,
-                  }} />
-                </div>
-              )}
-            </div>
-          )}
+          {reims.length === 0 && <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones aún.</div>}
 
-          {totalGastadoAnio === 0 && (
-            <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>
-          )}
+          {/* Balance colapsable */}
+          <BalanceSection
+            totalGastado={totalGastadoAnio}
+            totalCobrado={totalCobradoAnio}
+            totalPorCobrar={totalPorCobrar}
+            availableYears={availableYears}
+            balanceYear={balanceYear}
+            setBalanceYear={setBalanceYear}
+            fmt={fmt}
+          />
         </div>
 
         {/* ── ÚLTIMAS RENDICIONES ── */}
-        <div className="card">
-          <h2>Últimas rendiciones</h2>
-          {lastReims.length === 0 ? (
-            <div className="small" style={{ opacity: 0.6 }}>Aún no hay rendiciones.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {lastReims.length > 0 && (
+          <div className="card">
+            <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8, display: "block", marginBottom: 8 }}>Recientes</span>
+            <div style={{ display: "flex", flexDirection: "column" }}>
               {lastReims.map((r) => (
                 <Link key={r.rendicionId} to={`/rendiciones/${r.rendicionId}`} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.08)",
+                    padding: "8px 0", borderTop: "1px solid rgba(255,255,255,.07)",
                   }}>
                     <div>
-                      <div style={{ fontWeight: 800 }}>{r.correlativo}</div>
-                      <div className="small" style={{ opacity: 0.6 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{r.correlativo}</div>
+                      <div className="small" style={{ opacity: 0.5 }}>
                         {new Date(r.fechaCreacion).toLocaleDateString("es-CL")}
                         {r.total ? ` · ${fmt(r.total)}` : ""}
                       </div>
@@ -292,8 +290,8 @@ export default function Dashboard() {
                 </Link>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
     </div>

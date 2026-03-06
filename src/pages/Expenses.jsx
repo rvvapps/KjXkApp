@@ -12,6 +12,18 @@ import { exportReceiptsPdf } from "../services/pdfExport.js";
 
 function pad(n, width = 4) { return String(n).padStart(width, "0"); }
 
+// Íconos SVG inline simples
+const IconEdit = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M14.7 2.3a1 1 0 011.4 1.4l-9.9 9.9L3 15l1.4-3.2 9.9-9.9z"/>
+  </svg>
+);
+const IconTrash = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M3 5h14M8 5V3h4v2M6 5l1 12h6l1-12"/>
+  </svg>
+);
+
 export default function Expenses() {
   const nav = useNavigate();
   const location = useLocation();
@@ -19,20 +31,16 @@ export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
   const [concepts, setConcepts] = useState([]);
   const [selected, setSelected] = useState(new Set());
-  const [attachData, setAttachData] = useState({});    // gastoId -> atts[]
+  const [attachData, setAttachData] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showRendicion, setShowRendicion] = useState(false);
 
   async function refresh() {
     const [exps, concs] = await Promise.all([listPendingExpenses(), listConcepts()]);
     setExpenses(exps);
     setConcepts(concs);
-    // Adjuntos se cargan lazy al primer click en el ícono (ver loadAtts)
-    // Solo refrescamos los que ya estaban cargados
     setAttachData((prev) => {
       const next = { ...prev };
-      // Eliminar entradas de gastos que ya no existen
       for (const id of Object.keys(next)) {
         if (!exps.find((e) => e.gastoId === id)) delete next[id];
       }
@@ -41,7 +49,7 @@ export default function Expenses() {
   }
 
   async function loadAtts(gastoId) {
-    if (attachData[gastoId]) return; // ya cargado
+    if (attachData[gastoId]) return;
     const atts = await listAttachmentsForExpense(gastoId).catch(() => []);
     setAttachData((prev) => ({ ...prev, [gastoId]: atts }));
   }
@@ -50,14 +58,13 @@ export default function Expenses() {
     refresh();
     if (location.state?.flashMsg) {
       setMsg(location.state.flashMsg);
-      // Limpiar el state para que no reaparezca al navegar
       window.history.replaceState({}, "");
     }
   }, [location.pathname]);
 
   const conceptById = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
   const incomplete = useMemo(() => expenses.filter((e) => !Number(e.monto)), [expenses]);
-  const complete = useMemo(() => expenses.filter((e) => Number(e.monto) > 0), [expenses]);
+  const complete   = useMemo(() => expenses.filter((e) => Number(e.monto) > 0), [expenses]);
   const totalSelected = useMemo(
     () => expenses.filter((e) => selected.has(e.gastoId)).reduce((s, e) => s + Number(e.monto || 0), 0),
     [expenses, selected]
@@ -74,17 +81,14 @@ export default function Expenses() {
   function selectAll() { setSelected(new Set(complete.map((e) => e.gastoId))); }
 
   async function handleDelete(gastoId) {
-    if (!confirm("¿Eliminar este gasto y sus adjuntos? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este gasto y sus adjuntos?")) return;
     try {
       await deleteExpense(gastoId);
       setSelected((prev) => { const n = new Set(prev); n.delete(gastoId); return n; });
       await refresh();
-    } catch (e) {
-      setMsg(e?.message || "Error al eliminar.");
-    }
+    } catch (e) { setMsg(e?.message || "Error al eliminar."); }
   }
 
-  // ── Validación antes de rendir ───────────────────────────────────────────
   async function validateGastos(gastoIds) {
     const problems = [];
     for (const id of gastoIds) {
@@ -92,19 +96,12 @@ export default function Expenses() {
       if (!exp) continue;
       const concept = conceptById.get(exp.conceptId);
       const label = exp.docNumero ? `${exp.docTipo} ${exp.docNumero}` : (exp.detalle || "Gasto");
-
-      if (!exp.monto || Number(exp.monto) <= 0)
-        problems.push(`Monto inválido en: "${label}"`);
-      if (!exp.fecha)
-        problems.push(`Falta fecha en: "${label}"`);
-      if (!String(exp.docTipo || "").trim())
-        problems.push(`Falta tipo doc en: "${label}"`);
-      if (!String(exp.crCodigo || "").trim())
-        problems.push(`Falta CR en: "${label}"`);
-      if (!String(exp.ctaCodigo || "").trim())
-        problems.push(`Falta cuenta contable en: "${label}"`);
-      if (!String(exp.partidaCodigo || "").trim())
-        problems.push(`Falta partida en: "${label}"`);
+      if (!exp.monto || Number(exp.monto) <= 0) problems.push(`Monto inválido en: "${label}"`);
+      if (!exp.fecha) problems.push(`Falta fecha en: "${label}"`);
+      if (!String(exp.docTipo || "").trim()) problems.push(`Falta tipo doc en: "${label}"`);
+      if (!String(exp.crCodigo || "").trim()) problems.push(`Falta CR en: "${label}"`);
+      if (!String(exp.ctaCodigo || "").trim()) problems.push(`Falta cuenta contable en: "${label}"`);
+      if (!String(exp.partidaCodigo || "").trim()) problems.push(`Falta partida en: "${label}"`);
       if (concept?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
         problems.push(`Falta N° doc en: "${label}"`);
       const attsForValidation = attachData[id] ?? await listAttachmentsForExpense(id).catch(() => []);
@@ -114,12 +111,10 @@ export default function Expenses() {
     return problems;
   }
 
-  // ── Crear rendición ──────────────────────────────────────────────────────
   async function createAndExport() {
     setMsg("");
     const gastoIds = Array.from(selected);
     if (gastoIds.length === 0) return setMsg("Selecciona al menos un gasto.");
-
     setBusy(true);
     try {
       const problems = await validateGastos(gastoIds);
@@ -139,187 +134,167 @@ export default function Expenses() {
       await addReimbursementItems({ rendicionId, gastoIds });
       await markExpensesReimbursed({ gastoIds, rendicionId });
       await saveSettings({ correlativoNextNumber: num + 1 });
-      // Actualizar total en la rendición para que aparezca en el historial
       const { updateReimbursementTotal } = await import("../db.js");
       await updateReimbursementTotal({ rendicionId, total: totalSelected });
 
+      // Export Excel
       const exportItems = await buildExportItems(gastoIds);
       const batches = splitIntoBatches(exportItems);
       for (let i = 0; i < batches.length; i++) {
         const corr = batches.length === 1 ? correlativo : `${correlativo}_P${i + 1}`;
         await exportBatchXlsx({ correlativo: corr, items: batches[i] });
-        await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
       }
 
-      setMsg(`✅ Rendición ${correlativo} creada y exportada.`);
+      // Export PDF — separado para capturar error sin bloquear
+      try {
+        for (let i = 0; i < batches.length; i++) {
+          const corr = batches.length === 1 ? correlativo : `${correlativo}_P${i + 1}`;
+          await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
+        }
+        setMsg(`✅ Rendición ${correlativo} creada. Excel y PDF exportados.`);
+      } catch (pdfErr) {
+        console.error("PDF error:", pdfErr);
+        setMsg(`✅ Rendición ${correlativo} creada. Excel exportado.\n⚠️ PDF falló: ${pdfErr?.message || "error desconocido"}`);
+      }
+
       setSelected(new Set());
-      setShowRendicion(false);
       await refresh();
     } catch (e) {
       console.error(e);
-      setMsg("❌ Error al crear rendición. Revisa la consola (F12).");
+      setMsg(`❌ Error al crear rendición: ${e?.message || "error desconocido"}`);
       await refresh();
-    } finally {
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
-  // ── Fila de gasto ────────────────────────────────────────────────────────
+  // ── Fila de gasto ──────────────────────────────────────────────────────
   function ExpenseRow({ e }) {
     const isIncomplete = !Number(e.monto);
     const concept = conceptById.get(e.conceptId);
     const label = concept?.nombre || e.detalle?.split("\\n")[0]?.slice(0, 40) || "Sin detalle";
 
     return (
-      <div style={{ paddingTop: 10, borderTop: "1px solid rgba(255,255,255,.08)" }}>
+      <div style={{ paddingTop: 10, paddingBottom: 6, borderTop: "1px solid rgba(255,255,255,.07)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
-              {isIncomplete && <span title="Falta completar monto" style={{ color: "#facc15" }}>⚠️</span>}
+            <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {isIncomplete && <span title="Falta monto" style={{ color: "#facc15" }}>⚠️</span>}
               <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} onExpand={() => loadAtts(e.gastoId)} />
               {label}
             </div>
-            <div className="small">
+            <div className="small" style={{ marginTop: 2 }}>
               {new Date(e.fecha).toLocaleDateString("es-CL")}
-              {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : ""}
+              {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : " S/n"}
               {" · CR "}{e.crCodigo || "—"}
-              {isIncomplete
-                ? " · Sin monto — completar"
-                : ` · $${Number(e.monto).toLocaleString("es-CL")}`}
+              {" · "}{isIncomplete ? <span style={{ color: "#facc15" }}>sin monto</span> : `$${Number(e.monto).toLocaleString("es-CL")}`}
             </div>
           </div>
 
-          <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+          {/* Acciones */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             {!isIncomplete && (
-              <label style={{ display: "inline-flex", gap: 6, alignItems: "center", cursor: "pointer" }}>
-                <input type="checkbox" checked={selected.has(e.gastoId)} onChange={() => toggle(e.gastoId)} />
-                <span className="small">Incluir</span>
-              </label>
+              <input
+                type="checkbox"
+                checked={selected.has(e.gastoId)}
+                onChange={() => toggle(e.gastoId)}
+                style={{ width: 18, height: 18, cursor: "pointer" }}
+                title="Incluir en rendición"
+              />
             )}
-            <button className="btn secondary" onClick={() => nav(`/gastos/${e.gastoId}`)}>
-              {isIncomplete ? "Completar" : "Editar"}
+            <button
+              title={isIncomplete ? "Completar" : "Editar"}
+              onClick={() => nav(`/gastos/${e.gastoId}`)}
+              style={{ background: "transparent", border: "1px solid rgba(255,255,255,.2)", borderRadius: 8, color: "#e5e7eb", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+            >
+              <IconEdit />
             </button>
-            <button className="btn danger" onClick={() => handleDelete(e.gastoId)}>
-              Eliminar
+            <button
+              title="Eliminar"
+              onClick={() => handleDelete(e.gastoId)}
+              style={{ background: "transparent", border: "1px solid rgba(239,68,68,.4)", borderRadius: 8, color: "#f87171", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+            >
+              <IconTrash />
             </button>
           </div>
         </div>
-
-        {/* Thumbnails expandidos (2+ adjuntos) se renderizan dentro del componente */}
       </div>
     );
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="grid2">
-      {/* Panel izquierdo: acciones + rendición */}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* Header compacto con KPIs + botón nuevo */}
       <div className="card">
-        <h2>Gastos pendientes</h2>
-
-        <div className="row">
-          <div style={{ flex: 1 }}>
-            <div className="small">Pendientes</div>
-            <div className="kpi">{expenses.length}</div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="small">Seleccionados</div>
-            <div className="kpi">{selected.size}</div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <div className="small">Monto selec.</div>
-            <div className="kpi">${totalSelected.toLocaleString("es-CL")}</div>
-          </div>
-        </div>
-
-        {msg && (
-          <div className="small" style={{
-            padding: 10, border: "1px solid rgba(255,255,255,.12)",
-            borderRadius: 12, marginTop: 10, whiteSpace: "pre-line",
-          }}>
-            {msg}
-          </div>
-        )}
-
-        {incomplete.length > 0 && (
-          <div style={{
-            background: "rgba(250,204,21,.08)", border: "1px solid rgba(250,204,21,.25)",
-            borderRadius: 12, padding: "8px 12px", marginTop: 10,
-          }}>
-            <div className="small">
-              ⚠️ <b>{incomplete.length} gasto{incomplete.length !== 1 ? "s" : ""} incompleto{incomplete.length !== 1 ? "s" : ""}</b> — completa monto y documento antes de rendir.
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <div className="small" style={{ opacity: 0.6 }}>Gastos pendientes</div>
+            <div style={{ display: "flex", gap: 20, marginTop: 4 }}>
+              <div><div className="kpi" style={{ fontSize: 22 }}>{expenses.length}</div><div className="small">total</div></div>
+              <div><div className="kpi" style={{ fontSize: 22, color: selected.size > 0 ? "#e5e7eb" : "inherit" }}>{selected.size}</div><div className="small">selec.</div></div>
+              <div><div className="kpi" style={{ fontSize: 22, color: totalSelected > 0 ? "#86efac" : "inherit" }}>${totalSelected.toLocaleString("es-CL")}</div><div className="small">monto</div></div>
             </div>
           </div>
-        )}
+          <Link className="btn" to="/gastos/nuevo" style={{ flexShrink: 0 }}>+ Nuevo</Link>
+        </div>
 
-        <hr />
-
-        <div className="row" style={{ flexWrap: "wrap", gap: 8 }}>
-          <Link className="btn" to="/gastos/nuevo">+ Nuevo gasto</Link>
+        {/* Acciones de selección */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {complete.length > 0 && selected.size < complete.length && (
-            <button className="btn secondary" onClick={selectAll}>
-              Seleccionar todos ({complete.length})
+            <button className="btn secondary" style={{ fontSize: 13 }} onClick={selectAll}>
+              Selec. todos ({complete.length})
             </button>
           )}
           {selected.size > 0 && (
-            <button className="btn secondary" onClick={() => setSelected(new Set())}>
+            <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setSelected(new Set())}>
               Limpiar selección
             </button>
           )}
+          <Link className="btn secondary" style={{ fontSize: 13 }} to="/rendiciones">Ver rendiciones →</Link>
         </div>
 
-        {/* Panel crear rendición */}
-        {selected.size > 0 && (
-          <div style={{
-            marginTop: 14, padding: "14px 16px",
-            background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.3)",
-            borderRadius: 14,
-          }}>
-            <div style={{ fontWeight: 800, marginBottom: 6 }}>
-              Crear rendición con {selected.size} gasto{selected.size !== 1 ? "s" : ""}
-            </div>
-            <div className="small" style={{ marginBottom: 12 }}>
-              Total: <b>${totalSelected.toLocaleString("es-CL")}</b>
-              {" · "}Se exportará Excel + PDF automáticamente.
-            </div>
-            <div className="row" style={{ gap: 8 }}>
-              <button className="btn" disabled={busy} onClick={createAndExport}>
-                {busy ? "Exportando..." : "Crear rendición + Exportar"}
-              </button>
-            </div>
+        {msg && (
+          <div className="small" style={{ padding: "8px 12px", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, marginTop: 10, whiteSpace: "pre-line" }}>
+            {msg}
           </div>
         )}
-
-        <hr />
-        <Link className="btn secondary" to="/rendiciones">Ver rendiciones →</Link>
       </div>
 
-      {/* Panel derecho: lista de gastos */}
+      {/* Lista de gastos */}
       <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <h2 style={{ margin: 0 }}>Detalle</h2>
-          <div className="small" style={{ opacity: 0.6 }}>📎 = imagen adjunta</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontWeight: 700 }}>Detalle</div>
+          <div className="small" style={{ opacity: 0.5 }}>📎 = imagen</div>
         </div>
 
         {expenses.length === 0 ? (
-          <div className="small">No hay gastos pendientes 🎉</div>
+          <div className="small" style={{ opacity: 0.6 }}>No hay gastos pendientes 🎉</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
+          <div>
             {incomplete.length > 0 && (
               <>
-                <div style={{ fontWeight: 700, marginBottom: 6, color: "#facc15" }}>
-                  Incompletos ({incomplete.length})
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#facc15", marginBottom: 4 }}>Incompletos ({incomplete.length})</div>
                 {incomplete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
-                <div style={{ marginTop: 16, marginBottom: 6, fontWeight: 700 }}>
-                  Listos para rendir ({complete.length})
-                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 12, marginBottom: 4, opacity: 0.7 }}>Listos ({complete.length})</div>
               </>
             )}
             {complete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
           </div>
         )}
       </div>
+
+      {/* Crear rendición — DEBAJO de la lista */}
+      {selected.size > 0 && (
+        <div style={{ padding: "14px 16px", background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.3)", borderRadius: 14 }}>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>
+            Crear rendición · {selected.size} gasto{selected.size !== 1 ? "s" : ""} · ${totalSelected.toLocaleString("es-CL")}
+          </div>
+          <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se exportará Excel + PDF automáticamente.</div>
+          <button className="btn" disabled={busy} onClick={createAndExport}>
+            {busy ? "Exportando..." : "Crear rendición + Exportar"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

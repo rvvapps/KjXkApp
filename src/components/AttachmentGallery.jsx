@@ -31,13 +31,12 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
 
   function handleIconClick() {
     if (!hasAtts && !onExpand) return;
-    // Lazy load: si no hay adjuntos cargados aún, disparar onExpand y esperar
     if (onExpand) onExpand();
     if (!hasAtts) return;
     if (single) {
       const a = items[0];
-      if (a.isImage && a.objectUrl) setLightbox({ url: a.objectUrl, filename: a.filename });
-      else if (a.objectUrl) window.open(a.objectUrl, "_blank");
+      // Siempre lightbox en iOS PWA (window.open no funciona en modo instalado)
+      setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: !a.isImage });
     } else {
       setExpanded((v) => !v);
     }
@@ -84,7 +83,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                 />
               ) : (
                 <div
-                  onClick={() => a.objectUrl && window.open(a.objectUrl, "_blank")}
+                  onClick={() => a.objectUrl && setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: true })}
                   style={{
                     width: 90, height: 90, borderRadius: 10,
                     background: "rgba(255,255,255,.08)",
@@ -140,7 +139,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                 />
               ) : (
                 <div
-                  onClick={() => a.objectUrl && window.open(a.objectUrl, "_blank")}
+                  onClick={() => a.objectUrl && setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: true })}
                   style={{
                     width: 90, height: 90, borderRadius: 10,
                     background: "rgba(255,255,255,.08)",
@@ -188,16 +187,24 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
             padding: 16,
           }}
         >
-          <img
-            src={lightbox.url}
-            alt={lightbox.filename}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: "100%", maxHeight: "85vh",
-              borderRadius: 12, objectFit: "contain",
-              boxShadow: "0 8px 40px rgba(0,0,0,.6)",
-            }}
-          />
+          {lightbox.isPdf ? (
+            <div style={{ textAlign: "center", color: "#fff" }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>📄</div>
+              <div className="small" style={{ marginBottom: 12 }}>{lightbox.filename}</div>
+              <a href={lightbox.url} download={lightbox.filename} className="btn" style={{ fontSize: 14 }}>Descargar PDF</a>
+            </div>
+          ) : (
+            <img
+              src={lightbox.url}
+              alt={lightbox.filename}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                maxWidth: "100%", maxHeight: "85vh",
+                borderRadius: 12, objectFit: "contain",
+                boxShadow: "0 8px 40px rgba(0,0,0,.6)",
+              }}
+            />
+          )}
           <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
             <span className="small" style={{ color: "rgba(255,255,255,.7)" }}>{lightbox.filename}</span>
             <a
