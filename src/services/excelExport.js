@@ -105,11 +105,17 @@ function groupAndSortForExports(items) {
 }
 
 export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items }) {
-  // Cargar template desde public/templates/ — así se preserva formato, colores, logo
-  const templateUrl = new URL("/templates/Formulario_Rendicion_Template.xlsx", window.location.origin).href;
-  const templateRes = await fetch(templateUrl);
-  if (!templateRes.ok) throw new Error("No se pudo cargar el template Excel");
-  const templateBuffer = await templateRes.arrayBuffer();
+  // Cargar template usando import.meta.url + base vite — funciona offline en PWA
+  const base = import.meta.env.BASE_URL ?? "/";
+  const templateUrl = base.replace(/\/$/, "") + "/templates/Formulario_Rendicion_Template.xlsx";
+  let templateBuffer;
+  try {
+    const res = await fetch(templateUrl);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    templateBuffer = await res.arrayBuffer();
+  } catch (e) {
+    throw new Error(`No se pudo cargar el template Excel (${templateUrl}): ${e.message}`);
+  }
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(templateBuffer);
