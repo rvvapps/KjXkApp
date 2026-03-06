@@ -82,18 +82,23 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
 async function shareOrDownload(blob, filename) {
   const file = new File([blob], filename, { type: blob.type });
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    await navigator.share({ files: [file], title: filename });
-  } else {
-    // PC y navegadores que soportan <a download>
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    try {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    } catch (e) {
+      // Si el usuario canceló (AbortError) no hacer nada; si es otro error, caer a download
+      if (e?.name === "AbortError") return;
+    }
   }
+  // Fallback: download directo
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function downloadSnapshotBlob(blob, filename) {
