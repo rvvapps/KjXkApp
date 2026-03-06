@@ -79,18 +79,17 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
 }
 
 function downloadSnapshotBlob(blob, filename) {
-  const reader = new FileReader();
-  reader.onload = () => {
-    const a = document.createElement("a");
-    a.href = reader.result;
-    a.download = filename;
-    a.target = "_blank";
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  };
-  reader.readAsDataURL(blob);
+  // iOS Safari: crear objectURL y abrir directamente
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 export default function ReimbursementDetail() {
@@ -167,26 +166,25 @@ export default function ReimbursementDetail() {
   async function reExportExcel() {
     if (!reim) return;
     clearMsg(); setBusy(true);
+    // iOS Safari: window.open ANTES del await para conservar el gesto de usuario
+    const win = window.open("", "_blank");
     try {
       const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
       const corr = reim.correlativo;
       const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
-
-      // iOS Safari: usar data URL con <a target="_blank"> para disparar action sheet nativo
-      const reader = new FileReader();
-      reader.onload = () => {
+      const url = URL.createObjectURL(blob);
+      if (win) {
+        win.location.href = url;  // activa action sheet nativo en iOS
+      } else {
+        // fallback por si el popup fue bloqueado
         const a = document.createElement("a");
-        a.href = reader.result;
-        a.download = `Rendicion_${corr}.xlsx`;
-        a.target = "_blank";
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      };
-      reader.readAsDataURL(blob);
+        a.href = url; a.download = `Rendicion_${corr}.xlsx`;
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch (e) {
+      if (win) win.close();
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
   }
@@ -414,7 +412,7 @@ export default function ReimbursementDetail() {
           {/* BORRADOR */}
           {reim.estado === "borrador" && <>
             <IconBtn icon={<IconSend />} label="Enviar" onClick={onSend} disabled={busy} variant="primary" />
-            <IconBtn icon={<IconTrash />} label="Cancelar" onClick={onCancelDraft} disabled={busy} variant="danger" />
+            <IconBtn icon={<IconTrash />} onClick={onCancelDraft} disabled={busy} variant="danger" />
           </>}
 
           {/* ENVIADA */}
@@ -447,7 +445,7 @@ export default function ReimbursementDetail() {
           {/* DEVUELTA */}
           {reim.estado === "devuelta" && <>
             <IconBtn icon={<IconSend />} label="Re-enviar" onClick={onReSend} disabled={busy} variant="primary" />
-            <IconBtn icon={<IconTrash />} label="Cancelar" onClick={onCancelDraft} disabled={busy} variant="danger" />
+            <IconBtn icon={<IconTrash />} onClick={onCancelDraft} disabled={busy} variant="danger" />
           </>}
         </div>
 
