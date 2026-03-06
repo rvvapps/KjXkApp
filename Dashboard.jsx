@@ -1,291 +1,279 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { listPendingExpenses, listReimbursements, listTransfersByEstado, listAttachmentsForExpense, listConcepts } from "../db.js";
-import { Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import {
+  listPendingExpenses, deleteExpense, listConcepts,
+  listAttachmentsForExpense, getSettings, saveSettings,
+  createReimbursement, addReimbursementItems, markExpensesReimbursed,
+  getExpense,
+} from "../db.js";
+import AttachmentGallery from "../components/AttachmentGallery.jsx";
 
-const ESTADO_STYLE = {
-  borrador:  { bg: "rgba(255,255,255,.06)",    border: "rgba(255,255,255,.15)",  color: "#e5e7eb",  label: "Borrador" },
-  enviada:   { bg: "rgba(14,165,233,.10)",     border: "rgba(14,165,233,.35)",   color: "#7dd3fc",  label: "Enviada" },
-  devuelta:  { bg: "rgba(239,68,68,.10)",      border: "rgba(239,68,68,.35)",    color: "#fca5a5",  label: "Devuelta" },
-  aprobada:  { bg: "rgba(99,102,241,.10)",     border: "rgba(99,102,241,.35)",   color: "#a5b4fc",  label: "Aprobada" },
-  pagada:    { bg: "rgba(34,197,94,.10)",      border: "rgba(34,197,94,.35)",    color: "#86efac",  label: "Pagada" },
-};
+function pad(n, width = 4) { return String(n).padStart(width, "0"); }
 
-function StatePill({ estado }) {
-  const s = ESTADO_STYLE[estado] || ESTADO_STYLE.borrador;
-  return (
-    <span style={{
-      padding: "2px 8px", borderRadius: 999,
-      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
-      fontSize: 11, fontWeight: 700,
-    }}>{s.label}</span>
-  );
-}
+// Íconos SVG inline simples
+const IconEdit = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M14.7 2.3a1 1 0 011.4 1.4l-9.9 9.9L3 15l1.4-3.2 9.9-9.9z"/>
+  </svg>
+);
+const IconTrash = () => (
+  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M3 5h14M8 5V3h4v2M6 5l1 12h6l1-12"/>
+  </svg>
+);
 
-function KpiCard({ label, value, sub, color }) {
-  return (
-    <div style={{ flex: 1, minWidth: 80 }}>
-      <div className="small" style={{ opacity: 0.7 }}>{label}</div>
-      <div className="kpi" style={{ color: color || "inherit", fontSize: 22, lineHeight: 1.2 }}>{value}</div>
-      {sub && <div className="small" style={{ opacity: 0.6, marginTop: 2 }}>{sub}</div>}
-    </div>
-  );
-}
+export default function Expenses() {
+  const nav = useNavigate();
+  const location = useLocation();
 
-function AlertBanner({ color, icon, children }) {
-  const colors = {
-    yellow: { bg: "rgba(250,204,21,.08)", border: "rgba(250,204,21,.25)", text: "#fde047" },
-    red:    { bg: "rgba(239,68,68,.08)",  border: "rgba(239,68,68,.25)",  text: "#fca5a5" },
-    blue:   { bg: "rgba(14,165,233,.08)", border: "rgba(14,165,233,.25)", text: "#7dd3fc" },
-  };
-  const s = colors[color] || colors.yellow;
-  return (
-    <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, padding: "8px 12px", marginBottom: 8 }}>
-      <div className="small" style={{ color: s.text }}>{icon} {children}</div>
-    </div>
-  );
-}
-
-export default function Dashboard() {
-  const [pending, setPending] = useState([]);
-  const [reims, setReims] = useState([]);
-  const [transfers, setTransfers] = useState([]);
-  const [attachCounts, setAttachCounts] = useState({});
+  const [expenses, setExpenses] = useState([]);
   const [concepts, setConcepts] = useState([]);
-  const [balanceYear, setBalanceYear] = useState("todos");
+  const [selected, setSelected] = useState(new Set());
+  const [attachData, setAttachData] = useState({});
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    const [exps, concs] = await Promise.all([listPendingExpenses(), listConcepts()]);
+    setExpenses(exps);
+    setConcepts(concs);
+    setAttachData((prev) => {
+      const next = { ...prev };
+      for (const id of Object.keys(next)) {
+        if (!exps.find((e) => e.gastoId === id)) delete next[id];
+      }
+      return next;
+    });
+  }
+
+  async function loadAtts(gastoId) {
+    if (attachData[gastoId]) return;
+    const atts = await listAttachmentsForExpense(gastoId).catch(() => []);
+    setAttachData((prev) => ({ ...prev, [gastoId]: atts }));
+  }
 
   useEffect(() => {
-    (async () => {
-      const [pend, rms, trns, concs] = await Promise.all([
-        listPendingExpenses(),
-        listReimbursements(),
-        listTransfersByEstado("pendiente").catch(() => []),
-        listConcepts(),
-      ]);
-      setPending(pend);
-      setReims(rms);
-      setTransfers(trns);
-      setConcepts(concs);
+    refresh();
+    if (location.state?.flashMsg) {
+      setMsg(location.state.flashMsg);
+      window.history.replaceState({}, "");
+    }
+  }, [location.pathname]);
 
-      // Contar adjuntos solo para gastos completos (lazy: solo contamos, no cargamos blobs)
-      const counts = {};
-      await Promise.all(pend.filter(e => Number(e.monto) > 0).map(async (e) => {
-        const atts = await listAttachmentsForExpense(e.gastoId).catch(() => []);
-        counts[e.gastoId] = atts.length;
-      }));
-      setAttachCounts(counts);
-    })();
-  }, []);
+  const conceptById = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
+  const incomplete = useMemo(() => expenses.filter((e) => !Number(e.monto)), [expenses]);
+  const complete   = useMemo(() => expenses.filter((e) => Number(e.monto) > 0), [expenses]);
+  const totalSelected = useMemo(
+    () => expenses.filter((e) => selected.has(e.gastoId)).reduce((s, e) => s + Number(e.monto || 0), 0),
+    [expenses, selected]
+  );
 
-  const conceptMap = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
+  function toggle(id) {
+    const e = expenses.find((x) => x.gastoId === id);
+    if (!e || !Number(e.monto)) return;
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelected(next);
+  }
 
-  // Gastos
-  const incomplete = useMemo(() => pending.filter((e) => !Number(e.monto)), [pending]);
-  const complete   = useMemo(() => pending.filter((e) => Number(e.monto) > 0), [pending]);
-  const sinImagen  = useMemo(() => complete.filter((e) => {
-    const concept = conceptMap.get(e.conceptId);
-    return concept?.requiereRespaldo && (attachCounts[e.gastoId] ?? 0) === 0;
-  }), [complete, conceptMap, attachCounts]);
-  const totalPending = useMemo(() => complete.reduce((s, e) => s + Number(e.monto), 0), [complete]);
+  function selectAll() { setSelected(new Set(complete.map((e) => e.gastoId))); }
 
-  // Rendiciones por estado
-  const reimsByEstado = useMemo(() => {
-    const map = { borrador: [], enviada: [], devuelta: [], aprobada: [], pagada: [] };
-    reims.forEach((r) => { if (map[r.estado]) map[r.estado].push(r); });
-    return map;
-  }, [reims]);
+  async function handleDelete(gastoId) {
+    if (!confirm("¿Eliminar este gasto y sus adjuntos?")) return;
+    try {
+      await deleteExpense(gastoId);
+      setSelected((prev) => { const n = new Set(prev); n.delete(gastoId); return n; });
+      await refresh();
+    } catch (e) { setMsg(e?.message || "Error al eliminar."); }
+  }
 
-  const totalByEstado = (estado) => reimsByEstado[estado].reduce((s, r) => s + Number(r.total || 0), 0);
+  async function validateGastos(gastoIds) {
+    const problems = [];
+    for (const id of gastoIds) {
+      const exp = await getExpense(id);
+      if (!exp) continue;
+      const concept = conceptById.get(exp.conceptId);
+      const label = exp.docNumero ? `${exp.docTipo} ${exp.docNumero}` : (exp.detalle || "Gasto");
+      if (!exp.monto || Number(exp.monto) <= 0) problems.push(`Monto inválido en: "${label}"`);
+      if (!exp.fecha) problems.push(`Falta fecha en: "${label}"`);
+      if (!String(exp.docTipo || "").trim()) problems.push(`Falta tipo doc en: "${label}"`);
+      if (!String(exp.crCodigo || "").trim()) problems.push(`Falta CR en: "${label}"`);
+      if (!String(exp.ctaCodigo || "").trim()) problems.push(`Falta cuenta contable en: "${label}"`);
+      if (!String(exp.partidaCodigo || "").trim()) problems.push(`Falta partida en: "${label}"`);
+      if (concept?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
+        problems.push(`Falta N° doc en: "${label}"`);
+      const attsForValidation = attachData[id] ?? await listAttachmentsForExpense(id).catch(() => []);
+      if (concept?.requiereRespaldo && attsForValidation.length === 0)
+        problems.push(`Falta respaldo (foto) en: "${label}"`);
+    }
+    return problems;
+  }
 
-  // Años disponibles en rendiciones
-  const availableYears = useMemo(() => {
-    const years = new Set(reims.map((r) => (r.fechaCreacion || "").slice(0, 4)).filter(Boolean));
-    return Array.from(years).sort((a, b) => b.localeCompare(a));
-  }, [reims]);
+  async function createAndExport() {
+    setMsg("");
+    const gastoIds = Array.from(selected);
+    if (gastoIds.length === 0) return setMsg("Selecciona al menos un gasto.");
+    setBusy(true);
+    try {
+      const problems = await validateGastos(gastoIds);
+      if (problems.length > 0) {
+        const lines = problems.slice(0, 6).map((p) => `• ${p}`).join("\n");
+        const more = problems.length > 6 ? `\n…y ${problems.length - 6} más.` : "";
+        setMsg(`❌ Corrige estos puntos antes de rendir:\n${lines}${more}`);
+        return;
+      }
 
-  // Balance — histórico o filtrado por año
-  const reimsBalance = useMemo(() => {
-    if (balanceYear === "todos") return reims;
-    return reims.filter((r) => (r.fechaCreacion || "").startsWith(balanceYear));
-  }, [reims, balanceYear]);
-  const totalGastadoAnio = useMemo(() => reimsBalance.reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
-  const totalCobradoAnio = useMemo(() => reimsBalance.filter((r) => r.estado === "pagada").reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
-  const totalPorCobrar   = useMemo(() => reimsBalance.filter((r) => ["enviada", "aprobada"].includes(r.estado)).reduce((s, r) => s + Number(r.total || 0), 0), [reimsBalance]);
+      const settings = await getSettings();
+      const prefix = settings?.correlativoPrefix || "RC";
+      const num = settings?.correlativoNextNumber || 1;
+      const correlativo = `${prefix}-${new Date().getFullYear()}-${pad(num, 4)}`;
 
-  // Últimas rendiciones activas (no pagadas ni borrador vacío)
-  const lastReims = reims.slice(0, 5);
+      const rendicionId = await createReimbursement({ correlativo });
+      await addReimbursementItems({ rendicionId, gastoIds });
+      await markExpensesReimbursed({ gastoIds, rendicionId });
+      await saveSettings({ correlativoNextNumber: num + 1 });
+      const { updateReimbursementTotal } = await import("../db.js");
+      await updateReimbursementTotal({ rendicionId, total: totalSelected });
 
-  const fmt = (n) => `$${Number(n).toLocaleString("es-CL")}`;
+      setMsg(`✅ Rendición ${correlativo} creada. Ve al detalle para exportar Excel y PDF.`);
+      setSelected(new Set());
+      await refresh();
+    } catch (e) {
+      console.error(e);
+      setMsg(`❌ Error al crear rendición: ${e?.message || "error desconocido"}`);
+      await refresh();
+    } finally { setBusy(false); }
+  }
 
+  // ── Fila de gasto ──────────────────────────────────────────────────────
+  function ExpenseRow({ e }) {
+    const isIncomplete = !Number(e.monto);
+    const concept = conceptById.get(e.conceptId);
+    const label = concept?.nombre || e.detalle?.split("\\n")[0]?.slice(0, 40) || "Sin detalle";
+
+    return (
+      <div style={{ paddingTop: 10, paddingBottom: 6, borderTop: "1px solid rgba(255,255,255,.07)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {isIncomplete && <span title="Falta monto" style={{ color: "#facc15" }}>⚠️</span>}
+              <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} onExpand={() => loadAtts(e.gastoId)} />
+              {label}
+            </div>
+            <div className="small" style={{ marginTop: 2 }}>
+              {new Date(e.fecha).toLocaleDateString("es-CL")}
+              {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : " S/n"}
+              {" · CR "}{e.crCodigo || "—"}
+              {" · "}{isIncomplete ? <span style={{ color: "#facc15" }}>sin monto</span> : `$${Number(e.monto).toLocaleString("es-CL")}`}
+            </div>
+          </div>
+
+          {/* Acciones */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            {!isIncomplete && (
+              <input
+                type="checkbox"
+                checked={selected.has(e.gastoId)}
+                onChange={() => toggle(e.gastoId)}
+                style={{ width: 18, height: 18, cursor: "pointer" }}
+                title="Incluir en rendición"
+              />
+            )}
+            <button
+              title={isIncomplete ? "Completar" : "Editar"}
+              onClick={() => nav(`/gastos/${e.gastoId}`)}
+              style={{ background: "transparent", border: "1px solid rgba(255,255,255,.2)", borderRadius: 8, color: "#e5e7eb", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+            >
+              <IconEdit />
+            </button>
+            <button
+              title="Eliminar"
+              onClick={() => handleDelete(e.gastoId)}
+              style={{ background: "transparent", border: "1px solid rgba(239,68,68,.4)", borderRadius: 8, color: "#f87171", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+            >
+              <IconTrash />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-      {/* ── ALERTAS ── */}
-      {(transfers.length > 0 || incomplete.length > 0 || sinImagen.length > 0 || reimsByEstado.devuelta.length > 0) && (
-        <div>
-          {reimsByEstado.devuelta.length > 0 && (
-            <AlertBanner color="red" icon="↩️">
-              <b>{reimsByEstado.devuelta.length} rendición{reimsByEstado.devuelta.length !== 1 ? "es" : ""} devuelta{reimsByEstado.devuelta.length !== 1 ? "s" : ""}</b> — requieren corrección.{" "}
-              <Link to="/rendiciones" style={{ color: "inherit", textDecoration: "underline" }}>Ver rendiciones</Link>
-            </AlertBanner>
+      {/* Header compacto con KPIs + botón nuevo */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div>
+            <div className="small" style={{ opacity: 0.6 }}>Gastos pendientes</div>
+            <div style={{ display: "flex", gap: 20, marginTop: 4 }}>
+              <div><div className="kpi" style={{ fontSize: 22 }}>{expenses.length}</div><div className="small">total</div></div>
+              <div><div className="kpi" style={{ fontSize: 22, color: selected.size > 0 ? "#e5e7eb" : "inherit" }}>{selected.size}</div><div className="small">selec.</div></div>
+              <div><div className="kpi" style={{ fontSize: 22, color: totalSelected > 0 ? "#86efac" : "inherit" }}>${totalSelected.toLocaleString("es-CL")}</div><div className="small">monto</div></div>
+            </div>
+          </div>
+          <Link className="btn" to="/gastos/nuevo" style={{ flexShrink: 0 }}>+ Nuevo</Link>
+        </div>
+
+        {/* Acciones de selección */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {complete.length > 0 && selected.size < complete.length && (
+            <button className="btn secondary" style={{ fontSize: 13 }} onClick={selectAll}>
+              Selec. todos ({complete.length})
+            </button>
           )}
-          {transfers.length > 0 && (
-            <AlertBanner color="blue" icon="🚗">
-              <b>{transfers.length} trayecto{transfers.length !== 1 ? "s" : ""}</b> sin generar gasto.{" "}
-              <Link to="/traslados" style={{ color: "inherit", textDecoration: "underline" }}>Ir a Traslados</Link>
-            </AlertBanner>
+          {selected.size > 0 && (
+            <button className="btn secondary" style={{ fontSize: 13 }} onClick={() => setSelected(new Set())}>
+              Limpiar selección
+            </button>
           )}
-          {incomplete.length > 0 && (
-            <AlertBanner color="yellow" icon="⚠️">
-              <b>{incomplete.length} gasto{incomplete.length !== 1 ? "s" : ""} incompleto{incomplete.length !== 1 ? "s" : ""}</b> — falta monto.{" "}
-              <Link to="/gastos" style={{ color: "inherit", textDecoration: "underline" }}>Completar</Link>
-            </AlertBanner>
-          )}
-          {sinImagen.length > 0 && (
-            <AlertBanner color="yellow" icon="📎">
-              <b>{sinImagen.length} gasto{sinImagen.length !== 1 ? "s" : ""} sin imagen</b> — requieren respaldo.{" "}
-              <Link to="/gastos" style={{ color: "inherit", textDecoration: "underline" }}>Agregar</Link>
-            </AlertBanner>
-          )}
+          <Link className="btn secondary" style={{ fontSize: 13 }} to="/rendiciones">Ver rendiciones →</Link>
+        </div>
+
+        {msg && (
+          <div className="small" style={{ padding: "8px 12px", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, marginTop: 10, whiteSpace: "pre-line" }}>
+            {msg}
+          </div>
+        )}
+      </div>
+
+      {/* Lista de gastos */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontWeight: 700 }}>Detalle</div>
+          <div className="small" style={{ opacity: 0.5 }}>📎 = imagen</div>
+        </div>
+
+        {expenses.length === 0 ? (
+          <div className="small" style={{ opacity: 0.6 }}>No hay gastos pendientes 🎉</div>
+        ) : (
+          <div>
+            {incomplete.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#facc15", marginBottom: 4 }}>Incompletos ({incomplete.length})</div>
+                {incomplete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
+                <div style={{ fontSize: 12, fontWeight: 700, marginTop: 12, marginBottom: 4, opacity: 0.7 }}>Listos ({complete.length})</div>
+              </>
+            )}
+            {complete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
+          </div>
+        )}
+      </div>
+
+      {/* Crear rendición — DEBAJO de la lista */}
+      {selected.size > 0 && (
+        <div style={{ padding: "14px 16px", background: "rgba(99,102,241,.1)", border: "1px solid rgba(99,102,241,.3)", borderRadius: 14 }}>
+          <div style={{ fontWeight: 800, marginBottom: 4 }}>
+            Crear rendición · {selected.size} gasto{selected.size !== 1 ? "s" : ""} · ${totalSelected.toLocaleString("es-CL")}
+          </div>
+          <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Los gastos quedarán agrupados en la rendición.</div>
+          <button className="btn" disabled={busy} onClick={createAndExport}>
+            {busy ? "Creando..." : "Crear rendición"}
+          </button>
         </div>
       )}
-
-      <div className="grid2">
-
-        {/* ── GASTOS PENDIENTES ── */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Pendiente</h2>
-            <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13 }}>+ Nuevo gasto</Link>
-          </div>
-
-          <div className="row" style={{ gap: 0, flexWrap: "wrap" }}>
-            <KpiCard label="Listos para rendir" value={complete.length} sub={complete.length > 0 ? fmt(totalPending) : "sin gastos"} color={complete.length > 0 ? "#e5e7eb" : undefined} />
-            <KpiCard label="Incompletos" value={incomplete.length} color={incomplete.length > 0 ? "#fde047" : undefined} />
-            <KpiCard label="Trayectos" value={transfers.length} sub="sin gasto" color={transfers.length > 0 ? "#7dd3fc" : undefined} />
-          </div>
-
-          <hr />
-          <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-            <Link className="btn secondary" to="/gastos" style={{ fontSize: 13 }}>Ver gastos</Link>
-            <Link className="btn secondary" to="/traslados" style={{ fontSize: 13 }}>Traslados</Link>
-          </div>
-        </div>
-
-        {/* ── RENDICIONES ── */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>Rendiciones</h2>
-            <Link className="btn secondary" to="/rendiciones" style={{ fontSize: 13 }}>Ver todas</Link>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {["borrador", "enviada", "devuelta", "aprobada", "pagada"].map((estado) => {
-              const items = reimsByEstado[estado];
-              const total = totalByEstado(estado);
-              const s = ESTADO_STYLE[estado];
-              if (items.length === 0) return null;
-              return (
-                <div key={estado} style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  background: s.bg, border: `1px solid ${s.border}`,
-                  borderRadius: 10, padding: "6px 12px",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <StatePill estado={estado} />
-                    <span style={{ fontWeight: 700 }}>{items.length}</span>
-                  </div>
-                  <span className="small" style={{ color: s.color, fontWeight: 700 }}>{fmt(total)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── BALANCE ── */}
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ margin: 0 }}>
-              Balance {balanceYear === "todos" ? "histórico" : balanceYear}
-            </h2>
-            {availableYears.length > 0 && (
-              <select
-                value={balanceYear}
-                onChange={(e) => setBalanceYear(e.target.value)}
-                style={{
-                  background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)",
-                  borderRadius: 8, color: "#e5e7eb", padding: "4px 8px", fontSize: 12, cursor: "pointer",
-                }}
-              >
-                <option value="todos">Histórico</option>
-                {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            )}
-          </div>
-
-          <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 16 }}>
-            <KpiCard label="Gastado" value={fmt(totalGastadoAnio)} />
-            <KpiCard label="Cobrado" value={fmt(totalCobradoAnio)} color="#86efac" />
-            <KpiCard label="Por cobrar" value={fmt(totalPorCobrar)} color={totalPorCobrar > 0 ? "#7dd3fc" : undefined} sub="enviadas+aprobadas" />
-          </div>
-
-          {totalGastadoAnio > 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div className="small" style={{ marginBottom: 4, opacity: 0.7 }}>
-                Cobrado {Math.round(totalCobradoAnio / totalGastadoAnio * 100)}% del total gastado
-              </div>
-              <div style={{ height: 8, borderRadius: 99, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: 99,
-                  background: "linear-gradient(90deg, #22c55e, #86efac)",
-                  width: `${Math.min(100, Math.round(totalCobradoAnio / totalGastadoAnio * 100))}%`,
-                  transition: "width .4s ease",
-                }} />
-              </div>
-              {totalPorCobrar > 0 && (
-                <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,.04)", overflow: "hidden", marginTop: 3 }}>
-                  <div style={{
-                    height: "100%", borderRadius: 99, background: "rgba(14,165,233,.5)",
-                    width: `${Math.min(100, Math.round(totalPorCobrar / totalGastadoAnio * 100))}%`,
-                  }} />
-                </div>
-              )}
-            </div>
-          )}
-
-          {totalGastadoAnio === 0 && (
-            <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>
-          )}
-        </div>
-
-        {/* ── ÚLTIMAS RENDICIONES ── */}
-        <div className="card">
-          <h2>Últimas rendiciones</h2>
-          {lastReims.length === 0 ? (
-            <div className="small" style={{ opacity: 0.6 }}>Aún no hay rendiciones.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {lastReims.map((r) => (
-                <Link key={r.rendicionId} to={`/rendiciones/${r.rendicionId}`} style={{ textDecoration: "none", color: "inherit" }}>
-                  <div style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    paddingTop: 8, borderTop: "1px solid rgba(255,255,255,.08)",
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{r.correlativo}</div>
-                      <div className="small" style={{ opacity: 0.6 }}>
-                        {new Date(r.fechaCreacion).toLocaleDateString("es-CL")}
-                        {r.total ? ` · ${fmt(r.total)}` : ""}
-                      </div>
-                    </div>
-                    <StatePill estado={r.estado} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-      </div>
     </div>
   );
 }
