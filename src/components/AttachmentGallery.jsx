@@ -10,9 +10,10 @@ import React from "react";
  *   onRemove   — fn(adjuntoId), opcional
  *   showIcon   — bool (default true), muestra el ícono 📎 como trigger
  */
-export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true, onExpand }) {
+export default function AttachmentGallery({ atts, locked, onRemove, showIcon = true, onExpand, hasCount }) {
   const [expanded, setExpanded] = React.useState(false);
-  const [lightbox, setLightbox] = React.useState(null); // { url, filename }
+  const [lightbox, setLightbox] = React.useState(null);
+  const [pendingOpen, setPendingOpen] = React.useState(false); // { url, filename }
 
   const items = React.useMemo(() => {
     return (atts || []).map((a) => ({
@@ -26,19 +27,40 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
     return () => { items.forEach((i) => { if (i.objectUrl) URL.revokeObjectURL(i.objectUrl); }); };
   }, [items]);
 
-  const hasAtts = items.length > 0;
+  // Cuando llegan items tras un lazy load pendiente, abrir automáticamente
+  React.useEffect(() => {
+    if (!pendingOpen || items.length === 0) return;
+    setPendingOpen(false);
+    if (items.length === 1) {
+      const a = items[0];
+      setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: !a.isImage });
+    } else {
+      setExpanded(true);
+    }
+  }, [items, pendingOpen]);
+
+  // hasCount viene del conteo liviano — permite mostrar indicador sin cargar blobs
+  const hasAtts = items.length > 0 || (hasCount != null ? hasCount > 0 : false);
+  const count = items.length > 0 ? items.length : (hasCount ?? 0);
   const single = items.length === 1;
 
   function handleIconClick() {
-    if (!hasAtts && !onExpand) return;
-    if (onExpand) onExpand();
-    if (!hasAtts) return;
-    if (single) {
-      const a = items[0];
-      // Siempre lightbox en iOS PWA (window.open no funciona en modo instalado)
-      setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: !a.isImage });
-    } else {
-      setExpanded((v) => !v);
+    // Si ya tenemos items cargados, abrir directo
+    if (items.length > 0) {
+      if (items.length === 1) {
+        const a = items[0];
+        setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: !a.isImage });
+      } else {
+        setExpanded((v) => !v);
+      }
+      return;
+    }
+    // Si hay onExpand (lazy load), dispararlo — los items llegarán via prop atts
+    if (onExpand) {
+      onExpand();
+      // Marcar que queremos abrir apenas lleguen los items
+      setPendingOpen(true);
+      return;
     }
   }
 
@@ -49,16 +71,30 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
         <span
           title={
             !hasAtts && !onExpand ? "Sin imagen adjunta"
-            : !hasAtts ? "Click para cargar adjuntos"
+            : !hasAtts ? "Cargar adjuntos"
             : single ? "Ver adjunto"
-            : `${items.length} adjuntos — click para ver`
+            : `${count} adjunto${count !== 1 ? "s" : ""}`
           }
           onClick={handleIconClick}
           style={{
             fontSize: 15,
-            opacity: (hasAtts || onExpand) ? 1 : 0.25,
             cursor: (hasAtts || onExpand) ? "pointer" : "default",
             userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 24,
+            height: 24,
+            borderRadius: "50%",
+            // Sin adjunto: borde amarillo llamativo
+            // Con adjunto: fondo verde sutil
+            background: hasAtts
+              ? "rgba(34,197,94,.18)"
+              : "transparent",
+            border: hasAtts
+              ? "1.5px solid rgba(34,197,94,.5)"
+              : "1.5px solid rgba(250,204,21,.6)",
+            opacity: 1,
           }}
         >📎</span>
       )}

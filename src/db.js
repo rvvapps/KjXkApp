@@ -525,29 +525,13 @@ export async function addAttachment({ gastoId, filename, mimeType, blob, width =
   const tx = db.transaction(["settings", "attachments", "sync_outbox", "sync_objects"], "readwrite");
   const { settings, revision } = await bumpRevisionInTx(tx);
 
-  // iOS Safari: guardar como ArrayBuffer en vez de Blob para evitar corrupción en IndexedDB
-  let storedBlob = blob;
-  try {
-    if (blob instanceof Blob) {
-      const ab = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsArrayBuffer(blob);
-      });
-      storedBlob = new Blob([ab], { type: mimeType || blob.type });
-    }
-  } catch (e) {
-    console.warn("addAttachment: blob conversion failed, storing as-is", e?.message);
-  }
-
   const rec = {
     adjuntoId,
     gastoId,
     filename,
     mimeType,
     contentHash,
-    blob: storedBlob,
+    blob,
     sizeBytes: blob?.size ?? null,
     width,
     height,

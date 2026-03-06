@@ -99,7 +99,6 @@ export default function ReimbursementDetail() {
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [expAtts, setExpAtts] = useState({});
   const [pdfViewer, setPdfViewer] = useState(null); // { url, filename }
-  const [xlsxViewer, setXlsxViewer] = useState(null); // { url, filename }
 
   function setOk(text)  { setMsg({ text, type: "success" }); }
   function setErr(text) { setMsg({ text, type: "error" }); }
@@ -173,26 +172,6 @@ export default function ReimbursementDetail() {
     } catch (e) {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
-  }
-
-  async function viewExcel() {
-    if (!reim) return;
-    clearMsg(); setBusy(true);
-    try {
-      const gastoIds = gastoIdsOrdered();
-      const exportItems = await buildExportItems(gastoIds);
-      const corr = reim.correlativo;
-      const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
-      const url = URL.createObjectURL(blob);
-      setXlsxViewer({ url, filename: `Rendicion_${corr}.xlsx` });
-    } catch (e) {
-      setErr(`Error Excel: ${e?.message || "desconocido"}`);
-    } finally { setBusy(false); }
-  }
-
-  function closeXlsxViewer() {
-    if (xlsxViewer?.url) URL.revokeObjectURL(xlsxViewer.url);
-    setXlsxViewer(null);
   }
 
   async function reExportPdf() {
@@ -335,29 +314,6 @@ export default function ReimbursementDetail() {
   if (!reim) return <div className="card"><div className="small">Cargando...</div></div>;
 
   // ── Visor PDF ─────────────────────────────────────────────────────────────
-  if (xlsxViewer) {
-    return (
-      <div style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 999, display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid #e5e7eb", background: "#f8fafc" }}>
-          <span style={{ fontWeight: 600, fontSize: 14, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            📊 {xlsxViewer.filename}
-          </span>
-          <a
-            href={xlsxViewer.url}
-            download={xlsxViewer.filename}
-            style={{ fontSize: 13, padding: "5px 12px", background: "#1d6f42", color: "#fff", borderRadius: 6, textDecoration: "none", fontWeight: 600 }}
-          >⬇ Descargar</a>
-          <button onClick={closeXlsxViewer} style={{ fontSize: 18, background: "none", border: "none", cursor: "pointer", padding: "0 4px", color: "#374151" }}>✕</button>
-        </div>
-        <iframe
-          src={xlsxViewer.url}
-          title="Vista Excel"
-          style={{ flex: 1, border: "none", width: "100%", height: "100%" }}
-        />
-      </div>
-    );
-  }
-
   if (pdfViewer) {
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#0f1117" }}>
@@ -432,8 +388,7 @@ export default function ReimbursementDetail() {
 
           {/* Exportar Excel y PDF por separado */}
           {reim.estado !== "pagada" && (
-            <IconBtn icon={<IconExcel />} label="Ver Excel" onClick={viewExcel} disabled={busy} title="Ver Excel" />
-            <IconBtn icon={<IconExcel />} label="⬇ Excel" onClick={reExportExcel} disabled={busy} title="Descargar Excel" />
+            <IconBtn icon={<IconExcel />} label="Excel" onClick={reExportExcel} disabled={busy} title="Descargar Excel" />
           )}
           {reim.estado !== "pagada" && (
             <IconBtn icon={<IconPdf />} label="PDF" onClick={reExportPdf} disabled={busy} title="Descargar PDF de respaldos" />
