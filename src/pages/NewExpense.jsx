@@ -193,17 +193,28 @@ export default function NewExpense() {
       // Adjuntos (si vienen)
       if (fileList.length) {
         for (const f of fileList) {
-          // iPhone-first defaults (1600px / quality 0.72 / WebP preferred)
-          const prepared = await prepareReceiptImage(f);
-          await addAttachment({
-            gastoId,
-            filename: prepared.filename,
-            mimeType: prepared.mimeType,
-            blob: prepared.blob,
-            width: prepared.width,
-            height: prepared.height,
-            contentHash: prepared.contentHash,
-          });
+          try {
+            const prepared = await prepareReceiptImage(f);
+            // iOS: asegurar que el blob es legible via FileReader antes de guardar
+            const safeBlob = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(new Blob([reader.result], { type: prepared.mimeType || "image/jpeg" }));
+              reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+              reader.readAsArrayBuffer(prepared.blob);
+            });
+            await addAttachment({
+              gastoId,
+              filename: prepared.filename,
+              mimeType: prepared.mimeType,
+              blob: safeBlob,
+              width: prepared.width,
+              height: prepared.height,
+              contentHash: prepared.contentHash,
+            });
+          } catch (attachErr) {
+            console.error("Error guardando adjunto:", attachErr);
+            setMsg({ tone: "warning", text: `⚠️ No se pudo guardar la foto: ${attachErr?.message || "error desconocido"}. El gasto fue guardado sin imagen.` });
+          }
         }
       }
 

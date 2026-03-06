@@ -6,9 +6,7 @@ import {
   createReimbursement, addReimbursementItems, markExpensesReimbursed,
   getExpense,
 } from "../db.js";
-import { buildExportItems, exportBatchXlsx, splitIntoBatches } from "../services/excelExport.js";
 import AttachmentGallery from "../components/AttachmentGallery.jsx";
-import { exportReceiptsPdf } from "../services/pdfExport.js";
 
 function pad(n, width = 4) { return String(n).padStart(width, "0"); }
 
@@ -34,8 +32,6 @@ export default function Expenses() {
   const [attachData, setAttachData] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
-  const [lastCorrelativo, setLastCorrelativo] = useState("");
-  const [lastRendicionId, setLastRendicionId] = useState("");
 
   async function refresh() {
     const [exps, concs] = await Promise.all([listPendingExpenses(), listConcepts()]);
@@ -139,18 +135,7 @@ export default function Expenses() {
       const { updateReimbursementTotal } = await import("../db.js");
       await updateReimbursementTotal({ rendicionId, total: totalSelected });
 
-      // Export Excel
-      const exportItems = await buildExportItems(gastoIds);
-      const batches = splitIntoBatches(exportItems);
-      for (let i = 0; i < batches.length; i++) {
-        const corr = batches.length === 1 ? correlativo : `${correlativo}_P${i + 1}`;
-        await exportBatchXlsx({ correlativo: corr, items: batches[i] });
-      }
-
-      setMsg(`✅ Rendición ${correlativo} creada. Excel descargado.
-📄 Ve al detalle para descargar el PDF de respaldos.`);
-      setLastCorrelativo(correlativo);
-      setLastRendicionId(rendicionId);
+      setMsg(`✅ Rendición ${correlativo} creada. Ve al detalle para exportar Excel y PDF.`);
       setSelected(new Set());
       await refresh();
     } catch (e) {
@@ -283,7 +268,7 @@ export default function Expenses() {
           <div style={{ fontWeight: 800, marginBottom: 4 }}>
             Crear rendición · {selected.size} gasto{selected.size !== 1 ? "s" : ""} · ${totalSelected.toLocaleString("es-CL")}
           </div>
-          <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se exportará Excel + PDF automáticamente.</div>
+          <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Los gastos quedarán agrupados en la rendición.</div>
           <button className="btn" disabled={busy} onClick={createAndExport}>
             {busy ? "Creando..." : "Crear rendición"}
           </button>
