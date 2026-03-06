@@ -87,7 +87,7 @@ function AppContent() {
         {/* Marca — pequeña, siempre visible */}
         <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.5)", letterSpacing: ".5px" }}>
-            CAJA CHICA
+            CAJA CHICA · v0.12.5
           </span>
         </Link>
 
