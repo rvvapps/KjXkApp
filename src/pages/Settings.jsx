@@ -594,7 +594,21 @@ export default function Settings() {
           <h3>Datos personales</h3>
           <div className="row row-form">
             <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
-            <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => setS({ ...s, responsableRut: v })} placeholder="12.345.678-9" />
+            <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => {
+              // Auto-formato: deja solo dígitos y k, aplica XX.XXX.XXX-X
+              const raw = v.replace(/[^0-9kK]/g, "").toUpperCase();
+              let fmt = raw;
+              if (raw.length > 1) {
+                const dv = raw.slice(-1);
+                const num = raw.slice(0, -1);
+                const parts = [];
+                let rest = num;
+                while (rest.length > 3) { parts.unshift(rest.slice(-3)); rest = rest.slice(0, -3); }
+                if (rest) parts.unshift(rest);
+                fmt = parts.join(".") + "-" + dv;
+              }
+              setS({ ...s, responsableRut: fmt });
+            }} placeholder="12.345.678-9" />
           </div>
           <div className="row row-form" style={{ marginTop: 12 }}>
             <TextField label="Cargo" value={s.cargo || ""} onChange={(v) => setS({ ...s, cargo: v })} />
