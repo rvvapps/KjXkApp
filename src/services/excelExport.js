@@ -282,15 +282,15 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   const headerFont = { bold: true, size: 11, name: "Calibri" };
   const headerAlign = { vertical: "middle", horizontal: "center", wrapText: true };
   const headers = [
-    [1,"A","Tipo de Doc."],
-    [2,"B","Fecha"],
-    [3,"C","N° Doc"],
+    [1,"A27","Tipo de Doc."],
+    [2,"B27","Fecha"],
+    [3,"C27","N° Doc"],
     [4,"D27:G27","Descripción"],
-    [8,"H","Centro de Responsabilidad"],
-    [9,"I","Cuenta Contable"],
+    [8,"H27","Centro de Responsabilidad"],
+    [9,"I27","Cuenta Contable"],
     [10,"J27:K27","Partida"],
-    [12,"L","Clasificación"],
-    [13,"M","Monto ($)"],
+    [12,"L27","Clasificación"],
+    [13,"M27","Monto ($)"],
   ];
   headers.forEach(([col, addr, text]) => {
     if (addr.includes(":")) {
