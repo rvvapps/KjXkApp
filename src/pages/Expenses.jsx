@@ -30,7 +30,6 @@ export default function Expenses() {
   const [concepts, setConcepts] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [attachData, setAttachData] = useState({});
-  const [attachCounts, setAttachCounts] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -45,20 +44,12 @@ export default function Expenses() {
       }
       return next;
     });
-    // Cargar conteos livianos para mostrar indicador visual en clip
-    const counts = {};
-    await Promise.all(exps.map(async (e) => {
-      const atts = await listAttachmentsForExpense(e.gastoId).catch(() => []);
-      counts[e.gastoId] = atts.length;
-    }));
-    setAttachCounts(counts);
   }
 
   async function loadAtts(gastoId) {
     if (attachData[gastoId]) return;
     const atts = await listAttachmentsForExpense(gastoId).catch(() => []);
     setAttachData((prev) => ({ ...prev, [gastoId]: atts }));
-    setAttachCounts((prev) => ({ ...prev, [gastoId]: atts.length }));
   }
 
   useEffect(() => {
@@ -166,7 +157,7 @@ export default function Expenses() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               {isIncomplete && <span title="Falta monto" style={{ color: "#facc15" }}>⚠️</span>}
-              <AttachmentGallery atts={attachData[e.gastoId] || []} hasCount={attachCounts[e.gastoId] ?? 0} locked={true} onExpand={() => loadAtts(e.gastoId)} />
+              <AttachmentGallery atts={attachData[e.gastoId] || []} locked={true} onExpand={() => loadAtts(e.gastoId)} />
               {label}
             </div>
             <div className="small" style={{ marginTop: 2 }}>
