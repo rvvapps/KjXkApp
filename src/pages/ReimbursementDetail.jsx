@@ -79,14 +79,16 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
 }
 
 function downloadSnapshotBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30000);
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const a = document.createElement("a");
+    a.href = reader.result;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  reader.readAsDataURL(blob);
 }
 
 export default function ReimbursementDetail() {
@@ -168,14 +170,18 @@ export default function ReimbursementDetail() {
       const exportItems = await buildExportItems(gastoIds);
       const corr = reim.correlativo;
       const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Rendicion_${corr}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      const filename = `Rendicion_${corr}.xlsx`;
+      // iOS Safari ignora <a download> con blob URLs — usar data URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const a = document.createElement("a");
+        a.href = reader.result;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      reader.readAsDataURL(blob);
     } catch (e) {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
