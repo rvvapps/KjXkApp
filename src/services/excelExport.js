@@ -1,6 +1,5 @@
 import ExcelJS from "exceljs";
 import { getSettings, getDB } from "../db.js";
-import { TEMPLATE_B64 } from "./excelTemplate.js";
 
 const CAPACITY = 42;
 
@@ -105,42 +104,208 @@ function groupAndSortForExports(items) {
   return { noFactura, facturas };
 }
 
-export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items }) {
-  // Template embebido como base64 — funciona offline, sin fetch, sin CORS
-  const binaryStr = atob(TEMPLATE_B64);
-  const bytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
-  const templateBuffer = bytes.buffer;
+// ── Helpers de estilo ────────────────────────────────────────────────────────
+const AZUL      = "4472C4";   // títulos sección
+const AZUL_CLARO = "9DC3E6";  // header tabla (theme accent1 tint +0.4)
+const GRIS      = "D9D9D9";   // separadores / fondo campos
+const BORDE_MED = { style: "medium", color: { argb: "FF000000" } };
+const BORDE_THIN = { style: "thin",  color: { argb: "FF000000" } };
+const BORDE_ALL_THIN = { top: BORDE_THIN, left: BORDE_THIN, bottom: BORDE_THIN, right: BORDE_THIN };
+const BORDE_ALL_MED  = { top: BORDE_MED,  left: BORDE_MED,  bottom: BORDE_MED,  right: BORDE_MED  };
 
+function fillSolid(argb) {
+  return { type: "pattern", pattern: "solid", fgColor: { argb: "FF" + argb } };
+}
+
+function styleLabel(ws, addr, text, opts = {}) {
+  const c = ws.getCell(addr);
+  c.value = text;
+  c.font = { bold: true, size: opts.size ?? 11, color: { argb: opts.fontColor ?? "FF000000" }, name: "Calibri" };
+  c.alignment = { vertical: "middle", horizontal: opts.align ?? "left", wrapText: true };
+  if (opts.fill) c.fill = fillSolid(opts.fill);
+  if (opts.border) c.border = opts.border;
+}
+
+function styleValue(ws, addr, value, opts = {}) {
+  const c = ws.getCell(addr);
+  c.value = value ?? "";
+  c.font = { size: opts.size ?? 10, name: "Calibri" };
+  c.alignment = { vertical: "middle", horizontal: opts.align ?? "center", wrapText: false };
+  c.border = opts.border ?? BORDE_ALL_THIN;
+  if (opts.fill) c.fill = fillSolid(opts.fill);
+  if (opts.numFmt) c.numFmt = opts.numFmt;
+}
+
+function mergeLabel(ws, range, text, opts = {}) {
+  ws.mergeCells(range);
+  styleLabel(ws, range.split(":")[0], text, opts);
+}
+
+function mergeValue(ws, range, value, opts = {}) {
+  ws.mergeCells(range);
+  styleValue(ws, range.split(":")[0], value, opts);
+}
+
+export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items }) {
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(templateBuffer);
-  const ws = wb.getWorksheet("Formulario");
-  if (!ws) throw new Error("Hoja Formulario no encontrada en template");
+  wb.creator = "Caja Chica";
+  wb.created = new Date();
+  const ws = wb.addWorksheet("Formulario", {
+    pageSetup: { paperSize: 9, orientation: "portrait", fitToPage: true, fitToWidth: 1 }
+  });
 
   const settings = await getSettings();
   const h = { ...settings, ...headerOverrides };
 
-  // ── Datos responsable ────────────────────────────────────────────────────
-  ws.getCell("D15").value = h.responsableNombre ?? "";
-  ws.getCell("L15").value = h.responsableRut ?? "";
-  ws.getCell("D17").value = h.cargo ?? "";
-  ws.getCell("L17").value = h.telefono ?? "";
-  ws.getCell("D19").value = h.empresa ?? "";
-  ws.getCell("L19").value = fmtDateDDMMYYYY(new Date());
+  // ── Anchos de columna (basados en original) ──────────────────────────────
+  ws.getColumn(1).width  = 17;      // A
+  ws.getColumn(2).width  = 12.5;    // B
+  ws.getColumn(3).width  = 14.7;    // C
+  ws.getColumn(4).width  = 5.1;     // D
+  ws.getColumn(5).width  = 16.9;    // E
+  ws.getColumn(6).width  = 2.3;     // F (separador)
+  ws.getColumn(7).width  = 13.4;    // G
+  ws.getColumn(8).width  = 35.3;    // H
+  ws.getColumn(9).width  = 35;      // I
+  ws.getColumn(10).width = 6;       // J
+  ws.getColumn(11).width = 30;      // K
+  ws.getColumn(12).width = 32.7;    // L
+  ws.getColumn(13).width = 22.4;    // M
 
-  // ── Datos bancarios ──────────────────────────────────────────────────────
-  ws.getCell("C22").value = h.tipoCuenta ?? "";
-  ws.getCell("H22").value = h.numeroCuenta ?? "";
-  ws.getCell("L22").value = h.banco ?? "";
+  // ── Fila 1: Logo área y N° Operación ────────────────────────────────────
+  ws.getRow(1).height = 30;
+  ws.mergeCells("A1:D5");   // área logo (vacía — sin imagen)
+  ws.mergeCells("E1:M5");   // área título empresa
+  const titleCell = ws.getCell("E1");
+  titleCell.value = h.empresa ?? "FORMULARIO DE RENDICIÓN DE CAJA CHICA";
+  titleCell.font = { bold: true, size: 20, name: "Calibri", color: { argb: "FF" + AZUL } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
-  // ── Rendición ────────────────────────────────────────────────────────────
-  // N° Operación y N° Req quedan en blanco (uso finanzas)
-  // Checkbox Reembolso de Gastos — A11=CajaChica, D11=FondoRendir, H11=Reembolso
-  ws.getCell("A11").value = false;
-  ws.getCell("D11").value = false;
-  ws.getCell("H11").value = true;  // ☑ Reembolso de Gastos
+  // N° Operación (esquina derecha superior — B1:C1)
+  ws.getRow(2).height = 7;
+  ws.getRow(4).height = 9;
+  const opCell = ws.getCell("B1");
+  opCell.value = "N° Operación";
+  opCell.font  = { size: 9, name: "Calibri" };
+  opCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  // ── Filas de datos ───────────────────────────────────────────────────────
+  // ── Fila 7: Tipo de rendición ─────────────────────────────────────────────
+  ws.getRow(6).height = 4;
+  ws.getRow(7).height = 21;
+  ws.getRow(8).height = 5;
+  ws.mergeCells("A7:M7");
+  styleLabel(ws, "A7", "Tipo de rendición", {
+    size: 16, fill: AZUL, fontColor: "FFFFFFFF", align: "center",
+    border: BORDE_ALL_MED,
+  });
+
+  // ── Fila 9-11: Checkboxes tipo rendición ──────────────────────────────────
+  ws.getRow(10).height = 19;
+  ws.getRow(11).height = 17;
+  // Fila 9: separador
+  // Fila 10: etiquetas
+  styleLabel(ws, "A10", "☐ Caja Chica", { size: 11 });
+  styleLabel(ws, "D10", "☐ Fondo por Rendir", { size: 11 });
+  styleLabel(ws, "H10", "☑ Reembolso de Gastos", { size: 11, bold: true });
+  ws.mergeCells("J10:M10");
+  styleLabel(ws, "J10", "Número de Fondo por Rendir:", { size: 9 });
+
+  // ── Fila 13: Información del responsable ─────────────────────────────────
+  ws.getRow(12).height = 6;
+  ws.getRow(13).height = 21;
+  ws.getRow(14).height = 8;
+  ws.getRow(16).height = 6;
+  ws.getRow(18).height = 5;
+  ws.getRow(20).height = 7;
+  ws.mergeCells("A13:M13");
+  styleLabel(ws, "A13", "Información del responsable", {
+    size: 16, fill: AZUL, fontColor: "FFFFFFFF", align: "center",
+    border: BORDE_ALL_MED,
+  });
+
+  // Fila 15: Nombre / RUT
+  ws.getRow(15).height = 17;
+  styleLabel(ws, "A15", "Nombre Responsable", { bold: true, size: 11 });
+  ws.mergeCells("D15:H15");
+  styleValue(ws, "D15", h.responsableNombre ?? "", { align: "center" });
+  styleLabel(ws, "I15", "RUT", { bold: true, size: 11, align: "right" });
+  ws.mergeCells("L15:M15");
+  styleValue(ws, "L15", h.responsableRut ?? "", { align: "center" });
+
+  // Fila 17: Cargo / Teléfono
+  ws.getRow(17).height = 17;
+  styleLabel(ws, "A17", "Cargo", { bold: true, size: 11 });
+  ws.mergeCells("D17:H17");
+  styleValue(ws, "D17", h.cargo ?? "", { align: "center" });
+  styleLabel(ws, "I17", "Teléfono", { bold: true, size: 11, align: "right" });
+  ws.mergeCells("L17:M17");
+  styleValue(ws, "L17", h.telefono ?? "", { align: "center" });
+
+  // Fila 19: Empresa / Fecha
+  ws.getRow(19).height = 17;
+  styleLabel(ws, "A19", "Empresa", { bold: true, size: 11 });
+  ws.mergeCells("D19:H19");
+  styleValue(ws, "D19", h.empresa ?? "", { align: "center" });
+  styleLabel(ws, "I19", "Fecha", { bold: true, size: 11, align: "right" });
+  ws.mergeCells("L19:M19");
+  styleValue(ws, "L19", fmtDateDDMMYYYY(new Date()), { align: "center" });
+
+  // Fila 21-22: Datos bancarios
+  ws.getRow(21).height = 6;
+  ws.getRow(22).height = 17;
+  styleLabel(ws, "A22", "Tipo de Cuenta", { bold: true, size: 11 });
+  ws.mergeCells("C22:E22");
+  styleValue(ws, "C22", h.tipoCuenta ?? "", { align: "center" });
+  styleLabel(ws, "F22", "N° Cuenta", { bold: true, size: 11, align: "right" });
+  styleValue(ws, "H22", h.numeroCuenta ?? "", { align: "center" });
+  styleLabel(ws, "I22", "Banco", { bold: true, size: 11, align: "right" });
+  ws.mergeCells("L22:M22");
+  styleValue(ws, "L22", h.banco ?? "", { align: "center" });
+
+  // ── Fila 24: Información de la rendición ─────────────────────────────────
+  ws.getRow(23).height = 17;
+  ws.getRow(24).height = 21;
+  ws.getRow(25).height = 13;
+  ws.mergeCells("A24:M24");
+  styleLabel(ws, "A24", "Información de la rendición", {
+    size: 16, fill: AZUL, fontColor: "FFFFFFFF", align: "center",
+    border: BORDE_ALL_MED,
+  });
+
+  // Fila 26: subtítulo vacío (separador visual)
+  ws.getRow(26).height = 22;
+  ws.mergeCells("A26:M26");
+
+  // ── Fila 27: Headers tabla ────────────────────────────────────────────────
+  ws.getRow(27).height = 32;
+  const headerFill = fillSolid(AZUL_CLARO);
+  const headerFont = { bold: true, size: 11, name: "Calibri" };
+  const headerAlign = { vertical: "middle", horizontal: "center", wrapText: true };
+  const headers = [
+    [1,"A","Tipo de Doc."],
+    [2,"B","Fecha"],
+    [3,"C","N° Doc"],
+    [4,"D27:G27","Descripción"],
+    [8,"H","Centro de Responsabilidad"],
+    [9,"I","Cuenta Contable"],
+    [10,"J27:K27","Partida"],
+    [12,"L","Clasificación"],
+    [13,"M","Monto ($)"],
+  ];
+  headers.forEach(([col, addr, text]) => {
+    if (addr.includes(":")) {
+      ws.mergeCells(addr);
+      addr = addr.split(":")[0];
+    }
+    const c = ws.getCell(addr);
+    c.value = text;
+    c.font = headerFont;
+    c.alignment = headerAlign;
+    c.fill = headerFill;
+    c.border = BORDE_ALL_THIN;
+  });
+
+  // ── Filas de datos ────────────────────────────────────────────────────────
   const safeItems = Array.isArray(items) ? items : [];
   const sorted = [...safeItems].sort((a, b) => {
     const da = parseDateFlexible(a.fechaISO) ?? new Date(0);
@@ -149,64 +314,108 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   });
 
   const DATA_START = 28;
-  const TEMPLATE_ROWS = 14; // filas 28-41 pre-formateadas en template
+  const dataFont  = { size: 9, name: "Calibri" };
+  const dataAlign = { vertical: "middle", wrapText: false };
+  let total = 0;
 
-  // Copiar estilo de fila 28 para usarla como referencia en filas extra
-  function getCellStyle(cell) {
-    return {
-      font: cell.font ? { ...cell.font } : undefined,
-      alignment: cell.alignment ? { ...cell.alignment } : undefined,
-      border: cell.border ? { ...cell.border } : undefined,
-      fill: cell.fill ? { ...cell.fill } : undefined,
-      numFmt: cell.numFmt,
-    };
-  }
-  // Guardar estilos de fila referencia (fila 28)
-  const refStyles = {};
-  for (let c = 1; c <= 13; c++) {
-    refStyles[c] = getCellStyle(ws.getCell(DATA_START, c));
-  }
-
-  // Merges de fila 28 como referencia para filas extra
-  const refMerges = []; // {minCol, maxCol}
-  ws.model.merges && ws.model.merges.forEach(m => {
-    // no aplica directamente, usamos los merges del ws
-  });
-
-  // Escribir datos en filas 28-41 (template) y agregar filas extra si hay más de 14
   sorted.forEach((it, idx) => {
     const r = DATA_START + idx;
+    ws.getRow(r).height = 14.25;
 
-    // Si supera las filas del template, insertar nueva fila copiando estilos
-    if (idx >= TEMPLATE_ROWS) {
-      ws.insertRow(r, []);
-      ws.getRow(r).height = 14.25;
-      // Aplicar merges D:G y J:K para esta fila
-      ws.mergeCells(`D${r}:G${r}`);
-      ws.mergeCells(`J${r}:K${r}`);
-      // Aplicar estilos de referencia
-      for (let c = 1; c <= 13; c++) {
-        const cell = ws.getCell(r, c);
-        const s = refStyles[c];
-        if (s.font) cell.font = s.font;
-        if (s.alignment) cell.alignment = s.alignment;
-        if (s.border) cell.border = s.border;
-        if (s.fill) cell.fill = s.fill;
-        if (s.numFmt) cell.numFmt = s.numFmt;
-      }
-    }
+    const monto = Number(it.monto ?? 0);
+    total += monto;
 
-    // Escribir valores
-    ws.getCell(r, 1).value = it.docTipo ?? "";
-    ws.getCell(r, 2).value = toDisplayDate(it.fechaISO);
-    ws.getCell(r, 3).value = it.docNumero ?? "";
-    ws.getCell(r, 4).value = it.detalle ?? "";
-    ws.getCell(r, 8).value = codeName(it.crCodigo, it.crNombre);
-    ws.getCell(r, 9).value = codeName(it.ctaCodigo, it.ctaNombre);
-    ws.getCell(r, 10).value = codeName(it.partidaCodigo, it.partidaNombre);
-    ws.getCell(r, 12).value = codeName(it.clasificacionCodigo, it.clasificacionNombre);
-    ws.getCell(r, 13).value = Number(it.monto ?? 0);
+    // Merge Descripción (D:G) y Partida (J:K)
+    ws.mergeCells(`D${r}:G${r}`);
+    ws.mergeCells(`J${r}:K${r}`);
+
+    const setCell = (col, value, align = "center", numFmt = null) => {
+      const c = ws.getCell(r, col);
+      c.value = value ?? "";
+      c.font = dataFont;
+      c.alignment = { ...dataAlign, horizontal: align };
+      c.border = BORDE_ALL_THIN;
+      if (numFmt) c.numFmt = numFmt;
+    };
+
+    setCell(1,  it.docTipo ?? "",                          "center");
+    setCell(2,  toDisplayDate(it.fechaISO),                "center");
+    setCell(3,  it.docNumero ?? "",                        "center");
+    setCell(4,  it.detalle ?? "",                          "left");
+    setCell(8,  codeName(it.crCodigo, it.crNombre),        "left");
+    setCell(9,  codeName(it.ctaCodigo, it.ctaNombre),      "left");
+    setCell(10, codeName(it.partidaCodigo, it.partidaNombre), "center");
+    setCell(12, codeName(it.clasificacionCodigo, it.clasificacionNombre), "center");
+    setCell(13, monto,                                     "center", "#,##0");
   });
+
+  // ── Filas de totales ──────────────────────────────────────────────────────
+  const lastDataRow = DATA_START + sorted.length - 1;
+  const totRow = lastDataRow + 2;  // fila 42 base
+  ws.getRow(totRow).height = 18;
+  ws.getRow(totRow + 1).height = 17;
+  ws.getRow(totRow + 2).height = 18;
+  ws.getRow(totRow + 3).height = 28;
+
+  ws.mergeCells(`H${totRow}:L${totRow}`);
+  ws.mergeCells(`H${totRow+1}:L${totRow+1}`);
+  ws.mergeCells(`H${totRow+2}:L${totRow+2}`);
+  ws.mergeCells(`H${totRow+3}:L${totRow+3}`);
+
+  const totalFontNorm = { size: 12, name: "Calibri" };
+  const totalFontBold = { bold: true, size: 12, name: "Calibri" };
+  const totalAlign = { vertical: "middle", horizontal: "right" };
+  const totalAlignC = { vertical: "middle", horizontal: "center" };
+
+  const setTotal = (row, label, value, bold = false) => {
+    const lc = ws.getCell(`H${row}`);
+    lc.value = label;
+    lc.font = bold ? totalFontBold : totalFontNorm;
+    lc.alignment = totalAlign;
+    lc.border = BORDE_ALL_THIN;
+
+    const vc = ws.getCell(`M${row}`);
+    vc.value = value;
+    vc.font = bold ? totalFontBold : totalFontNorm;
+    vc.alignment = totalAlignC;
+    vc.border = BORDE_ALL_THIN;
+    vc.numFmt = "#,##0";
+  };
+
+  setTotal(totRow,   "Total",                   total,  false);
+  setTotal(totRow+1, "(-) Anticipos",            "",     false);
+  setTotal(totRow+2, "Total Boletas y Facturas", total,  true);
+
+  // ── Firmas ────────────────────────────────────────────────────────────────
+  const firmaRow = totRow + 5;
+  ws.getRow(firmaRow).height = 50;
+  ws.getRow(firmaRow + 1).height = 44;
+
+  ws.mergeCells(`A${firmaRow}:D${firmaRow+1}`);
+  ws.mergeCells(`E${firmaRow}:I${firmaRow+1}`);
+  ws.mergeCells(`J${firmaRow}:L${firmaRow+1}`);
+  ws.mergeCells(`M${firmaRow}:M${firmaRow+1}`);
+
+  const firmaStyle = (addr, text) => {
+    const c = ws.getCell(addr);
+    c.value = text;
+    c.font = { bold: true, size: 12, name: "Calibri" };
+    c.alignment = { vertical: "bottom", horizontal: "center", wrapText: true };
+    c.border = { top: BORDE_MED, bottom: BORDE_MED, left: BORDE_MED, right: BORDE_MED };
+  };
+  firmaStyle(`A${firmaRow}`, "Firma Responsable del Fondo o Solicitante");
+  firmaStyle(`E${firmaRow}`, "Firma Aprobador");
+  firmaStyle(`J${firmaRow}`, "Firma Control Pagos");
+
+  // ── Pie: título formulario ────────────────────────────────────────────────
+  const pieRow = firmaRow + 3;
+  ws.getRow(pieRow).height = 43;
+  ws.mergeCells(`A${pieRow}:D${pieRow+4}`);
+  ws.mergeCells(`E${pieRow}:M${pieRow+4}`);
+  const pieCell = ws.getCell(`E${pieRow}`);
+  pieCell.value = "Formulario de Rendición de Caja Chica / Fondo por Rendir / Reembolso de Gastos";
+  pieCell.font = { bold: true, size: 14, name: "Calibri", color: { argb: "FF" + AZUL } };
+  pieCell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Blob([buffer], {
