@@ -154,7 +154,8 @@ export default function Expenses() {
         setMsg(`✅ Rendición ${correlativo} creada. Excel y PDF exportados.`);
       } catch (pdfErr) {
         console.error("PDF error:", pdfErr);
-        setMsg(`✅ Rendición ${correlativo} creada. Excel exportado.\n⚠️ PDF falló: ${pdfErr?.message || "error desconocido"}`);
+        const detail = [pdfErr?.message, pdfErr?.stack?.split("\n")?.[1]?.trim()].filter(Boolean).join(" — ");
+        setMsg(`✅ Rendición ${correlativo} creada. Excel exportado.\n⚠️ PDF: ${detail || "error desconocido"}`);
       }
 
       setSelected(new Set());
