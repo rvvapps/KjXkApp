@@ -190,8 +190,6 @@ export default function ReimbursementDetail() {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
   }
-    } finally { setBusy(false); }
-  }
 
   async function reExportPdf() {
     if (!reim) return;
