@@ -331,7 +331,6 @@ export default function ReimbursementDetail() {
 
   if (!reim) return <div className="card"><div className="small">Cargando...</div></div>;
 
-
   // ── Visor PDF ─────────────────────────────────────────────────────────────
   if (pdfViewer) {
     return (
