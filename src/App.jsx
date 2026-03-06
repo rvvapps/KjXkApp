@@ -1,28 +1,5 @@
 import React, { useEffect } from "react";
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
-
-class ErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: null }; }
-  static getDerivedStateFromError(e) { return { error: e }; }
-  componentDidCatch(e) { console.error("App crash:", e); }
-  render() {
-    if (this.state.error) {
-      return (
-        <div style={{ padding: 24, color: "#fca5a5" }}>
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>❌ Error en la app</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 16, whiteSpace: "pre-wrap" }}>
-            {this.state.error?.message || "Error desconocido"}
-          </div>
-          <button
-            onClick={() => { this.setState({ error: null }); window.location.href = "/"; }}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#0ea5e9", color: "#fff", border: "none", cursor: "pointer" }}
-          >Volver al inicio</button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
 import Dashboard from "./pages/Dashboard.jsx";
 import NewExpense from "./pages/NewExpense.jsx";
 import Reimbursements from "./pages/Reimbursements.jsx";
@@ -110,7 +87,7 @@ function AppContent() {
         {/* Marca — pequeña, siempre visible */}
         <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.5)", letterSpacing: ".5px" }}>
-            CAJA CHICA
+            CAJA CHICA · v0.12.5
           </span>
         </Link>
 
@@ -166,7 +143,6 @@ function AppContent() {
       <ErrorBanner />
 
       <main style={{ marginTop: 12 }}>
-        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/traslados" element={<Transfers />} />
@@ -178,7 +154,6 @@ function AppContent() {
           <Route path="/ajustes" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-        </ErrorBoundary>
       </main>
     </div>
   );

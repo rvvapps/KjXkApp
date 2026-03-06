@@ -181,7 +181,7 @@ export default function EditExpense() {
       setMsg("✅ Respaldo agregado.");
     } catch (e) {
       console.error(e);
-      setMsg("Error agregando respaldo: " + (e?.message || "desconocido"));
+      setMsg("Error agregando respaldo.");
     } finally {
       setBusy(false);
     }
