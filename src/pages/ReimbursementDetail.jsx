@@ -431,10 +431,10 @@ export default function ReimbursementDetail() {
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
 
           {/* Exportar Excel y PDF por separado */}
-          {reim.estado !== "pagada" && (
+          {reim.estado !== "pagada" && (<>
             <IconBtn icon={<IconExcel />} label="Ver Excel" onClick={viewExcel} disabled={busy} title="Ver Excel" />
             <IconBtn icon={<IconExcel />} label="⬇ Excel" onClick={reExportExcel} disabled={busy} title="Descargar Excel" />
-          )}
+          </>)}
           {reim.estado !== "pagada" && (
             <IconBtn icon={<IconPdf />} label="PDF" onClick={reExportPdf} disabled={busy} title="Descargar PDF de respaldos" />
           )}
