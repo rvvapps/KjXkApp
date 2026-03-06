@@ -49,16 +49,30 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
         <span
           title={
             !hasAtts && !onExpand ? "Sin imagen adjunta"
-            : !hasAtts ? "Click para cargar adjuntos"
+            : !hasAtts ? "Cargar adjuntos"
             : single ? "Ver adjunto"
-            : `${items.length} adjuntos — click para ver`
+            : `${items.length} adjuntos`
           }
           onClick={handleIconClick}
           style={{
             fontSize: 15,
-            opacity: (hasAtts || onExpand) ? 1 : 0.25,
             cursor: (hasAtts || onExpand) ? "pointer" : "default",
             userSelect: "none",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 24,
+            height: 24,
+            borderRadius: "50%",
+            // Sin adjunto: borde amarillo llamativo
+            // Con adjunto: fondo verde sutil
+            background: hasAtts
+              ? "rgba(34,197,94,.18)"
+              : "transparent",
+            border: hasAtts
+              ? "1.5px solid rgba(34,197,94,.5)"
+              : "1.5px solid rgba(250,204,21,.6)",
+            opacity: 1,
           }}
         >📎</span>
       )}
