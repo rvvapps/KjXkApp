@@ -89,27 +89,46 @@ function uniqueAttachments(atts) {
   return out;
 }
 
+// iOS PWA: arrayBuffer() puede fallar en blobs de IndexedDB.
+// Usar FileReader como fallback confiable en todos los navegadores.
 async function blobToUint8(blob) {
-  const ab = await blob.arrayBuffer();
-  return new Uint8Array(ab);
+  // Intentar FileReader primero (más compatible con iOS PWA)
+  try {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(new Uint8Array(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(blob);
+    });
+  } catch {
+    // Fallback a arrayBuffer
+    const ab = await blob.arrayBuffer();
+    return new Uint8Array(ab);
+  }
 }
 
 async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = {}) {
   // pdf-lib solo soporta JPEG y PNG — siempre convertir a JPEG via canvas
   try {
-    const imgUrl = URL.createObjectURL(blob);
+    // iOS: convertir blob a base64 data URL para evitar I/O errors con objectURL
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(blob);
+    });
     const img = new Image();
     img.decoding = "async";
-    img.src = imgUrl;
+    img.src = dataUrl;
     await new Promise((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej(new Error("img_load_failed"));
-      setTimeout(() => rej(new Error("img_timeout")), 8000);
+      setTimeout(() => rej(new Error("img_timeout")), 10000);
     });
 
     const w0 = img.naturalWidth || img.width;
     const h0 = img.naturalHeight || img.height;
-    URL.revokeObjectURL(imgUrl);
+
 
     if (!w0 || !h0) throw new Error("no_dimensions");
 
