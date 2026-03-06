@@ -30,6 +30,7 @@ export default function Expenses() {
   const [concepts, setConcepts] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [attachData, setAttachData] = useState({});
+  const [attachCounts, setAttachCounts] = useState({});
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
