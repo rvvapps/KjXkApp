@@ -285,7 +285,7 @@ export default function Expenses() {
           </div>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se exportará Excel + PDF automáticamente.</div>
           <button className="btn" disabled={busy} onClick={createAndExport}>
-            {busy ? "Exportando..." : "Crear rendición + Exportar"}
+            {busy ? "Creando..." : "Crear rendición"}
           </button>
         </div>
       )}

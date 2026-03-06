@@ -98,6 +98,7 @@ export default function ReimbursementDetail() {
   const [pendingExpenses, setPendingExpenses] = useState([]);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [expAtts, setExpAtts] = useState({});
+  const [pdfViewer, setPdfViewer] = useState(null); // { url, filename }
 
   function setOk(text)  { setMsg({ text, type: "success" }); }
   function setErr(text) { setMsg({ text, type: "error" }); }
@@ -178,16 +179,21 @@ export default function ReimbursementDetail() {
     clearMsg(); setBusy(true);
     try {
       const gastoIds = gastoIdsOrdered();
-      const batches = splitIntoBatches(await buildExportItems(gastoIds));
-      for (let i = 0; i < batches.length; i++) {
-        const corr = batches.length === 1 ? reim.correlativo : `${reim.correlativo}_P${i + 1}`;
-        await exportReceiptsPdf({ correlativo: corr, orderedGastoIds: gastoIds.slice(i * 42, i * 42 + 42) });
-      }
-      setOk("PDF descargado.");
+      // Generar blob sin descargar automáticamente
+      const { generateReceiptsPdfBlob: genBlob } = await import("../services/pdfExport.js");
+      const corr = reim.correlativo;
+      const blob = await genBlob({ correlativo: corr, orderedGastoIds: gastoIds.slice(0, 42) });
+      const url = URL.createObjectURL(blob);
+      setPdfViewer({ url, filename: `Respaldos_${corr}.pdf` });
     } catch (e) {
       const detail = [e?.message, e?.stack?.split("\n")?.[1]?.trim()].filter(Boolean).join(" — ");
       setErr(`Error PDF: ${detail || "desconocido"}`);
     } finally { setBusy(false); }
+  }
+
+  function closePdfViewer() {
+    if (pdfViewer?.url) URL.revokeObjectURL(pdfViewer.url);
+    setPdfViewer(null);
   }
 
   // ── Cancelar borrador ────────────────────────────────────────────────────────
@@ -306,6 +312,50 @@ export default function ReimbursementDetail() {
   }
 
   if (!reim) return <div className="card"><div className="small">Cargando...</div></div>;
+
+  // ── Visor PDF ─────────────────────────────────────────────────────────────
+  if (pdfViewer) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#0f1117" }}>
+        {/* Barra superior */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "10px 16px", background: "#1a1d2e",
+          borderBottom: "1px solid rgba(255,255,255,.1)", flexShrink: 0,
+        }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#e5e7eb" }}>
+            📄 {pdfViewer.filename}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a
+              href={pdfViewer.url}
+              download={pdfViewer.filename}
+              style={{
+                padding: "6px 14px", borderRadius: 8, background: "#0ea5e9",
+                color: "#001018", fontWeight: 700, fontSize: 13,
+                textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
+              }}
+            >⬇ Descargar</a>
+            <button
+              onClick={closePdfViewer}
+              style={{
+                padding: "6px 14px", borderRadius: 8,
+                border: "1px solid rgba(255,255,255,.2)",
+                background: "transparent", color: "#e5e7eb",
+                fontWeight: 700, fontSize: 13, cursor: "pointer",
+              }}
+            >✕ Cerrar</button>
+          </div>
+        </div>
+        {/* Visor */}
+        <iframe
+          src={pdfViewer.url}
+          title="Vista previa PDF"
+          style={{ flex: 1, border: "none", width: "100%", background: "#fff" }}
+        />
+      </div>
+    );
+  }
 
   const frozen = reim.estado === "enviada" || reim.estado === "aprobada" || reim.estado === "pagada";
 
