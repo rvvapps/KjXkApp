@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { getSettings, getDB } from "../db.js";
+import { TEMPLATE_B64 } from "./excelTemplate.js";
 
 const CAPACITY = 42;
 
@@ -105,17 +106,11 @@ function groupAndSortForExports(items) {
 }
 
 export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items }) {
-  // Cargar template usando import.meta.url + base vite — funciona offline en PWA
-  const base = import.meta.env.BASE_URL ?? "/";
-  const templateUrl = base.replace(/\/$/, "") + "/templates/Formulario_Rendicion_Template.xlsx";
-  let templateBuffer;
-  try {
-    const res = await fetch(templateUrl);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    templateBuffer = await res.arrayBuffer();
-  } catch (e) {
-    throw new Error(`No se pudo cargar el template Excel (${templateUrl}): ${e.message}`);
-  }
+  // Template embebido como base64 — funciona offline, sin fetch, sin CORS
+  const binaryStr = atob(TEMPLATE_B64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+  const templateBuffer = bytes.buffer;
 
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(templateBuffer);
