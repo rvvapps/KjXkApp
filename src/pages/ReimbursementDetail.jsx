@@ -78,17 +78,32 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
   );
 }
 
-function downloadSnapshotBlob(blob, filename) {
-  const reader = new FileReader();
-  reader.onloadend = () => {
+// Descarga en PC / Web Share API en iOS (única forma confiable en Safari)
+async function shareOrDownload(blob, filename) {
+  const file = new File([blob], filename, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    await navigator.share({ files: [file], title: filename });
+  } else {
+    // PC y navegadores que soportan <a download>
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = reader.result;
+    a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
-  };
-  reader.readAsDataURL(blob);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+}
+
+function downloadSnapshotBlob(blob, filename) {
+  shareOrDownload(blob, filename).catch(() => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  });
 }
 
 export default function ReimbursementDetail() {
@@ -171,17 +186,7 @@ export default function ReimbursementDetail() {
       const corr = reim.correlativo;
       const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
       const filename = `Rendicion_${corr}.xlsx`;
-      // iOS Safari ignora <a download> con blob URLs — usar data URL
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const a = document.createElement("a");
-        a.href = reader.result;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      };
-      reader.readAsDataURL(blob);
+      await shareOrDownload(blob, filename);
     } catch (e) {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
     } finally { setBusy(false); }
