@@ -89,22 +89,44 @@ function uniqueAttachments(atts) {
   return out;
 }
 
-// iOS PWA: arrayBuffer() puede fallar en blobs de IndexedDB.
-// Usar FileReader como fallback confiable en todos los navegadores.
+// Convierte un Blob a Uint8Array via FileReader (compatible iOS Safari PWA)
 async function blobToUint8(blob) {
-  // Intentar FileReader primero (más compatible con iOS PWA)
-  try {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(new Uint8Array(reader.result));
-      reader.onerror = () => reject(reader.error);
-      reader.readAsArrayBuffer(blob);
-    });
-  } catch {
-    // Fallback a arrayBuffer
-    const ab = await blob.arrayBuffer();
-    return new Uint8Array(ab);
-  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result));
+    reader.onerror = () => reject(new Error("FileReader error: " + (reader.error?.message || "unknown")));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+// En iOS los blobs recuperados de IndexedDB pueden estar "vacíos".
+// Reconvertir via FileReader readAsDataURL → canvas → blob JPEG fresco.
+async function refreshBlob(blob) {
+  if (!blob || blob.size === 0) throw new Error("blob vacío");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result es data URL — crear img y redibujar en canvas
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.naturalWidth || img.width || 1;
+        canvas.height = img.naturalHeight || img.height || 1;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        canvas.toBlob((b) => {
+          if (b) resolve(b);
+          else reject(new Error("canvas.toBlob devolvió null"));
+        }, "image/jpeg", 0.82);
+      };
+      img.onerror = () => reject(new Error("img.onerror al refrescar blob"));
+      img.src = reader.result;
+    };
+    reader.onerror = () => reject(new Error("FileReader.onerror: " + (reader.error?.message || "IO error")));
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = {}) {
@@ -157,13 +179,30 @@ async function compressImageBlob(blob, { maxSide = 1400, jpegQuality = 0.72 } = 
 }
 
 async function embedImage(pdf, blob) {
-  const b = await compressImageBlob(blob, { maxSide: 1400, jpegQuality: 0.72 });
-  const bytes = await blobToUint8(b);
-
+  // Paso 1: refrescar el blob via canvas (soluciona I/O errors en iOS IndexedDB)
+  let fresh;
   try {
+    fresh = await refreshBlob(blob);
+  } catch (e) {
+    console.warn("refreshBlob failed:", e?.message, "— intentando blob original");
+    fresh = blob;
+  }
+
+  // Paso 2: comprimir
+  let b;
+  try {
+    b = await compressImageBlob(fresh, { maxSide: 1400, jpegQuality: 0.75 });
+  } catch {
+    b = fresh;
+  }
+
+  // Paso 3: embeber como JPEG
+  try {
+    const bytes = await blobToUint8(b);
     return await pdf.embedJpg(bytes);
   } catch {
-    const bytes2 = await blobToUint8(blob);
+    // Último fallback: PNG
+    const bytes2 = await blobToUint8(b);
     return await pdf.embedPng(bytes2);
   }
 }
