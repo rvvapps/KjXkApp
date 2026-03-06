@@ -79,11 +79,18 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
 }
 
 function downloadSnapshotBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  const reader = new FileReader();
+  reader.onload = () => {
+    const a = document.createElement("a");
+    a.href = reader.result;
+    a.download = filename;
+    a.target = "_blank";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  reader.readAsDataURL(blob);
 }
 
 export default function ReimbursementDetail() {
@@ -165,19 +172,24 @@ export default function ReimbursementDetail() {
       const exportItems = await buildExportItems(gastoIds);
       const corr = reim.correlativo;
       const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
-      const url = URL.createObjectURL(blob);
-      // window.open dispara el action sheet nativo de iOS (Visualizar / Descargar)
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Rendicion_${corr}.xlsx`;
-      a.target = "_blank";
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+      // iOS Safari: usar data URL con <a target="_blank"> para disparar action sheet nativo
+      const reader = new FileReader();
+      reader.onload = () => {
+        const a = document.createElement("a");
+        a.href = reader.result;
+        a.download = `Rendicion_${corr}.xlsx`;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      reader.readAsDataURL(blob);
     } catch (e) {
       setErr(`Error Excel: ${e?.message || "desconocido"}`);
+    } finally { setBusy(false); }
+  }
     } finally { setBusy(false); }
   }
 

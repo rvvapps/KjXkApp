@@ -111,8 +111,10 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
 
+  // Copiar a ArrayBuffer propio para evitar problemas con SharedArrayBuffer en Safari
+  const buf = bytes.buffer.slice(0);
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(bytes.buffer);
+  await wb.xlsx.load(buf);
   const ws = wb.getWorksheet("Formulario");
   if (!ws) throw new Error("Hoja Formulario no encontrada en template");
 
