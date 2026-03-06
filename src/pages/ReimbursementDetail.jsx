@@ -184,11 +184,11 @@ export default function ReimbursementDetail() {
     try {
       const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
-      const corr = reim.correlativo;
-      const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
       const settings = await getSettings();
+      const corr = reim.correlativo;
+      // Solo guardamos los datos para el preview — el blob se genera al confirmar
+      // así el share/download ocurre desde un click directo del usuario
       setXlsxPreview({
-        blob,
         filename: `Rendicion_${corr}.xlsx`,
         items: exportItems,
         header: { ...settings },
@@ -471,9 +471,13 @@ export default function ReimbursementDetail() {
             flex: 1, padding: "12px", borderRadius: 10, border: "1px solid rgba(255,255,255,.15)",
             background: "transparent", color: "#94a3b8", fontWeight: 600, fontSize: 14, cursor: "pointer",
           }}>Cancelar</button>
-          <button onClick={() => {
+          <button onClick={async () => {
+            const { filename: fn, items: its, correlativo: cr } = xlsxPreview;
             setXlsxPreview(null);
-            shareOrDownload(blob, filename).catch(e => setErr(e?.message || "Error al compartir"));
+            try {
+              const blob = await generateBatchXlsxBlob({ correlativo: cr, items: its });
+              await shareOrDownload(blob, fn);
+            } catch (e) { setErr(e?.message || "Error al exportar"); }
           }} style={{
             flex: 2, padding: "12px", borderRadius: 10, border: "none",
             background: "#16a34a", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
