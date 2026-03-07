@@ -745,7 +745,7 @@ export default function Settings() {
             <div><div className="small" style={{ opacity: 0.6 }}>Conectado el</div><div style={{ fontWeight: 700 }}>{sync?.auth?.connectedAt ? new Date(sync.auth.connectedAt).toLocaleString("es-CL") : "—"}</div></div>
           </div>
           <div className="row row-form">
-            <TextField label="Tenant ID" value={sync?.auth?.tenantId || "organizations"} onChange={(v) => saveOneDriveConfig({ tenantId: v })} />
+            <TextField label="Tenant ID" value={sync?.auth?.tenantId ?? ""} placeholder="organizations" onChange={(v) => saveOneDriveConfig({ tenantId: v || "organizations" })} />
             <TextField label="Client ID" value={sync?.auth?.clientId || ""} onChange={(v) => saveOneDriveConfig({ clientId: v })} />
           </div>
           <div className="row row-form" style={{ marginTop: 14, gap: 10, flexWrap: "wrap" }}>
