@@ -480,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.13.5";
+const APP_VERSION = "0.13.6";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -663,7 +663,7 @@ export default function Settings() {
       {/* ── PERFIL ── */}
       {tab === "Perfil" && (
         <div className="card">
-          <Accordion title="Datos Personales" defaultOpen={true}>
+          <Accordion title="Datos Personales" defaultOpen={false}>
             <div className="row row-form">
               <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
               <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => {
