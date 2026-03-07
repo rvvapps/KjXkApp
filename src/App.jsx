@@ -10,6 +10,19 @@ import Transfers from "./pages/Transfers.jsx";
 import Expenses from "./pages/Expenses.jsx";
 import ErrorBanner from "./components/ErrorBanner.jsx";
 import { ensureSeedData } from "./db.js";
+import { syncOnce } from "./services/syncEngine.js";
+
+// Sync silencioso en background — se llama al abrir la app
+async function backgroundSync() {
+  try {
+    const { getSyncState } = await import("./db.js");
+    const st = await getSyncState();
+    if (!st?.auth?.connectedAt || !st?.token) return; // no conectado
+    await syncOnce();
+  } catch (e) {
+    console.warn("backgroundSync error:", e);
+  }
+}
 
 const PAGE_TITLES = {
   "/":            "Inicio",
@@ -161,7 +174,11 @@ function AppContent() {
 }
 
 export default function App() {
-  useEffect(() => { ensureSeedData(); }, []);
+  useEffect(() => {
+    ensureSeedData();
+    // Sync automático al abrir la app
+    backgroundSync();
+  }, []);
   return <AppContent />;
 }
 

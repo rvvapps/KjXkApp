@@ -100,6 +100,33 @@ export async function ensureOneDriveRoot({ preferAppFolder = true } = {}) {
   return setRootFromItem("folder", c.item);
 }
 
+export async function listFilesUnderRoot({ rootMode, rootFolderItemId, relPath }) {
+  const tok = await getValidAccessToken({ allowInteractive: false });
+  if (!tok.ok) return { ok: false, error: tok.error };
+  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
+  const base = rootMode === "approot"
+    ? `/me/drive/special/approot:/${safe}:/children`
+    : `/me/drive/items/${rootFolderItemId}:/${safe}:/children`;
+  const r = await graphFetch(`${base}?$select=id,name,size,lastModifiedDateTime`, { accessToken: tok.accessToken });
+  if (!r.ok) return { ok: false, error: "list_failed", detail: r };
+  return { ok: true, files: r.json?.value || [] };
+}
+
+export async function getFileUnderRoot({ rootMode, rootFolderItemId, relPath }) {
+  const tok = await getValidAccessToken({ allowInteractive: false });
+  if (!tok.ok) return { ok: false, error: tok.error };
+  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
+  const url = rootMode === "approot"
+    ? `${GRAPH}/me/drive/special/approot:/${safe}:/content`
+    : `${GRAPH}/me/drive/items/${rootFolderItemId}:/${safe}:/content`;
+  const resp = await fetch(url, {
+    headers: { Authorization: `Bearer ${tok.accessToken}` },
+  });
+  if (!resp.ok) return { ok: false, error: "get_failed", status: resp.status };
+  const blob = await resp.blob();
+  return { ok: true, blob };
+}
+
 export async function putFileByPath({ path, contentType, data }) {
   const tok = await getValidAccessToken({ allowInteractive: true });
   if (!tok.ok) return tok;

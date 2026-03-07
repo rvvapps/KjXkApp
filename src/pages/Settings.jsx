@@ -14,7 +14,7 @@ import {
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
-import { syncOnce } from "../services/syncEngine.js";
+import { syncOnce, findLatestBackupInOneDrive, downloadBackupFromOneDrive } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 import { v4 as uuid } from "uuid";
@@ -480,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.12.38";
+const APP_VERSION = "0.13.0";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -539,6 +539,16 @@ export default function Settings() {
       setS(await getSettings());
       setCrs(await listActiveCR());
       setSync(await getSyncState());
+      // Sync down automático al abrir — silencioso, sin bloquear UI
+      const st = await getSyncState();
+      if (st?.auth?.connectedAt && st?.token) {
+        syncOnce().then((r) => {
+          if (r.ok && r.appliedEvents > 0) {
+            setS((prev) => ({ ...prev })); // forzar re-render si hay datos nuevos
+            setSyncMsg(`🔄 Sync automático: ${r.appliedEvents} cambio${r.appliedEvents !== 1 ? "s" : ""} recibido${r.appliedEvents !== 1 ? "s" : ""}`);
+          }
+        }).catch(() => {});
+      }
     })();
   }, []);
 
@@ -561,8 +571,16 @@ export default function Settings() {
   async function doSyncNow() {
     setSyncMsg("Sincronizando…");
     const r = await syncOnce();
-    if (r.ok) { setSyncMsg(`✅ Sync OK. Eventos: ${r.uploadedEvents}, Boletas: ${r.uploadedReceipts}`); setS(await getSettings()); }
-    else setSyncMsg(`❌ Sync falló: ${r.step || "?"}. ${r.error || ""}`);
+    if (r.ok) {
+      const parts = [];
+      if (r.uploadedEvents > 0) parts.push(`↑ ${r.uploadedEvents} evento${r.uploadedEvents !== 1 ? "s" : ""}`);
+      if (r.uploadedReceipts > 0) parts.push(`↑ ${r.uploadedReceipts} boleta${r.uploadedReceipts !== 1 ? "s" : ""}`);
+      if (r.appliedEvents > 0) parts.push(`↓ ${r.appliedEvents} cambio${r.appliedEvents !== 1 ? "s" : ""} recibido${r.appliedEvents !== 1 ? "s" : ""}`);
+      setSyncMsg(`✅ Sync OK${parts.length ? ". " + parts.join(", ") : " — todo al día"}`);
+      setS(await getSettings());
+    } else {
+      setSyncMsg(`❌ Sync falló: ${r.step || "?"}. ${r.error || ""}`);
+    }
   }
 
   async function doGenerateBackup({ uploadToOneDrive }) {
@@ -731,7 +749,27 @@ export default function Settings() {
             <TextField label="Contraseña" value={restorePass} onChange={setRestorePass} type="password" />
           </div>
           <div className="row row-form" style={{ marginTop: 12 }}>
-            <button className="btn danger" disabled={backupBusy} onClick={doRestoreBackup}>Restaurar (reemplaza datos locales)</button>
+            <button className="btn danger" disabled={backupBusy} onClick={doRestoreBackup}>Restaurar desde archivo</button>
+            <button className="btn secondary" disabled={backupBusy} onClick={async () => {
+              setBackupBusy(true); setRestoreMsg("Buscando backup en OneDrive…");
+              try {
+                const found = await findLatestBackupInOneDrive();
+                if (!found.ok) { setRestoreMsg(`❌ ${found.error === "no_backups" ? "No hay backups en OneDrive." : "Error: " + found.error}`); return; }
+                setRestoreMsg(`⬇️ Descargando ${found.file.name}…`);
+                const dl = await downloadBackupFromOneDrive(`exports/${found.file.name}`);
+                if (!dl.ok) { setRestoreMsg("❌ Error al descargar el backup."); return; }
+                const pass = window.prompt(`Backup encontrado: ${found.file.name}\n\nIngresa la contraseña para restaurar:`);
+                if (!pass) { setRestoreMsg("Cancelado."); return; }
+                const result = await restoreFromEncryptedBackupFile(dl.blob, pass, { onProgress: setRestoreMsg });
+                const counts = Object.entries(result.storeCounts || {}).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}`).join(", ");
+                setRestoreMsg(`✅ Restaurado desde OneDrive. ${counts}`);
+                setS(await getSettings());
+              } catch (err) {
+                setRestoreMsg(`❌ Error: ${err?.message || String(err)}`);
+              } finally {
+                setBackupBusy(false);
+              }
+            }}>Restaurar desde OneDrive</button>
           </div>
           <MsgBox msg={typeof restoreMsg === "string" ? restoreMsg : formatProgress(restoreMsg)} />
           </Accordion>

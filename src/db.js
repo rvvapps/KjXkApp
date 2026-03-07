@@ -5,7 +5,8 @@ const DB_NAME = "pettycash_db";
 // DB_VERSION bump: v3 adds sync stores (outbox/state/objects) without changing existing business stores.
 // DB_VERSION bump: v4 adds catalog_clasificaciones (non-breaking, additive).
 // DB_VERSION bump: v5 adds catalog_destinations (destinos favoritos combustible).
-const DB_VERSION = 5;
+// DB_VERSION bump: v6 adds sync_inbox (tracks incoming events from other devices).
+const DB_VERSION = 6;
 
 // Sync
 const WORKSPACE_ID = "personal";
@@ -105,6 +106,11 @@ export async function getDB() {
         s.createIndex("objectType", "objectType");
         s.createIndex("pendingUpload", "pendingUpload");
         s.createIndex("lastAccessedAt", "lastAccessedAt");
+      }
+      if (!db.objectStoreNames.contains("sync_inbox")) {
+        const s = db.createObjectStore("sync_inbox", { keyPath: "eventId" });
+        s.createIndex("processedAt", "processedAt");
+        s.createIndex("fromDevice", "fromDevice");
       }
     },
   });
