@@ -480,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.13.2";
+const APP_VERSION = "0.13.3";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -760,6 +760,11 @@ export default function Settings() {
                 if (!dl.ok) { setRestoreMsg("❌ Error al descargar el backup."); return; }
                 const pass = window.prompt(`Backup encontrado: ${found.file.name}\n\nIngresa la contraseña para restaurar:`);
                 if (!pass) { setRestoreMsg("Cancelado."); return; }
+                // Borrar datos locales antes de restaurar para evitar mezclas
+                const confirm1 = window.confirm("⚠️ Se borrarán todos los datos locales antes de restaurar.\n\n¿Continuar?");
+                if (!confirm1) { setRestoreMsg("Cancelado."); return; }
+                window.indexedDB.deleteDatabase("pettycash_db");
+                await new Promise((r) => setTimeout(r, 800)); // esperar que se borre
                 const result = await restoreFromEncryptedBackupFile(dl.blob, pass, { onProgress: setRestoreMsg });
                 const counts = Object.entries(result.storeCounts || {}).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}`).join(", ");
                 setRestoreMsg(`✅ Restaurado desde OneDrive. ${counts}`);

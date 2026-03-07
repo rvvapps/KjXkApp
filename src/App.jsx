@@ -24,6 +24,16 @@ async function backgroundSync() {
   }
 }
 
+// Sync con debounce — se llama al guardar datos, espera 3s antes de subir
+let _syncDebounceTimer = null;
+function scheduleSyncAfterSave() {
+  if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
+  _syncDebounceTimer = setTimeout(() => {
+    backgroundSync();
+    _syncDebounceTimer = null;
+  }, 3000);
+}
+
 const PAGE_TITLES = {
   "/":            "Inicio",
   "/traslados":   "Traslados",
@@ -178,6 +188,9 @@ export default function App() {
     ensureSeedData();
     // Sync automático al abrir la app
     backgroundSync();
+    // Sync automático al guardar (con debounce de 3s)
+    window.addEventListener("cc:dataChanged", scheduleSyncAfterSave);
+    return () => window.removeEventListener("cc:dataChanged", scheduleSyncAfterSave);
   }, []);
   return <AppContent />;
 }

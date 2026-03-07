@@ -15,6 +15,11 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+// Dispara evento global para que App.jsx haga sync en background
+export function notifyDataChanged() {
+  try { window.dispatchEvent(new Event("cc:dataChanged")); } catch {}
+}
+
 export const DOC_TYPES = ["Boleta", "Factura", "Voucher", "SinDoc"];
 
 export async function getDB() {
@@ -484,6 +489,7 @@ export async function addExpense(expense) {
     payload: { entityType: "expense", entityId: enriched.gastoId, data: enriched },
   });
   await tx.done;
+  notifyDataChanged();
 }
 
 export async function listPendingExpenses() {
@@ -853,6 +859,7 @@ export async function updateExpense(expense) {
     payload: { entityType: "expense", entityId: enriched.gastoId, data: enriched },
   });
   await tx.done;
+  notifyDataChanged();
 }
 
 export async function deleteAttachment(adjuntoId) {
@@ -927,6 +934,7 @@ export async function deleteExpense(gastoId) {
   });
 
   await tx.done;
+  notifyDataChanged();
 }
 
 export async function listActiveDestinations() {
@@ -1048,6 +1056,7 @@ export async function addTransfer(transfer) {
     payload: { entityType: "transfer", entityId: enriched.transferId, data: enriched },
   });
   await tx.done;
+  notifyDataChanged();
 }
 
 export async function listPendingTransfers() {
