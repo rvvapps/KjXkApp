@@ -29,6 +29,39 @@ function registerGlobalErrorHandlers() {
 
 registerGlobalErrorHandlers();
 
+// ── Service Worker ────────────────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const reg = await navigator.serviceWorker.register("/KjXkApp/sw.js", { scope: "/KjXkApp/" });
+
+      // Detectar cuando hay una nueva versión esperando
+      const checkUpdate = (reg) => {
+        if (reg.waiting) {
+          // Hay una versión nueva lista — notificar a la app
+          window.dispatchEvent(new CustomEvent("cc:swUpdate", { detail: { reg } }));
+        }
+      };
+
+      reg.addEventListener("updatefound", () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener("statechange", () => {
+          if (newWorker.state === "installed") checkUpdate(reg);
+        });
+      });
+
+      checkUpdate(reg);
+
+      // Verificar actualizaciones cada vez que la app vuelve al foco
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) reg.update();
+      });
+    } catch (e) {
+      console.warn("SW registration failed:", e);
+    }
+  });
+}
+
 // Si venimos del redirect de Microsoft login, intercambiar code → tokens
 (async () => {
   try {

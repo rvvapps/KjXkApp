@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard.jsx";
 import NewExpense from "./pages/NewExpense.jsx";
@@ -141,6 +141,7 @@ function AppContent() {
       </div>
 
       <ErrorBanner />
+      <UpdateBanner />
 
       <main style={{ marginTop: 12 }}>
         <Routes>
@@ -162,4 +163,41 @@ function AppContent() {
 export default function App() {
   useEffect(() => { ensureSeedData(); }, []);
   return <AppContent />;
+}
+
+function UpdateBanner() {
+  const [pending, setPending] = useState(null);
+
+  useEffect(() => {
+    const handler = (e) => setPending(e.detail?.reg);
+    window.addEventListener("cc:swUpdate", handler);
+    return () => window.removeEventListener("cc:swUpdate", handler);
+  }, []);
+
+  if (!pending) return null;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 16, left: "50%", transform: "translateX(-50%)",
+      zIndex: 9999, background: "#0ea5e9", color: "#fff",
+      borderRadius: 14, padding: "10px 18px",
+      display: "flex", alignItems: "center", gap: 12,
+      boxShadow: "0 4px 24px rgba(0,0,0,.4)", maxWidth: "90vw",
+    }}>
+      <span style={{ fontWeight: 700, fontSize: 14 }}>🔄 Nueva versión disponible</span>
+      <button
+        style={{ background: "#fff", color: "#0ea5e9", border: "none", borderRadius: 8, padding: "5px 14px", fontWeight: 800, cursor: "pointer", fontSize: 13 }}
+        onClick={() => {
+          pending.waiting?.postMessage("skipWaiting");
+          window.location.reload();
+        }}
+      >
+        Actualizar
+      </button>
+      <button
+        style={{ background: "transparent", color: "#fff", border: "none", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
+        onClick={() => setPending(null)}
+      >×</button>
+    </div>
+  );
 }
