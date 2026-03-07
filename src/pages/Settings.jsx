@@ -480,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.13.7";
+const APP_VERSION = "0.13.9";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -586,7 +586,9 @@ export default function Settings() {
   async function doGenerateBackup({ uploadToOneDrive }) {
     setBackupMsg(""); setBackupBusy(true);
     try {
-      const { blob, storeCounts } = await generateEncryptedBackupBlob(backupPass);
+      // Al subir a OneDrive omitir blobs — son pesados y ya están sincronizados por separado
+      const opts = uploadToOneDrive ? { skipBlobs: true } : {};
+      const { blob, storeCounts } = await generateEncryptedBackupBlob(backupPass, opts);
       const fileName = `backup_full_${new Date().toISOString().replace(/[:.]/g, "-")}.cczip`;
       const counts = `Gastos: ${storeCounts.expenses ?? 0}, Rendiciones: ${storeCounts.reimbursements ?? 0}, Boletas: ${storeCounts.attachments ?? 0}`;
       if (uploadToOneDrive) {
@@ -763,8 +765,13 @@ export default function Settings() {
                 // Borrar datos locales antes de restaurar para evitar mezclas
                 const confirm1 = window.confirm("⚠️ Se borrarán todos los datos locales antes de restaurar.\n\n¿Continuar?");
                 if (!confirm1) { setRestoreMsg("Cancelado."); return; }
-                window.indexedDB.deleteDatabase("pettycash_db");
-                await new Promise((r) => setTimeout(r, 800)); // esperar que se borre
+                await new Promise((resolve, reject) => {
+                  const req = window.indexedDB.deleteDatabase("pettycash_db");
+                  req.onsuccess = resolve;
+                  req.onerror = reject;
+                  req.onblocked = resolve;
+                });
+                await new Promise((r) => setTimeout(r, 500)); // pausa extra para que Chrome libere la DB
                 const result = await restoreFromEncryptedBackupFile(dl.blob, pass, { onProgress: setRestoreMsg });
                 const counts = Object.entries(result.storeCounts || {}).filter(([, v]) => v > 0).map(([k, v]) => `${k}: ${v}`).join(", ");
                 setRestoreMsg(`✅ Restaurado desde OneDrive. ${counts}`);

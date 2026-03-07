@@ -41,6 +41,7 @@ async function dumpAllStores(tick, timeoutMs) {
 export async function buildPlainBackupZipBytes(opts = {}) {
   const onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
   const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 30000;
+  const skipBlobs = opts.skipBlobs === true; // si true, omite imágenes de adjuntos
   const tick = (phase, extra) => { try { onProgress && onProgress({ phase, ...extra }); } catch {} };
 
   const { stores, storeCounts } = await dumpAllStores(tick, timeoutMs);
@@ -63,7 +64,7 @@ export async function buildPlainBackupZipBytes(opts = {}) {
   if (Array.isArray(stores.attachments)) {
     const updated = [];
     for (const rec of stores.attachments) {
-      if (rec && rec.blob instanceof Blob) {
+      if (!skipBlobs && rec && rec.blob instanceof Blob) {
         const mimeType = rec.mimeType || rec.blob.type || "application/octet-stream";
         const ext = extFromMime(mimeType);
         const fileName = rec.contentHash ? `${rec.contentHash}.${ext}` : `${rec.adjuntoId}.${ext}`;
@@ -72,7 +73,9 @@ export async function buildPlainBackupZipBytes(opts = {}) {
         const { blob, ...rest } = rec;
         updated.push({ ...rest, __blobRef: path, mimeType });
       } else {
-        updated.push(rec);
+        // Sin blob — guardar solo metadata
+        const { blob, ...rest } = rec;
+        updated.push(rest);
       }
     }
     stores.attachments = updated;
