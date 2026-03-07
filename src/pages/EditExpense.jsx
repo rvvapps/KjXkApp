@@ -136,7 +136,6 @@ export default function EditExpense() {
     if (!expense.conceptId) return setMsg("Selecciona un concepto.");
     if (!expense.crCodigo) return setMsg("Selecciona CR.");
     if (!expense.ctaCodigo) return setMsg("Selecciona Cuenta.");
-    if (!expense.partidaCodigo) return setMsg("Selecciona Partida.");
     if (!expense.monto || Number(expense.monto) <= 0) return setMsg("Monto inválido.");
 
     if (concept?.requiereDoc) {
@@ -321,7 +320,7 @@ export default function EditExpense() {
 
       <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
-          label="Partida"
+          label="Partida (opcional)"
           value={expense.partidaCodigo || ""}
           onChange={(v) => !locked && setExpense({ ...expense, partidaCodigo: v })}
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}

@@ -153,7 +153,6 @@ export default function NewExpense() {
     if (!conceptId) return setMsg({ tone: "danger", text: "Selecciona un concepto." });
     if (!crCodigo) return setMsg({ tone: "danger", text: "Selecciona Centro de Responsabilidad (CR)." });
     if (!ctaCodigo) return setMsg({ tone: "danger", text: "Selecciona Cuenta Contable." });
-    if (!partidaCodigo) return setMsg({ tone: "danger", text: "Selecciona Partida (o define default para el concepto)." });
     if (!monto || Number(monto) <= 0) return setMsg({ tone: "danger", text: "Ingresa un monto válido." });
 
     const requiereDoc = !!concept?.requiereDoc;
@@ -320,11 +319,11 @@ export default function NewExpense() {
 
       <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
-          label="Partida"
+          label="Partida (opcional)"
           value={partidaCodigo}
           onChange={setPartidaCodigo}
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
-          placeholder="Seleccione partida..."
+          placeholder="Sin partida..."
         />
         <SelectField
           label="Clasificación"

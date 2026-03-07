@@ -77,7 +77,6 @@ export default function Concepts() {
     setMsg("");
     if (!form.nombre.trim()) return setMsg("Ingresa el nombre del concepto.");
     if (!form.ctaDefaultCodigo) return setMsg("Selecciona la cuenta por defecto.");
-    if (!form.partidaDefaultCodigo) return setMsg("Selecciona la partida por defecto.");
 
     const payload = {
       ...form,
@@ -218,11 +217,11 @@ export default function Concepts() {
             placeholder="Seleccione cuenta..."
           />
           <SelectField
-            label="Partida por defecto"
+            label="Partida por defecto (opcional)"
             value={form.partidaDefaultCodigo}
             onChange={(v) => setForm({ ...form, partidaDefaultCodigo: v })}
             options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
-            placeholder="Seleccione partida..."
+            placeholder="Sin partida..."
           />
         </div>
 
