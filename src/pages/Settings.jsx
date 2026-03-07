@@ -756,6 +756,37 @@ export default function Settings() {
           </div>
           <MsgBox msg={syncMsg} />
           </Accordion>
+          <Accordion title="🗑️ Borrar todos los datos" defaultOpen={false}>
+            <div className="small" style={{ marginBottom: 12, opacity: 0.7 }}>
+              Elimina <b>todos</b> los datos locales: gastos, rendiciones, traslados, catálogos, adjuntos y configuración.
+              Útil para partir de cero o probar la sincronización en este dispositivo.
+              <br /><br />
+              <b style={{ color: "#f87171" }}>⚠️ Irreversible. Haz un backup antes si quieres conservar tus datos.</b>
+            </div>
+            <button
+              className="btn danger"
+              onClick={async () => {
+                const first = window.confirm("¿Borrar TODOS los datos locales?\n\nEsto eliminará gastos, rendiciones, traslados, catálogos, fotos y configuración.\n\nEsta acción no se puede deshacer.");
+                if (!first) return;
+                const second = window.confirm("⚠️ Segunda confirmación requerida.\n\n¿Estás seguro? Se borrarán TODOS los datos de esta app en este dispositivo.");
+                if (!second) return;
+                try {
+                  // Borrar la DB conocida
+                  window.indexedDB.deleteDatabase("pettycash_db");
+                  // Intentar borrar cualquier otra DB de la app
+                  const dbs = await window.indexedDB.databases?.() ?? [];
+                  for (const d of dbs) { if (d.name) window.indexedDB.deleteDatabase(d.name); }
+                  alert("✅ Datos borrados. La app se reiniciará.");
+                  window.location.reload();
+                } catch (err) {
+                  alert("❌ Error al borrar: " + String(err));
+                }
+              }}
+            >
+              Borrar todos los datos locales
+            </button>
+          </Accordion>
+
           </div>{/* fin accordion wrapper */}
         </div>
       )}
