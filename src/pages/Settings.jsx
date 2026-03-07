@@ -480,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.13.4";
+const APP_VERSION = "0.13.5";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -814,11 +814,19 @@ export default function Settings() {
                 const second = window.confirm("⚠️ Segunda confirmación requerida.\n\n¿Estás seguro? Se borrarán TODOS los datos de esta app en este dispositivo.");
                 if (!second) return;
                 try {
-                  // Borrar la DB conocida
-                  window.indexedDB.deleteDatabase("pettycash_db");
+                  // Borrar la DB conocida — esperar que complete
+                  await new Promise((resolve, reject) => {
+                    const req = window.indexedDB.deleteDatabase("pettycash_db");
+                    req.onsuccess = resolve;
+                    req.onerror = reject;
+                    req.onblocked = resolve; // continuar igual si está bloqueado
+                  });
                   // Intentar borrar cualquier otra DB de la app
                   const dbs = await window.indexedDB.databases?.() ?? [];
-                  for (const d of dbs) { if (d.name) window.indexedDB.deleteDatabase(d.name); }
+                  await Promise.all(dbs.map((d) => d.name ? new Promise((res) => {
+                    const r = window.indexedDB.deleteDatabase(d.name);
+                    r.onsuccess = r.onerror = r.onblocked = res;
+                  }) : Promise.resolve()));
                   alert("✅ Datos borrados. La app se reiniciará.");
                   window.location.reload();
                 } catch (err) {
