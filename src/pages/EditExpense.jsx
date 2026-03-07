@@ -320,11 +320,11 @@ export default function EditExpense() {
 
       <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
-          label="Partida (opcional)"
+          label="Partida"
           value={expense.partidaCodigo || ""}
           onChange={(v) => !locked && setExpense({ ...expense, partidaCodigo: v })}
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
-          placeholder="Seleccione..."
+          placeholder="Sin partida..."
         />
         <SelectField
           label="Clasificación"

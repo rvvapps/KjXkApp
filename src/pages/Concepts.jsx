@@ -217,7 +217,7 @@ export default function Concepts() {
             placeholder="Seleccione cuenta..."
           />
           <SelectField
-            label="Partida por defecto (opcional)"
+            label="Partida por defecto"
             value={form.partidaDefaultCodigo}
             onChange={(v) => setForm({ ...form, partidaDefaultCodigo: v })}
             options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}

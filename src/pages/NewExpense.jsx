@@ -319,7 +319,7 @@ export default function NewExpense() {
 
       <div className="row row-form" style={{ marginTop: 12 }}>
         <SelectField
-          label="Partida (opcional)"
+          label="Partida"
           value={partidaCodigo}
           onChange={setPartidaCodigo}
           options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
