@@ -227,13 +227,9 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
   try {
     const { v4 } = await import("uuid");
     const newDeviceId = v4();
-    const st = await db.get("sync_state", "main");
-    if (st) await db.put("sync_state", { ...st, deviceId: newDeviceId });
-    const settingsAll = await db.getAll("settings");
-    if (settingsAll.length > 0) {
-      const s = settingsAll[0];
-      await db.put("settings", { ...s, deviceId: newDeviceId });
-    }
+    // sync_state no tiene deviceId — solo settings lo necesita
+    const s = await db.get("settings", "app");
+    if (s) await db.put("settings", { ...s, deviceId: newDeviceId });
   } catch (e) {
     console.warn("restore: no se pudo regenerar deviceId", e);
   }
