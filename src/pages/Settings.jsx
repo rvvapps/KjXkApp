@@ -19,7 +19,11 @@ import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 import { v4 as uuid } from "uuid";
 
-const TABS = ["Perfil", "App", "Datos"];
+const TABS = [
+  { id: "Perfil",  icon: "👤", label: "Perfil" },
+  { id: "App",     icon: "⚙️", label: "App" },
+  { id: "Datos",   icon: "💾", label: "Datos" },
+];
 
 const TIPO_CUENTA_OPTIONS = [
   { value: "", label: "Seleccione..." },
@@ -53,6 +57,30 @@ function formatProgress(p) {
     }
     return String(p);
   } catch (e) { return String(p); }
+}
+
+
+// ── Accordion desplegable ────────────────────────────────────────────────────
+function Accordion({ title, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "10px 14px", background: "rgba(255,255,255,.06)",
+        border: "1px solid rgba(255,255,255,.12)", borderRadius: open ? "10px 10px 0 0" : 10,
+        color: "#e5e7eb", fontWeight: 700, fontSize: 14, cursor: "pointer",
+      }}>
+        <span>{title}</span>
+        <span style={{ fontSize: 12, opacity: 0.7, transition: "transform .2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+      </button>
+      {open && (
+        <div style={{ border: "1px solid rgba(255,255,255,.12)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px" }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function MsgBox({ msg }) {
@@ -99,7 +127,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
 
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>
+      {title && <div style={{ fontWeight: 800, marginBottom: 8 }}>{title}</div>}
       {err && <div className="small" style={{ color: "#f87171", marginBottom: 6 }}>{err}</div>}
 
       {rows.length === 0 ? (
@@ -188,6 +216,7 @@ function TabApp() {
   const [parts, setParts] = useState([]);
   const [clasifs, setClasifs] = useState([]);
   const [dests, setDests] = useState([]);
+  const [destFilter, setDestFilter] = useState("activos"); // "activos" | "inactivos" | "todos"
   const [concepts, setConcepts] = useState([]);
   const [acctsFull, setAcctsFull] = useState([]);
   const [partsFull, setPartsFull] = useState([]);
@@ -254,34 +283,39 @@ function TabApp() {
 
       {/* Catálogos */}
       {section === "catalogos" && (
-        <div>
-          <CatalogSection
-            title="Centros de Responsabilidad (CR)"
-            rows={crs.map((x) => ({ code: x.crCodigo, name: x.crNombre, activo: x.activo }))}
-            onSave={async ({ code, name, activo, _originalCode }) => { await upsertCR({ crCodigo: code, crNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
-            onDelete={async (code) => { await deleteCR(code); await refresh(); }}
-          />
-          <hr />
-          <CatalogSection
-            title="Cuentas Contables"
-            rows={accts.map((x) => ({ code: x.ctaCodigo, name: x.ctaNombre, activo: x.activo }))}
-            onSave={async ({ code, name, activo, _originalCode }) => { await upsertAccount({ ctaCodigo: code, ctaNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
-            onDelete={async (code) => { await deleteAccount(code); await refresh(); }}
-          />
-          <hr />
-          <CatalogSection
-            title="Partidas"
-            rows={parts.map((x) => ({ code: x.partidaCodigo, name: x.partidaNombre, activo: x.activo }))}
-            onSave={async ({ code, name, activo, _originalCode }) => { await upsertPartida({ partidaCodigo: code, partidaNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
-            onDelete={async (code) => { await deletePartida(code); await refresh(); }}
-          />
-          <hr />
-          <CatalogSection
-            title="Clasificaciones"
-            rows={clasifs.map((x) => ({ code: x.clasificacionCodigo, name: x.clasificacionNombre, activo: x.activo }))}
-            onSave={async ({ code, name, activo, _originalCode }) => { await upsertClasificacion({ clasificacionCodigo: code, clasificacionNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
-            onDelete={async (code) => { await deleteClasificacion(code); await refresh(); }}
-          />
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Accordion title="Centros de Responsabilidad">
+            <CatalogSection
+              title=""
+              rows={crs.map((x) => ({ code: x.crCodigo, name: x.crNombre, activo: x.activo }))}
+              onSave={async ({ code, name, activo, _originalCode }) => { await upsertCR({ crCodigo: code, crNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
+              onDelete={async (code) => { await deleteCR(code); await refresh(); }}
+            />
+          </Accordion>
+          <Accordion title="Cuentas Contables">
+            <CatalogSection
+              title=""
+              rows={accts.map((x) => ({ code: x.ctaCodigo, name: x.ctaNombre, activo: x.activo }))}
+              onSave={async ({ code, name, activo, _originalCode }) => { await upsertAccount({ ctaCodigo: code, ctaNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
+              onDelete={async (code) => { await deleteAccount(code); await refresh(); }}
+            />
+          </Accordion>
+          <Accordion title="Partidas">
+            <CatalogSection
+              title=""
+              rows={parts.map((x) => ({ code: x.partidaCodigo, name: x.partidaNombre, activo: x.activo }))}
+              onSave={async ({ code, name, activo, _originalCode }) => { await upsertPartida({ partidaCodigo: code, partidaNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
+              onDelete={async (code) => { await deletePartida(code); await refresh(); }}
+            />
+          </Accordion>
+          <Accordion title="Clasificaciones">
+            <CatalogSection
+              title=""
+              rows={clasifs.map((x) => ({ code: x.clasificacionCodigo, name: x.clasificacionNombre, activo: x.activo }))}
+              onSave={async ({ code, name, activo, _originalCode }) => { await upsertClasificacion({ clasificacionCodigo: code, clasificacionNombre: name, activo: activo !== false, _originalCode }); await refresh(); }}
+              onDelete={async (code) => { await deleteClasificacion(code); await refresh(); }}
+            />
+          </Accordion>
         </div>
       )}
 
@@ -376,11 +410,22 @@ function TabApp() {
       {section === "destinos" && (
         <div>
           <div className="small" style={{ opacity: 0.7, marginBottom: 12 }}>Destinos con monto fijo para traslados. Se pre-completan al registrar un trayecto.</div>
-          {dests.length === 0 ? (
-            <div className="small" style={{ opacity: 0.5, marginBottom: 12 }}>Sin destinos favoritos.</div>
+          {/* Filtro */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+            {[["activos","Activos"],["inactivos","Inactivos"],["todos","Todos"]].map(([v,l]) => (
+              <button key={v} onClick={() => setDestFilter(v)} style={{
+                padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+                background: destFilter === v ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.05)",
+                border: destFilter === v ? "1px solid rgba(255,255,255,.4)" : "1px solid rgba(255,255,255,.12)",
+                color: destFilter === v ? "#fff" : "rgba(255,255,255,.6)", fontWeight: destFilter === v ? 700 : 400,
+              }}>{l}</button>
+            ))}
+          </div>
+          {dests.filter(d => destFilter === "todos" ? true : destFilter === "activos" ? d.activo !== false : d.activo === false).length === 0 ? (
+            <div className="small" style={{ opacity: 0.5, marginBottom: 12 }}>Sin destinos en esta categoría.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-              {dests.map((d) => (
+              {dests.filter(d => destFilter === "todos" ? true : destFilter === "activos" ? d.activo !== false : d.activo === false).map((d) => (
                 <div key={d.destinationId} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                   borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 8,
@@ -435,7 +480,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.12.32";
+const APP_VERSION = "0.12.33";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -573,17 +618,26 @@ export default function Settings() {
 
   return (
     <div>
-      {/* Tab bar */}
+      {/* Tab bar — íconos horizontales */}
       <div className="card" style={{ marginBottom: 16 }}>
-        <div className="row row-form" style={{ gap: 6 }}>
+        <div style={{ display: "flex", gap: 6 }}>
           {TABS.map((t) => (
-            <button key={t} className="btn" onClick={() => setTab(t)} style={{
-              background: tab === t ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
-              border: tab === t ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
-              color: tab === t ? "#fff" : "rgba(255,255,255,.75)",
-              fontWeight: tab === t ? 800 : 500,
-              fontSize: 14,
-            }}>{t}</button>
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
+              flex: 1,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              padding: "8px 4px",
+              background: tab === t.id ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
+              border: tab === t.id ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
+              borderRadius: 10,
+              color: tab === t.id ? "#fff" : "rgba(255,255,255,.65)",
+              fontWeight: tab === t.id ? 700 : 500,
+              fontSize: 11,
+              cursor: "pointer",
+              lineHeight: 1.2,
+            }}>
+              <span style={{ fontSize: 20 }}>{t.icon}</span>
+              {t.label}
+            </button>
           ))}
         </div>
       </div>
@@ -591,44 +645,44 @@ export default function Settings() {
       {/* ── PERFIL ── */}
       {tab === "Perfil" && (
         <div className="card">
-          <h3>Datos personales</h3>
-          <div className="row row-form">
-            <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
-            <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => {
-              // Auto-formato: deja solo dígitos y k, aplica XX.XXX.XXX-X
-              const raw = v.replace(/[^0-9kK]/g, "").toUpperCase();
-              let fmt = raw;
-              if (raw.length > 1) {
-                const dv = raw.slice(-1);
-                const num = raw.slice(0, -1);
-                const parts = [];
-                let rest = num;
-                while (rest.length > 3) { parts.unshift(rest.slice(-3)); rest = rest.slice(0, -3); }
-                if (rest) parts.unshift(rest);
-                fmt = parts.join(".") + "-" + dv;
-              }
-              setS({ ...s, responsableRut: fmt });
-            }} placeholder="12.345.678-9" />
-          </div>
-          <div className="row row-form" style={{ marginTop: 12 }}>
-            <TextField label="Cargo" value={s.cargo || ""} onChange={(v) => setS({ ...s, cargo: v })} />
-            <TextField label="Empresa" value={s.empresa || ""} onChange={(v) => setS({ ...s, empresa: v })} />
-          </div>
-          <div className="row row-form" style={{ marginTop: 12 }}>
-            <TextField label="Tel / Cel" value={s.telefono || ""} onChange={(v) => setS({ ...s, telefono: v })} placeholder="+56 9 1234 5678" />
-            <SelectField label="CR por defecto" value={s.crDefaultCodigo || ""} onChange={(v) => setS({ ...s, crDefaultCodigo: v })}
-              options={crs.map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))} placeholder="Seleccione..." />
-          </div>
-          <hr />
-          <h3>Datos bancarios</h3>
-          <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se incluyen en el formulario de rendición para el pago.</div>
-          <div className="row row-form">
-            <TextField label="Banco" value={s.banco || ""} onChange={(v) => setS({ ...s, banco: v })} placeholder="Ej: Banco Estado" />
-            <SelectField label="Tipo de cuenta" value={s.tipoCuenta || ""} onChange={(v) => setS({ ...s, tipoCuenta: v })} options={TIPO_CUENTA_OPTIONS} />
-          </div>
-          <div className="row row-form" style={{ marginTop: 12 }}>
-            <TextField label="N° de cuenta" value={s.numeroCuenta || ""} onChange={(v) => setS({ ...s, numeroCuenta: v })} />
-          </div>
+          <Accordion title="Datos Personales" defaultOpen={true}>
+            <div className="row row-form">
+              <TextField label="Nombre" value={s.responsableNombre || ""} onChange={(v) => setS({ ...s, responsableNombre: v })} placeholder="Nombre completo" />
+              <TextField label="RUT" value={s.responsableRut || ""} onChange={(v) => {
+                const raw = v.replace(/[^0-9kK]/g, "").toUpperCase();
+                let fmt = raw;
+                if (raw.length > 1) {
+                  const dv = raw.slice(-1);
+                  const num = raw.slice(0, -1);
+                  const parts = [];
+                  let rest = num;
+                  while (rest.length > 3) { parts.unshift(rest.slice(-3)); rest = rest.slice(0, -3); }
+                  if (rest) parts.unshift(rest);
+                  fmt = parts.join(".") + "-" + dv;
+                }
+                setS({ ...s, responsableRut: fmt });
+              }} placeholder="12.345.678-9" />
+            </div>
+            <div className="row row-form" style={{ marginTop: 12 }}>
+              <TextField label="Cargo" value={s.cargo || ""} onChange={(v) => setS({ ...s, cargo: v })} />
+              <TextField label="Empresa" value={s.empresa || ""} onChange={(v) => setS({ ...s, empresa: v })} />
+            </div>
+            <div className="row row-form" style={{ marginTop: 12 }}>
+              <TextField label="Tel / Cel" value={s.telefono || ""} onChange={(v) => setS({ ...s, telefono: v })} placeholder="+56 9 1234 5678" />
+              <SelectField label="CR por defecto" value={s.crDefaultCodigo || ""} onChange={(v) => setS({ ...s, crDefaultCodigo: v })}
+                options={crs.map((x) => ({ value: x.crCodigo, label: `${x.crCodigo} - ${x.crNombre}` }))} placeholder="Seleccione..." />
+            </div>
+          </Accordion>
+          <Accordion title="Datos Bancarios" defaultOpen={false}>
+            <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Se incluyen en el formulario de rendición para el pago.</div>
+            <div className="row row-form">
+              <TextField label="Banco" value={s.banco || ""} onChange={(v) => setS({ ...s, banco: v })} placeholder="Ej: Banco Estado" />
+              <SelectField label="Tipo de cuenta" value={s.tipoCuenta || ""} onChange={(v) => setS({ ...s, tipoCuenta: v })} options={TIPO_CUENTA_OPTIONS} />
+            </div>
+            <div className="row row-form" style={{ marginTop: 12 }}>
+              <TextField label="N° de cuenta" value={s.numeroCuenta || ""} onChange={(v) => setS({ ...s, numeroCuenta: v })} />
+            </div>
+          </Accordion>
           <MsgBox msg={msgPerfil} />
           <SaveBtn onClick={async () => { await saveSettings(s); setMsgPerfil("✅ Guardado."); }} />
         </div>
@@ -643,14 +697,15 @@ export default function Settings() {
 
           {/* Estado backup */}
           {s.lastBackupAt && (
-            <div style={{ background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.2)", borderRadius: 12, padding: "8px 12px", marginBottom: 16 }}>
+            <div style={{ background: "rgba(34,197,94,.08)", border: "1px solid rgba(34,197,94,.2)", borderRadius: 12, padding: "8px 12px", marginBottom: 12 }}>
               <div className="small">✅ Último backup: <b>{new Date(s.lastBackupAt).toLocaleString("es-CL")}</b>
                 {s.lastBackupName && <div style={{ opacity: 0.7, marginTop: 2 }}>{s.lastBackupName}</div>}
               </div>
             </div>
           )}
 
-          <h3>Backup</h3>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Accordion title="Backup" defaultOpen={false}>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Genera un archivo <b>.cczip</b> cifrado con todos tus datos y boletas.</div>
           <div className="row row-form">
             <TextField label="Contraseña (mín. 6 caracteres)" value={backupPass} onChange={setBackupPass} type="password" />
@@ -664,10 +719,9 @@ export default function Settings() {
             </button>
           </div>
           <MsgBox msg={backupMsg} />
+          </Accordion>
 
-          <hr />
-
-          <h3>Restaurar</h3>
+          <Accordion title="Restaurar" defaultOpen={false}>
           <div className="small" style={{ marginBottom: 10, opacity: 0.7 }}>Reemplaza los datos locales con el contenido del archivo. Cierra otras pestañas antes de restaurar.</div>
           <div className="row row-form">
             <div style={{ flex: 1 }}>
@@ -680,10 +734,9 @@ export default function Settings() {
             <button className="btn danger" disabled={backupBusy} onClick={doRestoreBackup}>Restaurar (reemplaza datos locales)</button>
           </div>
           <MsgBox msg={typeof restoreMsg === "string" ? restoreMsg : formatProgress(restoreMsg)} />
+          </Accordion>
 
-          <hr />
-
-          <h3>Sync — OneDrive</h3>
+          <Accordion title="Sync — OneDrive" defaultOpen={false}>
           <div className="small" style={{ marginBottom: 12, opacity: 0.7 }}>Sincroniza gastos y boletas automáticamente cuando hay conexión.</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
             <div><div className="small" style={{ opacity: 0.6 }}>Estado</div><div style={{ fontWeight: 700 }}>{sync?.auth?.connectedAt ? "Conectado" : "No conectado"}</div></div>
@@ -702,6 +755,8 @@ export default function Settings() {
             <button className="btn secondary" onClick={async () => { await disconnectOneDrive(); setSync(await getSyncState()); setSyncMsg("Desconectado."); }}>Desconectar</button>
           </div>
           <MsgBox msg={syncMsg} />
+          </Accordion>
+          </div>{/* fin accordion wrapper */}
         </div>
       )}
     </div>
