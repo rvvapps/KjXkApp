@@ -1,0 +1,73 @@
+:root {
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+body { margin: 0; background: #0b1220; color: #e5e7eb; }
+a { color: inherit; text-decoration: none; }
+
+/* Layout */
+.container { max-width: 980px; margin: 0 auto; padding: 12px 16px; }
+.card { background: #111a2e; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+
+/* Buttons */
+.btn {
+  background: #0ea5e9; color: #001018; border: 0; border-radius: 12px;
+  padding: 10px 14px; font-weight: 700; cursor: pointer; font-size: 14px;
+  white-space: nowrap;
+}
+.btn.secondary { background: transparent; color: #e5e7eb; border: 1px solid rgba(255,255,255,.2); }
+.btn.danger { background: #ef4444; color: #fff; }
+
+/* Forms */
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { min-width: 0; }
+input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  -webkit-appearance: none;
+}
+
+.input, select, textarea {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.14); background: #0b1220; color: #e5e7eb;
+  font-size: 16px; /* evita zoom en iOS */
+}
+label { font-size: 12px; opacity: .85; display: block; margin-bottom: 6px; }
+
+/* Typography */
+h1, h2, h3 { margin: 8px 0 12px; }
+.small { font-size: 12px; opacity: .8; }
+hr { border: 0; border-top: 1px solid rgba(255,255,255,.10); margin: 14px 0; }
+.kpi { font-size: 28px; font-weight: 800; }
+.pill { padding: 4px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,.15); font-size: 12px; opacity: .9; }
+
+/* Nav — mobile first */
+.nav-desktop { display: none !important; }
+.nav-mobile  { display: block; }
+
+/* Catalog action buttons — compactos en móvil */
+.catalog-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.catalog-actions .btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+
+/* Desktop */
+/* En móvil los .row de formularios van en columna */
+@media (max-width: 699px) {
+  .row-form { flex-direction: column; }
+  .row-form > * { width: 100% !important; flex: none !important; }
+}
+
+@media (min-width: 700px) {
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  .nav-desktop { display: flex !important; }
+  .nav-mobile  { display: none !important; }
+  .container { padding: 16px; }
+}
