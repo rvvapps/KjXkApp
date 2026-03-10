@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.29";
+const APP_VERSION = "0.15.30";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -928,6 +928,22 @@ export default function Settings() {
                 const second = window.confirm("⚠️ Segunda confirmación requerida.\n\n¿Estás seguro? Se borrarán TODOS los datos de esta app en este dispositivo.");
                 if (!second) return;
                 try {
+                  // Guardar credenciales OneDrive antes de borrar para no tener que reconectar
+                  let savedSyncState = null;
+                  try {
+                    const st = await getSyncState();
+                    if (st?.auth?.tenantId) {
+                      savedSyncState = {
+                        key: "main",
+                        auth: st.auth,
+                        token: st.token,
+                        driveId: st.driveId,
+                        rootFolderItemId: st.rootFolderItemId,
+                        rootMode: st.rootMode,
+                      };
+                    }
+                  } catch (e) {}
+
                   // Cerrar conexión primero para evitar bloqueo
                   closeDB();
                   await new Promise((r) => setTimeout(r, 200));
@@ -943,6 +959,14 @@ export default function Settings() {
                     const r = window.indexedDB.deleteDatabase(d.name);
                     r.onsuccess = r.onerror = r.onblocked = res;
                   }) : Promise.resolve()));
+
+                  // Restaurar credenciales OneDrive en la DB nueva
+                  if (savedSyncState) {
+                    try {
+                      await saveSyncState(savedSyncState);
+                    } catch (e) {}
+                  }
+
                   alert("✅ Datos borrados. La app se reiniciará.");
                   window.location.reload();
                 } catch (err) {

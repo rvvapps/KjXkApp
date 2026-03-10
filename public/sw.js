@@ -1,6 +1,6 @@
 // Service Worker — Caja Chica
 // ⚠️ Cambiar CACHE_VERSION en cada deploy para forzar detección de actualización
-const CACHE_VERSION = "cajachica-v0.15.29";
+const CACHE_VERSION = "cajachica-v0.15.30";
 const CACHE_NAME = CACHE_VERSION;
 
 const PRECACHE = [
