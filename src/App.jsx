@@ -25,8 +25,13 @@ async function backgroundSync() {
     const st = await getSyncState();
     if (!st?.auth?.connectedAt || !st?.token) return;
     const r = await syncOnce();
-    // Si el token expiró, guardar flag para que Settings lo muestre
-    if (!r.ok) {
+    if (r.ok) {
+      // Si hubo cambios, notificar a cualquier página que esté escuchando
+      if (r.appliedEvents > 0 || r.uploadedEvents > 0) {
+        window.dispatchEvent(new CustomEvent("cc:syncCompleted", { detail: r }));
+      }
+    } else {
+      // Si el token expiró, guardar flag para que Settings lo muestre
       const authErrors = ["invalid_grant", "refresh_failed", "no_refresh_token"];
       if (authErrors.includes(r.error) || authErrors.includes(r.detail?.json?.error)) {
         try { sessionStorage.setItem("cc_sync_auth_error", "1"); } catch {}

@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.34";
+const APP_VERSION = "0.15.35";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -578,6 +578,23 @@ export default function Settings() {
     const onAuthError = () => setSyncMsg("🔑 Sesión OneDrive expirada. Reconecta en Sync — OneDrive.");
     window.addEventListener("cc:syncAuthError", onAuthError);
     return () => window.removeEventListener("cc:syncAuthError", onAuthError);
+  }, []);
+
+  // Refrescar panel de estado cuando el polling trae cambios en background
+  useEffect(() => {
+    const onSyncCompleted = async () => {
+      const newS = await getSettings();
+      setS(newS);
+      const { listPendingOutboxEvents: listPOE3 } = await import("../db.js");
+      const newOutbox = await listPOE3(999).catch(() => []);
+      setResumen((prev) => prev ? {
+        ...prev,
+        lastSync: newS?.lastSyncAt ? new Date(newS.lastSyncAt).toLocaleString("es-CL") : "—",
+        outboxCount: newOutbox.length,
+      } : prev);
+    };
+    window.addEventListener("cc:syncCompleted", onSyncCompleted);
+    return () => window.removeEventListener("cc:syncCompleted", onSyncCompleted);
   }, []);
 
   useEffect(() => {
