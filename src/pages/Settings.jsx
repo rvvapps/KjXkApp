@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.30";
+const APP_VERSION = "0.15.31";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -586,7 +586,7 @@ export default function Settings() {
         listReimbursements(),
         listPendingOutboxEvents(999),
       ]);
-      const lastSync = syncSt?.lastSyncAt ? new Date(syncSt.lastSyncAt).toLocaleString("es-CL") : "—";
+      const lastSync = sData?.lastSyncAt ? new Date(sData.lastSyncAt).toLocaleString("es-CL") : "—";
       setResumen({
         gastosCount: gastos.length,
         gastosSinMonto: gastos.filter(g => !Number(g.monto)).length,
@@ -604,10 +604,22 @@ export default function Settings() {
       // Sync down automático al abrir — silencioso, sin bloquear UI
       const st = await getSyncState();
       if (st?.auth?.connectedAt && st?.token) {
-        syncOnce().then((r) => {
-          if (r.ok && r.appliedEvents > 0) {
-            setS((prev) => ({ ...prev })); // forzar re-render si hay datos nuevos
-            setSyncMsg(`🔄 Sync automático: ${r.appliedEvents} cambio${r.appliedEvents !== 1 ? "s" : ""} recibido${r.appliedEvents !== 1 ? "s" : ""}`);
+        syncOnce().then(async (r) => {
+          if (r.ok) {
+            const newS = await getSettings();
+            setS(newS);
+            if (r.appliedEvents > 0 || r.uploadedEvents > 0) {
+              const { listPendingOutboxEvents: listPOE2 } = await import("../db.js");
+              const newOutbox = await listPOE2(999).catch(() => []);
+              setResumen((prev) => prev ? {
+                ...prev,
+                lastSync: newS?.lastSyncAt ? new Date(newS.lastSyncAt).toLocaleString("es-CL") : "—",
+                outboxCount: newOutbox.length,
+              } : prev);
+            }
+            if (r.appliedEvents > 0) {
+              setSyncMsg(`🔄 Sync automático: ${r.appliedEvents} cambio${r.appliedEvents !== 1 ? "s" : ""} recibido${r.appliedEvents !== 1 ? "s" : ""}`);
+            }
           }
         }).catch(() => {});
       }
@@ -640,7 +652,16 @@ export default function Settings() {
       if (r.appliedEvents > 0) parts.push(`↓ ${r.appliedEvents} cambio${r.appliedEvents !== 1 ? "s" : ""} recibido${r.appliedEvents !== 1 ? "s" : ""}`);
       if (r.downloadedBlobs > 0) parts.push(`↓ ${r.downloadedBlobs} imagen${r.downloadedBlobs !== 1 ? "es" : ""} descargada${r.downloadedBlobs !== 1 ? "s" : ""}`);
       setSyncMsg(`✅ Sync OK${parts.length ? ". " + parts.join(", ") : " — todo al día"}`);
-      setS(await getSettings());
+      const newS = await getSettings();
+      setS(newS);
+      // Refrescar lastSync y outboxCount en el panel de estado
+      const { listPendingOutboxEvents: listPOE } = await import("../db.js");
+      const newOutbox = await listPOE(999).catch(() => []);
+      setResumen((prev) => prev ? {
+        ...prev,
+        lastSync: newS?.lastSyncAt ? new Date(newS.lastSyncAt).toLocaleString("es-CL") : "—",
+        outboxCount: newOutbox.length,
+      } : prev);
     } else {
       setSyncMsg(`❌ Sync falló: ${r.step || "?"}. ${r.error || ""}`);
     }
