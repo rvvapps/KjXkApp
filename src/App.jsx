@@ -24,7 +24,15 @@ async function backgroundSync() {
     const { getSyncState } = await import("./db.js");
     const st = await getSyncState();
     if (!st?.auth?.connectedAt || !st?.token) return;
-    await syncOnce();
+    const r = await syncOnce();
+    // Si el token expiró, guardar flag para que Settings lo muestre
+    if (!r.ok) {
+      const authErrors = ["invalid_grant", "refresh_failed", "no_refresh_token"];
+      if (authErrors.includes(r.error) || authErrors.includes(r.detail?.json?.error)) {
+        try { sessionStorage.setItem("cc_sync_auth_error", "1"); } catch {}
+        window.dispatchEvent(new Event("cc:syncAuthError"));
+      }
+    }
   } catch (e) {
     console.warn("backgroundSync error:", e);
   } finally {

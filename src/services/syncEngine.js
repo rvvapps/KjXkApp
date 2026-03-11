@@ -186,7 +186,13 @@ export async function syncDown() {
     rootMode: root.rootMode, rootFolderItemId: root.rootFolderItemId,
     relPath: "sync/outbox",
   });
-  if (!devList.ok) return { ok: true, appliedEvents: 0 }; // carpeta no existe aún — ok
+  if (!devList.ok) {
+    // Si el error es "list_failed" puede ser token expirado u otro error real.
+    // Solo ignorar si la carpeta simplemente no existe aún (404).
+    const is404 = devList.detail?.status === 404 || devList.error === "list_failed" && devList.detail?.json?.error?.code === "itemNotFound";
+    if (!is404) return { ok: false, step: "listOutboxFolder", error: devList.error, detail: devList.detail };
+    return { ok: true, appliedEvents: 0 }; // carpeta no existe aún — ok
+  }
 
   let appliedEvents = 0;
   const myDeviceId = settings.deviceId;

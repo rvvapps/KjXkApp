@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.32";
+const APP_VERSION = "0.15.33";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -568,6 +568,17 @@ export default function Settings() {
   const [restorePass, setRestorePass] = useState("");
   const [restoreFile, setRestoreFile] = useState(null);
   const [resumen, setResumen] = useState(null);
+
+  // Mostrar aviso si el autosync en background detectó token expirado
+  useEffect(() => {
+    if (sessionStorage.getItem("cc_sync_auth_error")) {
+      sessionStorage.removeItem("cc_sync_auth_error");
+      setSyncMsg("🔑 Sesión OneDrive expirada. Reconecta en Sync — OneDrive.");
+    }
+    const onAuthError = () => setSyncMsg("🔑 Sesión OneDrive expirada. Reconecta en Sync — OneDrive.");
+    window.addEventListener("cc:syncAuthError", onAuthError);
+    return () => window.removeEventListener("cc:syncAuthError", onAuthError);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -663,7 +674,13 @@ export default function Settings() {
         outboxCount: newOutbox.length,
       } : prev);
     } else {
-      setSyncMsg(`❌ Sync falló: ${r.step || "?"}. ${r.error || ""}`);
+      const authErrors = ["invalid_grant", "refresh_failed", "no_refresh_token", "not_configured"];
+      const isAuthError = authErrors.includes(r.error) || authErrors.includes(r.detail?.json?.error);
+      if (isAuthError) {
+        setSyncMsg("🔑 Sesión OneDrive expirada. Ve a Sync — OneDrive y reconecta.");
+      } else {
+        setSyncMsg(`❌ Sync falló: ${r.step || "?"}. ${r.error || ""}`);
+      }
     }
   }
 
