@@ -12,19 +12,31 @@ import ErrorBanner from "./components/ErrorBanner.jsx";
 import { ensureSeedData } from "./db.js";
 import { syncOnce } from "./services/syncEngine.js";
 
-// Sync silencioso en background — se llama al abrir la app
+// Autosync guard: evita dos syncs en paralelo. Si hay uno en vuelo,
+// el siguiente queda pendiente y se ejecuta al terminar el actual.
+let _syncInFlight = false;
+let _syncQueued   = false;
+
 async function backgroundSync() {
+  if (_syncInFlight) { _syncQueued = true; return; }
+  _syncInFlight = true;
   try {
     const { getSyncState } = await import("./db.js");
     const st = await getSyncState();
-    if (!st?.auth?.connectedAt || !st?.token) return; // no conectado
+    if (!st?.auth?.connectedAt || !st?.token) return;
     await syncOnce();
   } catch (e) {
     console.warn("backgroundSync error:", e);
+  } finally {
+    _syncInFlight = false;
+    if (_syncQueued) {
+      _syncQueued = false;
+      setTimeout(backgroundSync, 100);
+    }
   }
 }
 
-// Sync con debounce — se llama al guardar datos, espera 3s antes de subir
+// Sync con debounce 3s al guardar datos localmente
 let _syncDebounceTimer = null;
 function scheduleSyncAfterSave() {
   if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
@@ -32,6 +44,16 @@ function scheduleSyncAfterSave() {
     backgroundSync();
     _syncDebounceTimer = null;
   }, 3000);
+}
+
+// Sync al volver al foco (visibilitychange / window focus), debounce 2s
+let _focusSyncTimer = null;
+function scheduleSyncOnFocus() {
+  if (_focusSyncTimer) clearTimeout(_focusSyncTimer);
+  _focusSyncTimer = setTimeout(() => {
+    backgroundSync();
+    _focusSyncTimer = null;
+  }, 2000);
 }
 
 const PAGE_TITLES = {
@@ -186,11 +208,19 @@ function AppContent() {
 export default function App() {
   useEffect(() => {
     ensureSeedData();
-    // Sync automático al abrir la app
+    // Sync al arrancar
     backgroundSync();
-    // Sync automático al guardar (con debounce de 3s)
+    // Sync al guardar datos localmente (debounce 3s)
     window.addEventListener("cc:dataChanged", scheduleSyncAfterSave);
-    return () => window.removeEventListener("cc:dataChanged", scheduleSyncAfterSave);
+    // Sync al volver al foco: cubre alt-tab en PC y volver desde otra app en iOS
+    const onVisibility = () => { if (!document.hidden) scheduleSyncOnFocus(); };
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", scheduleSyncOnFocus);
+    return () => {
+      window.removeEventListener("cc:dataChanged", scheduleSyncAfterSave);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", scheduleSyncOnFocus);
+    };
   }, []);
   return <AppContent />;
 }
@@ -199,6 +229,10 @@ function UpdateBanner() {
   const [pending, setPending] = useState(null);
 
   useEffect(() => {
+    // Leer singleton al montar — resuelve race condition si cc:swUpdate
+    // se disparó antes de que este componente estuviera escuchando
+    if (window.__swPendingReg) setPending(window.__swPendingReg);
+
     const handler = (e) => setPending(e.detail?.reg);
     window.addEventListener("cc:swUpdate", handler);
     return () => window.removeEventListener("cc:swUpdate", handler);
@@ -218,13 +252,14 @@ function UpdateBanner() {
       <button
         style={{ background: "#fff", color: "#0ea5e9", border: "none", borderRadius: 8, padding: "5px 14px", fontWeight: 800, cursor: "pointer", fontSize: 13 }}
         onClick={() => {
-          pending.waiting?.postMessage("skipWaiting");
-          // Esperar que el nuevo SW tome control antes de recargar
-          navigator.serviceWorker.addEventListener("controllerchange", () => {
+          const reg = window.__swPendingReg || pending;
+          if (reg?.waiting) {
+            // skipWaiting → controllerchange → window.location.reload() (en main.jsx)
+            reg.waiting.postMessage("skipWaiting");
+          } else {
+            // SW ya activó sin pasar por waiting (ej: iOS) — recargar directo
             window.location.reload();
-          }, { once: true });
-          // Fallback: si no hay controllerchange en 3s, recargar igual
-          setTimeout(() => window.location.reload(), 3000);
+          }
         }}
       >
         Actualizar

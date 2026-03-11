@@ -30,27 +30,44 @@ function registerGlobalErrorHandlers() {
 registerGlobalErrorHandlers();
 
 // ── Service Worker ────────────────────────────────────────────────────────
+//
+// Estado singleton: persiste aunque React desmonte/remonte componentes.
+// Resuelve la race condition donde cc:swUpdate se disparaba antes de que
+// UpdateBanner estuviera montado y escuchando.
+//
+window.__swPendingReg = null; // registration con .waiting listo para activar
+
+function notifyUpdate(reg) {
+  window.__swPendingReg = reg;
+  // Disparar para cualquier listener ya montado
+  window.dispatchEvent(new CustomEvent("cc:swUpdate", { detail: { reg } }));
+}
+
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", async () => {
     try {
       const reg = await navigator.serviceWorker.register("/KjXkApp/sw.js", { scope: "/KjXkApp/" });
 
-      // Detectar cuando hay una nueva versión esperando
-      const checkUpdate = (reg) => {
-        if (reg.waiting) {
-          // Hay una versión nueva lista — notificar a la app
-          window.dispatchEvent(new CustomEvent("cc:swUpdate", { detail: { reg } }));
-        }
-      };
+      // Si ya hay un SW esperando al arrancar (ej: PC con pestaña que estaba abierta),
+      // guardarlo en el singleton — UpdateBanner lo leerá al montar.
+      if (reg.waiting) notifyUpdate(reg);
 
+      // Nuevo SW encontrado durante esta sesión
       reg.addEventListener("updatefound", () => {
         const newWorker = reg.installing;
         newWorker.addEventListener("statechange", () => {
-          if (newWorker.state === "installed") checkUpdate(reg);
+          if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+            // Solo notificar si ya había un SW activo (no es la primera instalación)
+            notifyUpdate(reg);
+          }
         });
       });
 
-      checkUpdate(reg);
+      // Cuando el SW nuevo toma el control (después de skipWaiting), recargar la página.
+      // Esto cubre el caso iOS donde el SW activa directo sin pasar por waiting.
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        window.location.reload();
+      });
 
       // Verificar actualizaciones cada vez que la app vuelve al foco
       document.addEventListener("visibilitychange", () => {
