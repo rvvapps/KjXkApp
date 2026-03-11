@@ -224,10 +224,15 @@ export default function App() {
     const onVisibility = () => { if (!document.hidden) scheduleSyncOnFocus(); };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("focus", scheduleSyncOnFocus);
+    // Polling cada 30s — solo corre si la pestaña está visible
+    const pollInterval = setInterval(() => {
+      if (!document.hidden) backgroundSync();
+    }, 30_000);
     return () => {
       window.removeEventListener("cc:dataChanged", scheduleSyncAfterSave);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", scheduleSyncOnFocus);
+      clearInterval(pollInterval);
     };
   }, []);
   return <AppContent />;
