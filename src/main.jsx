@@ -73,6 +73,9 @@ if ("serviceWorker" in navigator) {
       document.addEventListener("visibilitychange", () => {
         if (!document.hidden) reg.update();
       });
+
+      // Verificar actualizaciones cada 5 minutos aunque la pestaña no pierda el foco
+      setInterval(() => reg.update(), 5 * 60 * 1000);
     } catch (e) {
       console.warn("SW registration failed:", e);
     }
