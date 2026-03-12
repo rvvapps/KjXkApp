@@ -1,6 +1,6 @@
 // Service Worker — Caja Chica
-// ⚠️ Cambiar CACHE_VERSION en cada deploy para forzar detección de actualización
-const CACHE_VERSION = "cajachica-v0.15.36";
+// ⚠️ CACHE_VERSION se reemplaza automáticamente en el build (vite.config.js → syncSwVersion)
+const CACHE_VERSION = "cajachica-v__BUILD_VERSION__";
 const CACHE_NAME = CACHE_VERSION;
 
 const PRECACHE = [
@@ -22,11 +22,13 @@ self.addEventListener("install", (event) => {
 
 // ── Activación ────────────────────────────────────────────────────────────
 self.addEventListener("activate", (event) => {
-  // Borrar cachés viejos — NO llamar clients.claim() para evitar que React
-  // se reinicie en pestañas abiertas y muestre la app vacía
+  // Borrar cachés viejos y tomar control de pestañas abiertas.
+  // clients.claim() se llama DESPUÉS de skipWaiting (que ocurre solo cuando
+  // el usuario presiona "Actualizar" en el banner) — no al primer install.
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
