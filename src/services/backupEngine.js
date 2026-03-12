@@ -225,16 +225,20 @@ export async function restoreFromEncryptedBackupFile(fileBlob, passphrase, opts 
 
   tick("done", { insertedCounts });
 
-  // Generar nuevo deviceId para este dispositivo — evita que el sync
-  // ignore eventos propios de otros dispositivos que tengan el mismo ID
+  // Preservar deviceId del backup — es el identificador de esta instalación.
+  // Regenerarlo causaba que el sync ignorara eventos propios y generara duplicados.
+  // Si el backup provino de otro dispositivo y el usuario quiere una identidad nueva,
+  // debe hacerlo manualmente desde Ajustes (aún no implementado).
   try {
     const { v4 } = await import("uuid");
-    const newDeviceId = v4();
-    // sync_state no tiene deviceId — solo settings lo necesita
     const s = await db.get("settings", "app");
-    if (s) await db.put("settings", { ...s, deviceId: newDeviceId, deviceLabel: "" });
+    if (s) {
+      // Mantener deviceId del backup; si por alguna razón vino vacío, generar uno nuevo
+      const deviceId = s.deviceId || v4();
+      await db.put("settings", { ...s, deviceId });
+    }
   } catch (e) {
-    console.warn("restore: no se pudo regenerar deviceId", e);
+    console.warn("restore: no se pudo verificar deviceId", e);
   }
 
   // Limpiar outbox e inbox — los datos ya están restaurados desde el backup,

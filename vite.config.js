@@ -38,8 +38,3 @@ export default defineConfig({
   base: '/KjXkApp/',
   plugins: [react(), syncSwVersion()],
 })
-
-export default defineConfig({
-  base: '/KjXkApp/',
-  plugins: [react(), syncSwVersion()],
-})

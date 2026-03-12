@@ -4,6 +4,19 @@ import { TEMPLATE_B64 } from "./excelTemplate.js";
 
 const CAPACITY = 42;
 
+// Tipos de rendición reconocidos → celda booleana vinculada en fila 11
+// Caja Chica → A11, Fondos por rendir → D11, Reembolso de gastos → H11, Gastos Operacionales → K11
+const TIPO_REND_CELL = {
+  "caja chica":                        "A11",
+  "cajachica":                         "A11",
+  "fondos":                            "D11",
+  "fondos por rendir":                 "D11",
+  "reembolso":                         "H11",
+  "reembolso de gastos":               "H11",
+  "gastos operacionales":              "K11",
+  "rendición de gastos operacionales": "K11",
+};
+
 export function splitIntoBatches(items) {
   const batches = [];
   for (let i = 0; i < items.length; i += CAPACITY) {
@@ -19,14 +32,12 @@ function fmtDateDDMMYYYY(d = new Date()) {
   return `${dd}-${mm}-${yyyy}`;
 }
 
-// FIX: convierte cualquier fecha ISO/string al formato DD-MM-YYYY para mostrar en celda Excel
+// Convierte cualquier fecha ISO/string al formato DD-MM-YYYY para mostrar en celda Excel
 function toDisplayDate(s) {
   if (!s) return "";
   const str = String(s).trim();
   if (!str) return "";
-  // Ya está en DD-MM-YYYY → devolver tal cual
   if (/^\d{2}-\d{2}-\d{4}$/.test(str)) return str;
-  // ISO string (YYYY-MM-DDTHH:mm...) o YYYY-MM-DD
   const d = new Date(str);
   if (!isNaN(d.getTime())) return fmtDateDDMMYYYY(d);
   return str;
@@ -73,39 +84,117 @@ function parseDateFlexible(s) {
     return isNaN(dt.getTime()) ? null : dt;
   }
 
-  // Fallback: intentar new Date() directamente (cubre ISO strings)
   const dt = new Date(str);
   return isNaN(dt.getTime()) ? null : dt;
 }
 
-function groupAndSortForExports(items) {
-  const noFactura = [];
-  const facturas = [];
+// ── Hoja "2. Resumen" con totales agrupados por CR → Cuenta → Partida ────────
+function buildResumenSheet(wb, items, correlativo) {
+  const ws2 = wb.addWorksheet("2. Resumen");
 
+  const hdrFont   = { bold: true, size: 10, name: "Calibri" };
+  const bodyFont  = { size: 10, name: "Calibri" };
+  const numFmt    = "#,##0";
+  const border    = {
+    top:    { style: "thin" },
+    bottom: { style: "thin" },
+    left:   { style: "thin" },
+    right:  { style: "thin" },
+  };
+  const hdrFill   = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
+  const totalFill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4D6" } };
+
+  ws2.columns = [
+    { key: "cr",      width: 36 },
+    { key: "cuenta",  width: 32 },
+    { key: "partida", width: 32 },
+    { key: "monto",   width: 16 },
+  ];
+
+  // Título
+  const titleRow = ws2.addRow([`Resumen — Rendición ${correlativo ?? ""}`, "", "", ""]);
+  ws2.mergeCells(`A${titleRow.number}:D${titleRow.number}`);
+  titleRow.getCell(1).font      = { bold: true, size: 12, name: "Calibri" };
+  titleRow.getCell(1).alignment = { horizontal: "center" };
+  titleRow.height = 20;
+
+  ws2.addRow([]);
+
+  // Encabezados
+  const hdrRow = ws2.addRow(["Centro de Responsabilidad", "Cuenta Contable", "Partida", "Monto ($)"]);
+  hdrRow.eachCell((cell) => {
+    cell.font      = hdrFont;
+    cell.fill      = hdrFill;
+    cell.border    = border;
+    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+  });
+  hdrRow.height = 16;
+
+  // Agrupar: CR → Cuenta → Partida → suma de montos
+  const grouped = new Map();
   for (const it of items) {
-    const tipo = normDocTipo(it.docTipo);
-    if (tipo === "factura") facturas.push(it);
-    else noFactura.push(it);
+    const crKey      = codeName(it.crCodigo, it.crNombre) || "(Sin CR)";
+    const cuentaKey  = codeName(it.ctaCodigo, it.ctaNombre) || "(Sin Cuenta)";
+    const partidaKey = codeName(it.partidaCodigo, it.partidaNombre) || "(Sin Partida)";
+    const monto      = Number(it.monto ?? 0);
+
+    if (!grouped.has(crKey)) grouped.set(crKey, new Map());
+    const cuentas = grouped.get(crKey);
+    if (!cuentas.has(cuentaKey)) cuentas.set(cuentaKey, new Map());
+    const partidas = cuentas.get(cuentaKey);
+    partidas.set(partidaKey, (partidas.get(partidaKey) ?? 0) + monto);
   }
 
-  const byFecha = (a, b) => {
-    const da = parseDateFlexible(a.fechaISO) ?? new Date(0);
-    const db = parseDateFlexible(b.fechaISO) ?? new Date(0);
-    const diff = da.getTime() - db.getTime();
-    if (diff !== 0) return diff;
+  let grandTotal = 0;
 
-    const ta = normDocTipo(a.docTipo);
-    const tb = normDocTipo(b.docTipo);
-    if (ta !== tb) return ta.localeCompare(tb, "es");
-    return String(a.docNumero ?? "").localeCompare(String(b.docNumero ?? ""), "es");
-  };
+  for (const [crKey, cuentas] of grouped) {
+    let crTotal = 0;
+    const crStartRow = ws2.rowCount + 1;
 
-  noFactura.sort(byFecha);
-  facturas.sort(byFecha);
-  return { noFactura, facturas };
+    for (const [cuentaKey, partidas] of cuentas) {
+      for (const [partidaKey, monto] of partidas) {
+        const row = ws2.addRow([crKey, cuentaKey, partidaKey, monto]);
+        row.getCell(4).numFmt    = numFmt;
+        row.getCell(4).alignment = { horizontal: "right" };
+        row.eachCell({ includeEmpty: true }, (cell, col) => {
+          cell.font = bodyFont;
+          if (col <= 4) cell.border = border;
+        });
+        crTotal    += monto;
+        grandTotal += monto;
+      }
+    }
+
+    // Subtotal por CR
+    const crEndRow = ws2.rowCount;
+    if (crEndRow >= crStartRow) {
+      const stRow = ws2.addRow(["", "", `Subtotal ${crKey}`, null]);
+      stRow.getCell(4).value    = { formula: `SUM(D${crStartRow}:D${crEndRow})`, result: crTotal };
+      stRow.getCell(3).font     = { bold: true, size: 10, name: "Calibri" };
+      stRow.getCell(4).font     = { bold: true, size: 10, name: "Calibri" };
+      stRow.getCell(4).numFmt   = numFmt;
+      stRow.getCell(4).alignment = { horizontal: "right" };
+      [3, 4].forEach((c) => { stRow.getCell(c).border = border; });
+    }
+    ws2.addRow([]);
+  }
+
+  // Total general
+  const totalRow = ws2.addRow(["TOTAL GENERAL", "", "", grandTotal]);
+  ws2.mergeCells(`A${totalRow.number}:C${totalRow.number}`);
+  totalRow.getCell(1).font      = { bold: true, size: 11, name: "Calibri" };
+  totalRow.getCell(1).alignment = { horizontal: "right" };
+  totalRow.getCell(4).font      = { bold: true, size: 11, name: "Calibri" };
+  totalRow.getCell(4).numFmt    = numFmt;
+  totalRow.getCell(4).alignment = { horizontal: "right" };
+  [1, 2, 3, 4].forEach((c) => {
+    totalRow.getCell(c).fill   = totalFill;
+    totalRow.getCell(c).border = border;
+  });
+  totalRow.height = 18;
 }
 
-export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items }) {
+export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {}, items, tipoRendicion }) {
   // Cargar template limpio (sin VML/checkboxes, con logo intacto)
   const binaryStr = atob(TEMPLATE_B64);
   const bytes = new Uint8Array(binaryStr.length);
@@ -121,7 +210,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   const settings = await getSettings();
   const h = { ...settings, ...headerOverrides };
 
-  // ── Datos responsable ────────────────────────────────────────────────────
+  // ── Datos responsable ────────────────────────────────────────────────────────
   ws.getCell("D15").value = h.responsableNombre ?? "";
   ws.getCell("L15").value = h.responsableRut ?? "";
   ws.getCell("D17").value = h.cargo ?? "";
@@ -129,12 +218,24 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   ws.getCell("D19").value = h.empresa ?? "";
   ws.getCell("L19").value = fmtDateDDMMYYYY(new Date());
 
-  // ── Datos bancarios ──────────────────────────────────────────────────────
+  // ── Datos bancarios ──────────────────────────────────────────────────────────
   ws.getCell("C22").value = h.tipoCuenta ?? "";
   ws.getCell("H22").value = h.numeroCuenta ?? "";
   ws.getCell("L22").value = h.banco ?? "";
 
-  // ── Filas de datos ───────────────────────────────────────────────────────
+  // ── Tipo de rendición — activar celda linked al checkbox correspondiente ─────
+  // Las celdas A11/D11/H11/K11 son boolean linked cells de los 4 checkboxes.
+  // Poner TRUE en la celda correcta activa el checkbox al abrir el archivo en Excel.
+  const tipoNorm = String(tipoRendicion ?? "").trim().toLowerCase();
+  const checkCell = TIPO_REND_CELL[tipoNorm] ?? null;
+  ["A11", "D11", "H11", "K11"].forEach((ref) => {
+    ws.getCell(ref).value = false;
+  });
+  if (checkCell) {
+    ws.getCell(checkCell).value = true;
+  }
+
+  // ── Filas de datos ───────────────────────────────────────────────────────────
   const safeItems = Array.isArray(items) ? items : [];
   const sorted = [...safeItems].sort((a, b) => {
     const da = parseDateFlexible(a.fechaISO) ?? new Date(0);
@@ -142,8 +243,8 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     return da.getTime() - db.getTime();
   });
 
-  const DATA_START = 28;
-  const TEMPLATE_ROWS = 14; // filas 28-41 ya formateadas en template
+  const DATA_START   = 28;
+  const TEMPLATE_ROWS = 14; // filas 28-41 preformateadas en el template
 
   // Guardar estilos de fila 28 como referencia para filas extra
   const refStyles = {};
@@ -187,6 +288,47 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     ws.getCell(r, 13).value = Number(it.monto ?? 0);
   });
 
+  // ── Fórmulas de totales ──────────────────────────────────────────────────────
+  const lastDataRow = DATA_START + Math.max(sorted.length, TEMPLATE_ROWS) - 1;
+  const sumTotal    = sorted.reduce((acc, it) => acc + Number(it.monto ?? 0), 0);
+
+  if (sorted.length > TEMPLATE_ROWS) {
+    // Los datos sobrepasan las filas del template: escribir totales justo después
+    const totalRowNum = lastDataRow + 2;
+
+    // Copiar estilo de M43 (total del template) al nuevo total
+    const origTotalCell = ws.getCell("M43");
+    const newTotal = ws.getCell(`M${totalRowNum}`);
+    newTotal.value  = { formula: `SUM(M${DATA_START}:M${lastDataRow})`, result: sumTotal };
+    newTotal.numFmt = origTotalCell.numFmt || "#,##0";
+    if (origTotalCell.font)   newTotal.font   = { ...origTotalCell.font };
+    if (origTotalCell.fill)   newTotal.fill   = { ...origTotalCell.fill };
+    if (origTotalCell.border) newTotal.border = { ...origTotalCell.border };
+
+    // Etiqueta "Total"
+    const origHdrCell = ws.getCell("H43");
+    ws.getCell(`H${totalRowNum}`).value = "Total";
+    if (origHdrCell.font) ws.getCell(`H${totalRowNum}`).font = { ...origHdrCell.font };
+
+    // Total neto = Total + Anticipos (anticipos vacíos → 0)
+    const netoCell = ws.getCell(`M${totalRowNum + 2}`);
+    netoCell.value  = { formula: `+M${totalRowNum}+M${totalRowNum + 1}`, result: sumTotal };
+    netoCell.numFmt = "#,##0";
+  } else {
+    // Con ≤14 filas los totales del template están en filas 43-45 en su posición original.
+    ws.getCell("M43").value = {
+      formula: `SUM(M${DATA_START}:M${DATA_START + TEMPLATE_ROWS - 1})`,
+      result: sumTotal,
+    };
+    ws.getCell("M45").value = {
+      formula: "+M43+M44",
+      result: sumTotal,
+    };
+  }
+
+  // ── Hoja 2: Resumen agrupado por CR / Cuenta / Partida ───────────────────────
+  buildResumenSheet(wb, sorted, correlativo);
+
   const buffer = await wb.xlsx.writeBuffer();
   return new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -194,9 +336,9 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
 }
 
 
-export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items }) {
+export async function exportBatchXlsx({ correlativo, headerOverrides = {}, items, tipoRendicion }) {
   try {
-    const blob = await generateBatchXlsxBlob({ correlativo, headerOverrides, items });
+    const blob = await generateBatchXlsxBlob({ correlativo, headerOverrides, items, tipoRendicion });
     downloadBlob(blob, `Rendicion_${correlativo || "SinNumero"}.xlsx`);
     return blob;
   } catch (err) {
@@ -217,26 +359,25 @@ export async function buildExportItems(gastoIds) {
     db.getAll("catalog_clasificaciones").catch(() => []),
   ]);
 
-  const conceptById = new Map(concepts.map((c) => [c.conceptId ?? c.id, c]));
-  const crByCode = new Map(crs.map((c) => [c.crCodigo, c]));
-  const accByCode = new Map(accounts.map((a) => [a.ctaCodigo, a]));
+  const conceptById  = new Map(concepts.map((c) => [c.conceptId ?? c.id, c]));
+  const crByCode     = new Map(crs.map((c) => [c.crCodigo, c]));
+  const accByCode    = new Map(accounts.map((a) => [a.ctaCodigo, a]));
   const partidaByCode = new Map(partidas.map((p) => [p.partidaCodigo, p]));
-  const clasifByCode = new Map((clasificaciones || []).map((x) => [x.clasificacionCodigo, x]));
+  const clasifByCode  = new Map((clasificaciones || []).map((x) => [x.clasificacionCodigo, x]));
 
   return (expenses || [])
     .filter(Boolean)
     .map((e) => {
       const concept = e.conceptId ? conceptById.get(e.conceptId) : null;
 
-      const crCodigo = concept?.crCodigo ?? e.crCodigo ?? e.cr ?? "";
-      const ctaCodigo = concept?.ctaCodigo ?? e.ctaCodigo ?? e.cuenta ?? e.cuentaContable ?? "";
+      const crCodigo      = concept?.crCodigo ?? e.crCodigo ?? e.cr ?? "";
+      const ctaCodigo     = concept?.ctaCodigo ?? e.ctaCodigo ?? e.cuenta ?? e.cuentaContable ?? "";
       const partidaCodigo = concept?.partidaCodigo ?? e.partidaCodigo ?? e.partida ?? "";
 
-      const cr = crByCode.get(crCodigo);
-      const acc = accByCode.get(ctaCodigo);
-      const part = partidaByCode.get(partidaCodigo);
+      const cr    = crByCode.get(crCodigo);
+      const acc   = accByCode.get(ctaCodigo);
+      const part  = partidaByCode.get(partidaCodigo);
 
-      // FIX: normalizar fecha a DD-MM-YYYY al construir el item de exportación
       const rawFecha = e.fechaISO ?? e.fechaDocumento ?? e.fecha ?? "";
 
       return {
