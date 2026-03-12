@@ -15,14 +15,20 @@ function registerGlobalErrorHandlers() {
   };
 
   window.addEventListener("error", (e) => {
-    const msg = e?.error?.message || e?.message || "Error desconocido";
-    const stack = e?.error?.stack || "";
+    const err = e?.error;
+    // AbortError es normal en iOS Safari (IndexedDB transacciones abortadas por el SO)
+    if (err?.name === "AbortError") return;
+    const msg = err?.message || e?.message || "Error desconocido";
+    const stack = err?.stack || "";
     saveError(msg, stack);
   });
 
   window.addEventListener("unhandledrejection", (e) => {
-    const msg = e?.reason?.message || String(e?.reason || "Promise rechazada sin manejar");
-    const stack = e?.reason?.stack || "";
+    const reason = e?.reason;
+    // AbortError es normal en iOS Safari — ignorar silenciosamente
+    if (reason?.name === "AbortError") return;
+    const msg = reason?.message || String(reason || "Promise rechazada sin manejar");
+    const stack = reason?.stack || "";
     saveError(msg, stack);
   });
 }
