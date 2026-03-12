@@ -423,6 +423,9 @@ export async function reEnqueueAllData({ onProgress } = {}) {
     total++;
   }
   onProgress?.(`Catálogos: ${crs.length + accounts.length + partidas.length + clasifs.length + destinations.length + concepts.length}`);
+
+  // Attachments (solo metadata, blob se sube aparte via sync_objects)
+  const atts = await db.getAll("attachments");
   for (const a of atts) {
     const meta = { ...a };
     delete meta.blob; // no incluir blob en el evento de metadata
