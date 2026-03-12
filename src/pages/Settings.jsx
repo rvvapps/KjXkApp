@@ -16,7 +16,7 @@ import {
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
-import { syncOnce, findLatestBackupInOneDrive, downloadBackupFromOneDrive, cleanOneDriveOutbox } from "../services/syncEngine.js";
+import { syncOnce, findLatestBackupInOneDrive, downloadBackupFromOneDrive, cleanOneDriveOutbox, reEnqueueAllData } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 import { v4 as uuid } from "uuid";
@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.36";
+const APP_VERSION = "0.15.38";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -959,6 +959,15 @@ export default function Settings() {
             <button className="btn" onClick={() => connectOneDrive("folder")}>Conectar (Carpeta)</button>
             <button className="btn secondary" onClick={doSyncNow}>Sincronizar ahora</button>
             <button className="btn secondary" onClick={async () => { await disconnectOneDrive(); setSync(await getSyncState()); setSyncMsg("Desconectado."); }}>Desconectar</button>
+            <button className="btn secondary" onClick={async () => {
+              if (!window.confirm("⚠️ Esto re-encola todos los datos locales (gastos, rendiciones, traslados, adjuntos) para que sean enviados al resto de dispositivos en el próximo sync.\n\nÚsalo si un dispositivo nuevo o recién restaurado no recibe tus datos.\n\n¿Continuar?")) return;
+              setSyncMsg("🔄 Encolando datos locales…");
+              const r = await reEnqueueAllData({ onProgress: setSyncMsg });
+              if (!r.ok) { setSyncMsg(`❌ Error: ${r.error}`); return; }
+              setSyncMsg(`⏳ ${r.total} evento(s) encolados. Sincronizando…`);
+              const s = await syncOnce();
+              setSyncMsg(s.ok ? `✅ Listo. ${r.total} registros enviados al resto de dispositivos.` : `❌ Error en sync: ${s.error || s.step}`);
+            }}>Re-sincronizar todo</button>
             <button className="btn danger" onClick={async () => {
               if (!window.confirm("⚠️ Esto borrará todos los eventos de sync en OneDrive y limpiará el historial local.\n\nÚsalo solo si hay eventos viejos o corruptos acumulados.\n\n¿Continuar?")) return;
               setSyncMsg("🗑️ Limpiando OneDrive…");

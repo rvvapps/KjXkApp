@@ -314,6 +314,70 @@ export async function syncOnce() {
   };
 }
 
+// ── Re-encolar todos los datos locales en el outbox ──────────────────────
+// Útil cuando hay datos pre-existentes que nunca generaron eventos de sync
+// (p.ej. datos creados antes de conectar OneDrive, o tras restore desde backup)
+
+export async function reEnqueueAllData({ onProgress } = {}) {
+  const db = await getDB();
+  const settings = await getSettings();
+  const deviceId = settings?.deviceId || "";
+  const workspaceId = settings?.workspaceId || "personal";
+
+  function makeEvent(type, payload) {
+    return {
+      eventId: crypto.randomUUID(),
+      workspaceId,
+      deviceId,
+      revision: 0,
+      ts: new Date().toISOString(),
+      type,
+      payload,
+      status: "pending",
+      retryCount: 0,
+      lastError: null,
+    };
+  }
+
+  let total = 0;
+
+  // Expenses
+  const expenses = await db.getAll("expenses");
+  for (const e of expenses) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "expense", entityId: e.gastoId, data: e }));
+    total++;
+  }
+  onProgress?.(`Gastos: ${expenses.length}`);
+
+  // Reimbursements
+  const reims = await db.getAll("reimbursements");
+  for (const r of reims) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "reimbursement", entityId: r.rendicionId, data: r }));
+    total++;
+  }
+  onProgress?.(`Rendiciones: ${reims.length}`);
+
+  // Transfers
+  const transfers = await db.getAll("transfers");
+  for (const t of transfers) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "transfer", entityId: t.transferId, data: t }));
+    total++;
+  }
+  onProgress?.(`Traslados: ${transfers.length}`);
+
+  // Attachments (solo metadata, blob se sube aparte via sync_objects)
+  const atts = await db.getAll("attachments");
+  for (const a of atts) {
+    const meta = { ...a };
+    delete meta.blob; // no incluir blob en el evento de metadata
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "attachmentMeta", entityId: a.adjuntoId, data: meta }));
+    total++;
+  }
+  onProgress?.(`Adjuntos: ${atts.length}`);
+
+  return { ok: true, total };
+}
+
 // ── BACKUP en OneDrive ────────────────────────────────────────────────────
 
 export async function findLatestBackupInOneDrive() {
