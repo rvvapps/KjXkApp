@@ -71,3 +71,8 @@ hr { border: 0; border-top: 1px solid rgba(255,255,255,.10); margin: 14px 0; }
   .nav-mobile  { display: none !important; }
   .container { padding: 16px; }
 }
+
+@keyframes cc-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}

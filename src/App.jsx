@@ -17,21 +17,24 @@ import { syncOnce } from "./services/syncEngine.js";
 let _syncInFlight = false;
 let _syncQueued   = false;
 
+// Notificar a la UI cuando el sync empieza/termina
+function notifySyncStart() { window.dispatchEvent(new Event("cc:syncStart")); }
+function notifySyncEnd()   { window.dispatchEvent(new Event("cc:syncEnd")); }
+
 async function backgroundSync() {
   if (_syncInFlight) { _syncQueued = true; return; }
   _syncInFlight = true;
+  notifySyncStart();
   try {
     const { getSyncState } = await import("./db.js");
     const st = await getSyncState();
     if (!st?.auth?.connectedAt || !st?.token) return;
     const r = await syncOnce();
     if (r.ok) {
-      // Si hubo cambios, notificar a cualquier página que esté escuchando
       if (r.appliedEvents > 0 || r.uploadedEvents > 0) {
         window.dispatchEvent(new CustomEvent("cc:syncCompleted", { detail: r }));
       }
     } else {
-      // Si el token expiró, guardar flag para que Settings lo muestre
       const authErrors = ["invalid_grant", "refresh_failed", "no_refresh_token"];
       if (authErrors.includes(r.error) || authErrors.includes(r.detail?.json?.error)) {
         try { sessionStorage.setItem("cc_sync_auth_error", "1"); } catch {}
@@ -42,6 +45,7 @@ async function backgroundSync() {
     console.warn("backgroundSync error:", e);
   } finally {
     _syncInFlight = false;
+    notifySyncEnd();
     if (_syncQueued) {
       _syncQueued = false;
       setTimeout(backgroundSync, 100);
@@ -49,14 +53,14 @@ async function backgroundSync() {
   }
 }
 
-// Sync con debounce 3s al guardar datos localmente
+// Sync con debounce 1s al guardar datos localmente
 let _syncDebounceTimer = null;
 function scheduleSyncAfterSave() {
   if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
   _syncDebounceTimer = setTimeout(() => {
     backgroundSync();
     _syncDebounceTimer = null;
-  }, 3000);
+  }, 1000);
 }
 
 // Sync al volver al foco (visibilitychange / window focus), debounce 2s
@@ -109,6 +113,29 @@ function NavItem({ to, label, currentPath, onClick }) {
   );
 }
 
+function SyncIndicator() {
+  const [syncing, setSyncing] = useState(false);
+  useEffect(() => {
+    const onStart = () => setSyncing(true);
+    const onEnd   = () => setSyncing(false);
+    window.addEventListener("cc:syncStart", onStart);
+    window.addEventListener("cc:syncEnd",   onEnd);
+    return () => {
+      window.removeEventListener("cc:syncStart", onStart);
+      window.removeEventListener("cc:syncEnd",   onEnd);
+    };
+  }, []);
+  if (!syncing) return null;
+  return (
+    <span title="Sincronizando…" style={{
+      display: "inline-flex", alignItems: "center", gap: 4,
+      fontSize: 11, color: "rgba(255,255,255,.5)", flexShrink: 0,
+    }}>
+      <span style={{ animation: "cc-spin 1s linear infinite", display: "inline-block" }}>⟳</span>
+    </span>
+  );
+}
+
 function AppContent() {
   const location = useLocation();
   const [openHamburger, setOpenHamburger] = React.useState(false);
@@ -148,6 +175,7 @@ function AppContent() {
             CAJA CHICA
           </span>
         </Link>
+        <SyncIndicator />
 
         {/* Nav desktop */}
         <nav className="nav-desktop" style={{ display: "flex", gap: 4, alignItems: "center" }}>

@@ -60,17 +60,23 @@ async function applyIncomingEvent(db, ev) {
     if (!entityType || !entityId || !data) return;
 
     const storeMap = {
-      expense:        "expenses",
-      reimbursement:  "reimbursements",
-      transfer:       "transfers",
-      attachmentMeta: "attachments",
-      concept:        "concepts",
+      expense:               "expenses",
+      reimbursement:         "reimbursements",
+      reimbursement_item:    "reimbursement_items",
+      transfer:              "transfers",
+      attachmentMeta:        "attachments",
+      concept:               "concepts",
+      catalog_cr:            "catalog_cr",
+      catalog_account:       "catalog_accounts",
+      catalog_partida:       "catalog_partidas",
+      catalog_clasificacion: "catalog_clasificaciones",
+      catalog_destination:   "catalog_destinations",
     };
     const store = storeMap[entityType];
     if (!store) return;
 
     const existing = await db.get(store, entityId);
-    // Solo aplicar si el evento es más reciente
+    // Solo aplicar si el evento es más reciente (para entidades con updatedAt)
     if (existing && existing.updatedAt && data.updatedAt && data.updatedAt <= existing.updatedAt) return;
 
     // Para attachmentMeta no sobreescribir el blob local si ya existe
@@ -84,10 +90,17 @@ async function applyIncomingEvent(db, ev) {
   if (type === "entity.delete") {
     const { entityType, entityId } = payload;
     const storeMap = {
-      expense:        "expenses",
-      reimbursement:  "reimbursements",
-      transfer:       "transfers",
-      attachmentMeta: "attachments",
+      expense:               "expenses",
+      reimbursement:         "reimbursements",
+      reimbursement_item:    "reimbursement_items",
+      transfer:              "transfers",
+      attachmentMeta:        "attachments",
+      catalog_cr:            "catalog_cr",
+      catalog_account:       "catalog_accounts",
+      catalog_partida:       "catalog_partidas",
+      catalog_clasificacion: "catalog_clasificaciones",
+      catalog_destination:   "catalog_destinations",
+      concept:               "concepts",
     };
     const store = storeMap[entityType];
     if (store) await db.delete(store, entityId).catch(() => {});
@@ -365,8 +378,51 @@ export async function reEnqueueAllData({ onProgress } = {}) {
   }
   onProgress?.(`Traslados: ${transfers.length}`);
 
-  // Attachments (solo metadata, blob se sube aparte via sync_objects)
-  const atts = await db.getAll("attachments");
+  // Reimbursement items
+  const reimItems = await db.getAll("reimbursement_items");
+  for (const i of reimItems) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "reimbursement_item", entityId: i.itemId, data: i }));
+    total++;
+  }
+  onProgress?.(`Items rendición: ${reimItems.length}`);
+
+  // Catálogos
+  const crs = await db.getAll("catalog_cr");
+  for (const c of crs) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "catalog_cr", entityId: c.crCodigo, data: c }));
+    total++;
+  }
+
+  const accounts = await db.getAll("catalog_accounts");
+  for (const c of accounts) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "catalog_account", entityId: c.ctaCodigo, data: c }));
+    total++;
+  }
+
+  const partidas = await db.getAll("catalog_partidas");
+  for (const c of partidas) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "catalog_partida", entityId: c.partidaCodigo, data: c }));
+    total++;
+  }
+
+  const clasifs = await db.getAll("catalog_clasificaciones");
+  for (const c of clasifs) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "catalog_clasificacion", entityId: c.clasificacionCodigo, data: c }));
+    total++;
+  }
+
+  const destinations = await db.getAll("catalog_destinations");
+  for (const c of destinations) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "catalog_destination", entityId: c.destinationId, data: c }));
+    total++;
+  }
+
+  const concepts = await db.getAll("concepts");
+  for (const c of concepts) {
+    await db.put("sync_outbox", makeEvent("entity.upsert", { entityType: "concept", entityId: c.conceptId, data: c }));
+    total++;
+  }
+  onProgress?.(`Catálogos: ${crs.length + accounts.length + partidas.length + clasifs.length + destinations.length + concepts.length}`);
   for (const a of atts) {
     const meta = { ...a };
     delete meta.blob; // no incluir blob en el evento de metadata

@@ -384,21 +384,21 @@ export async function listActiveCR() {
 
 export async function upsertCR(item) {
   const db = await getDB();
-  // Si el código cambió, borrar el registro viejo primero
   if (item._originalCode && item._originalCode !== item.crCodigo) {
     await db.delete("catalog_cr", item._originalCode);
+    await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_cr", entityId: item._originalCode } });
   }
   const { _originalCode, ...clean } = item;
   await db.put("catalog_cr", clean);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "catalog_cr", entityId: clean.crCodigo, data: clean } });
 }
 
 export async function deleteCR(crCodigo) {
   const db = await getDB();
-  // Verificar si está en uso en gastos o transfers
-  const enUso = await db.countFromIndex("expenses", "crCodigo", crCodigo)
-    .catch(() => 0);
+  const enUso = await db.countFromIndex("expenses", "crCodigo", crCodigo).catch(() => 0);
   if (enUso > 0) throw Object.assign(new Error(`CR en uso en ${enUso} gasto(s). Desactívalo en vez de eliminarlo.`), { code: "in_use", count: enUso });
   await db.delete("catalog_cr", crCodigo);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_cr", entityId: crCodigo } });
 }
 
 export async function listActiveAccounts() {
@@ -413,17 +413,19 @@ export async function upsertAccount(item) {
   const db = await getDB();
   if (item._originalCode && item._originalCode !== item.ctaCodigo) {
     await db.delete("catalog_accounts", item._originalCode);
+    await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_account", entityId: item._originalCode } });
   }
   const { _originalCode, ...clean } = item;
   await db.put("catalog_accounts", clean);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "catalog_account", entityId: clean.ctaCodigo, data: clean } });
 }
 
 export async function deleteAccount(ctaCodigo) {
   const db = await getDB();
-  const enUso = await db.countFromIndex("expenses", "ctaCodigo", ctaCodigo)
-    .catch(() => 0);
+  const enUso = await db.countFromIndex("expenses", "ctaCodigo", ctaCodigo).catch(() => 0);
   if (enUso > 0) throw Object.assign(new Error(`Cuenta en uso en ${enUso} gasto(s). Desactívala en vez de eliminarla.`), { code: "in_use", count: enUso });
   await db.delete("catalog_accounts", ctaCodigo);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_account", entityId: ctaCodigo } });
 }
 
 export async function listActivePartidas() {
@@ -438,14 +440,17 @@ export async function upsertPartida(item) {
   const db = await getDB();
   if (item._originalCode && item._originalCode !== item.partidaCodigo) {
     await db.delete("catalog_partidas", item._originalCode);
+    await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_partida", entityId: item._originalCode } });
   }
   const { _originalCode, ...clean } = item;
   await db.put("catalog_partidas", clean);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "catalog_partida", entityId: clean.partidaCodigo, data: clean } });
 }
 
 export async function deletePartida(partidaCodigo) {
   const db = await getDB();
   await db.delete("catalog_partidas", partidaCodigo);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_partida", entityId: partidaCodigo } });
 }
 
 export async function listActiveClasificaciones() {
@@ -460,14 +465,17 @@ export async function upsertClasificacion(item) {
   const db = await getDB();
   if (item._originalCode && item._originalCode !== item.clasificacionCodigo) {
     await db.delete("catalog_clasificaciones", item._originalCode);
+    await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_clasificacion", entityId: item._originalCode } });
   }
   const { _originalCode, ...clean } = item;
   await db.put("catalog_clasificaciones", clean);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "catalog_clasificacion", entityId: clean.clasificacionCodigo, data: clean } });
 }
 
 export async function deleteClasificacion(clasificacionCodigo) {
   const db = await getDB();
   await db.delete("catalog_clasificaciones", clasificacionCodigo);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_clasificacion", entityId: clasificacionCodigo } });
 }
 
 export async function listConcepts() {
@@ -668,10 +676,17 @@ export async function addReimbursementItems({ rendicionId, gastoIds }) {
   const db = await getDB();
   const tx = db.transaction(["reimbursement_items"], "readwrite");
   let order = 1;
+  const items = [];
   for (const gastoId of gastoIds) {
-    await tx.objectStore("reimbursement_items").put({ itemId: uuid(), rendicionId, gastoId, orden: order++ });
+    const item = { itemId: uuid(), rendicionId, gastoId, orden: order++, createdAt: new Date().toISOString() };
+    await tx.objectStore("reimbursement_items").put(item);
+    items.push(item);
   }
   await tx.done;
+  // Encolar eventos de sync para cada item
+  for (const item of items) {
+    await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "reimbursement_item", entityId: item.itemId, data: item } });
+  }
 }
 
 export async function listReimbursements() {
@@ -823,6 +838,7 @@ export async function addExpenseToReimbursement({ rendicionId, gastoId }) {
 export async function upsertConcept(concept) {
   const db = await getDB();
   await db.put("concepts", concept);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "concept", entityId: concept.conceptId, data: concept } });
 }
 
 export async function getConcept(conceptId) {
@@ -836,6 +852,7 @@ export async function deactivateConcept(conceptId) {
   if (!c) return;
   c.activo = false;
   await db.put("concepts", c);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "concept", entityId: conceptId, data: c } });
 }
 
 export async function activateConcept(conceptId) {
@@ -844,6 +861,7 @@ export async function activateConcept(conceptId) {
   if (!c) return;
   c.activo = true;
   await db.put("concepts", c);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "concept", entityId: conceptId, data: c } });
 }
 
 export async function listAllConcepts() {
@@ -968,11 +986,13 @@ export async function upsertDestination(item) {
     item.destinationId = v4();
   }
   await db.put("catalog_destinations", item);
+  await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "catalog_destination", entityId: item.destinationId, data: item } });
 }
 
 export async function deleteDestination(destinationId) {
   const db = await getDB();
   await db.delete("catalog_destinations", destinationId);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "catalog_destination", entityId: destinationId } });
 }
 
 /**
