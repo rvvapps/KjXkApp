@@ -189,7 +189,7 @@ export default function ReimbursementDetail() {
       const gastoIds = gastoIdsOrdered();
       const exportItems = await buildExportItems(gastoIds);
       const corr = reim.correlativo;
-      const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems });
+      const blob = await generateBatchXlsxBlob({ correlativo: corr, items: exportItems, tipoRendicion: "caja chica" });
       const filename = `Rendicion_${corr}.xlsx`;
       await shareOrDownload(blob, filename);
     } catch (e) {
@@ -271,7 +271,7 @@ export default function ReimbursementDetail() {
       if (!reim.snapshotExcelBlob || !reim.snapshotPdfBlob) {
         const exportItems = await buildExportItems(ids);
         const batches = splitIntoBatches(exportItems);
-        const xlsxBlob = await generateBatchXlsxBlob({ correlativo: reim.correlativo, items: batches[0] || [] });
+        const xlsxBlob = await generateBatchXlsxBlob({ correlativo: reim.correlativo, items: batches[0] || [], tipoRendicion: "caja chica" });
         let pdfBlob = null;
         try { pdfBlob = await generateReceiptsPdfBlob({ correlativo: reim.correlativo, orderedGastoIds: ids.slice(0, 42) }); }
         catch (pe) { 
