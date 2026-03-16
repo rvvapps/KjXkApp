@@ -103,7 +103,6 @@ export default function Expenses() {
       if (!String(exp.docTipo || "").trim()) problems.push(`Falta tipo doc en: "${label}"`);
       if (!String(exp.crCodigo || "").trim()) problems.push(`Falta CR en: "${label}"`);
       if (!String(exp.ctaCodigo || "").trim()) problems.push(`Falta cuenta contable en: "${label}"`);
-      if (!String(exp.partidaCodigo || "").trim()) problems.push(`Falta partida en: "${label}"`);
       if (concept?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
         problems.push(`Falta N° doc en: "${label}"`);
       const attsForValidation = attachData[id] ?? await listAttachmentsForExpense(id).catch(() => []);
