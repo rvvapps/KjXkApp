@@ -72,6 +72,20 @@ async function applyIncomingEvent(db, ev) {
       catalog_clasificacion: "catalog_clasificaciones",
       catalog_destination:   "catalog_destinations",
     };
+
+    // user_profile: merge solo los campos de perfil en settings, sin tocar campos de dispositivo
+    if (entityType === "user_profile") {
+      const { PROFILE_FIELDS } = await import("../db.js");
+      const cur = await db.get("settings", "app");
+      if (!cur) return;
+      // Solo aplicar si el evento es más reciente
+      if (cur.profileUpdatedAt && data.updatedAt && data.updatedAt <= cur.profileUpdatedAt) return;
+      const patch = { key: "app" };
+      PROFILE_FIELDS.forEach((f) => { if (f in data) patch[f] = data[f]; });
+      patch.profileUpdatedAt = data.updatedAt;
+      await db.put("settings", { ...cur, ...patch });
+      return;
+    }
     const store = storeMap[entityType];
     if (!store) return;
 
@@ -376,6 +390,17 @@ export async function reEnqueueAllData({ onProgress } = {}) {
   }
 
   let total = 0;
+
+  // Perfil de usuario
+  const { PROFILE_FIELDS } = await import("../db.js");
+  const profileData = {};
+  PROFILE_FIELDS.forEach((f) => { profileData[f] = settings?.[f] ?? ""; });
+  profileData.updatedAt = settings?.profileUpdatedAt || new Date().toISOString();
+  await db.put("sync_outbox", makeEvent("entity.upsert", {
+    entityType: "user_profile", entityId: "profile", data: profileData,
+  }));
+  total++;
+  onProgress?.("Perfil de usuario");
 
   // Expenses
   const expenses = await db.getAll("expenses");

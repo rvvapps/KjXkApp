@@ -240,11 +240,33 @@ export async function getSettings() {
   return db.get("settings", "app");
 }
 
+// Campos del perfil de usuario que se sincronizan entre dispositivos.
+// Excluidos del sync: deviceId, deviceLabel, localRevision, lastSyncAt,
+// lastBackupAt, lastWeeklyBackupAt, correlativoNextNumber (son por dispositivo).
+export const PROFILE_FIELDS = [
+  "responsableNombre", "responsableRut", "cargo", "telefono", "empresa",
+  "banco", "tipoCuenta", "numeroCuenta", "crDefaultCodigo",
+  "correlativoPrefix", "defaultOrigen",
+];
+
 export async function saveSettings(patch) {
   const db = await getDB();
   const cur = await getSettings();
   const next = { ...cur, ...patch, key: "app" };
   await db.put("settings", next);
+
+  // Si el patch toca algún campo de perfil, encolar evento de sync
+  const profileTouched = PROFILE_FIELDS.some((f) => f in patch);
+  if (profileTouched) {
+    const profileData = {};
+    PROFILE_FIELDS.forEach((f) => { profileData[f] = next[f] ?? ""; });
+    profileData.updatedAt = new Date().toISOString();
+    await enqueueEvent(db, {
+      type: "entity.upsert",
+      payload: { entityType: "user_profile", entityId: "profile", data: profileData },
+    });
+    notifyDataChanged();
+  }
 }
 
 // -------------------------
