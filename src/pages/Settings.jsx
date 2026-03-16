@@ -16,7 +16,7 @@ import {
 import TextField from "../components/TextField.jsx";
 import SelectField from "../components/SelectField.jsx";
 import { startOneDriveLogin, disconnectOneDrive } from "../services/onedriveAuth.js";
-import { syncOnce, findLatestBackupInOneDrive, downloadBackupFromOneDrive, cleanOneDriveOutbox, reEnqueueAllData } from "../services/syncEngine.js";
+import { syncOnce, findLatestBackupInOneDrive, downloadBackupFromOneDrive, cleanOneDriveOutbox, reEnqueueAllData, clearLocalInbox } from "../services/syncEngine.js";
 import { putFileByPath } from "../services/onedriveApi.js";
 import { generateEncryptedBackupBlob, restoreFromEncryptedBackupFile } from "../services/backupEngine.js";
 import { v4 as uuid } from "uuid";
@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.43";
+const APP_VERSION = "0.15.44";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -958,6 +958,14 @@ export default function Settings() {
             <button className="btn" onClick={() => connectOneDrive("approot")}>Conectar (AppFolder)</button>
             <button className="btn" onClick={() => connectOneDrive("folder")}>Conectar (Carpeta)</button>
             <button className="btn secondary" onClick={doSyncNow}>Sincronizar ahora</button>
+            <button className="btn secondary" onClick={async () => {
+              if (!window.confirm("⚠️ Esto descarta el historial de eventos ya recibidos y vuelve a bajar todo desde OneDrive.\n\nÚsalo si este dispositivo no recibió los datos de otro (p.ej. tras un restore).\n\n¿Continuar?")) return;
+              setSyncMsg("🧹 Limpiando inbox local…");
+              await clearLocalInbox();
+              setSyncMsg("⬇️ Descargando eventos desde OneDrive…");
+              const s = await syncOnce();
+              setSyncMsg(s.ok ? `✅ Listo. ${s.appliedEvents || 0} evento(s) recibido(s).` : `❌ Error en sync: ${s.error || s.step}`);
+            }}>Recibir todo de nuevo</button>
             <button className="btn secondary" onClick={async () => { await disconnectOneDrive(); setSync(await getSyncState()); setSyncMsg("Desconectado."); }}>Desconectar</button>
             <button className="btn secondary" onClick={async () => {
               if (!window.confirm("⚠️ Esto re-encola todos los datos locales (gastos, rendiciones, traslados, adjuntos) para que sean enviados al resto de dispositivos en el próximo sync.\n\nÚsalo si un dispositivo nuevo o recién restaurado no recibe tus datos.\n\n¿Continuar?")) return;

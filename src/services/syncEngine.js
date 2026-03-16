@@ -512,3 +512,14 @@ export async function cleanOneDriveOutbox({ onProgress } = {}) {
 
   return { ok: true, deleted };
 }
+
+// ── Limpiar inbox local ───────────────────────────────────────────────────
+// Elimina el historial de eventos ya procesados de este dispositivo.
+// Útil tras un restore: permite que el próximo syncDown vuelva a bajar
+// todos los eventos de los otros dispositivos aunque ya los haya "visto".
+
+export async function clearLocalInbox() {
+  const db = await getDB();
+  await db.clear("sync_inbox");
+  return { ok: true };
+}
