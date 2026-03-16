@@ -24,6 +24,7 @@ Aplicación web progresiva (PWA) para gestión de caja chica personal. Permite r
 - Numeración correlativa configurable (ej: RC-001)
 - Ciclo de estados: Borrador → Enviada → Aprobada / Devuelta → Pagada
 - Posibilidad de corregir rendiciones devueltas (agregar/quitar gastos)
+- Exportación del formulario Excel corporativo y PDF con las fotos de los documentos rendidos
 
 ### Exportación
 - **Excel corporativo**: genera el `Formulario_Rendicion_Template.xlsx` con datos del responsable, lista de gastos y fórmulas de totales. Checkbox "Caja Chica" pre-marcado. Incluye hoja de resumen agrupado por CR → Cuenta → Partida
