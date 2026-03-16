@@ -165,7 +165,6 @@ export default function ReimbursementDetail() {
       if (!String(exp.docTipo || "").trim()) problems.push(`Falta tipo doc en "${lbl}"`);
       if (!String(exp.crCodigo || "").trim()) problems.push(`Falta CR en "${lbl}"`);
       if (!String(exp.ctaCodigo || "").trim()) problems.push(`Falta cuenta contable en "${lbl}"`);
-      if (!String(exp.partidaCodigo || "").trim()) problems.push(`Falta partida en "${lbl}"`);
       const c = byId.get(exp.conceptId);
       if (c?.requiereDoc && exp.docTipo !== "SinDoc" && !String(exp.docNumero || "").trim())
         problems.push(`Falta N° doc en "${lbl}"`);

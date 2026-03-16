@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.44";
+const APP_VERSION = "0.15.45";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
