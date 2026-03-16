@@ -118,6 +118,21 @@ export default function Expenses() {
     if (gastoIds.length === 0) return setMsg("Selecciona al menos un gasto.");
     setBusy(true);
     try {
+      // Verificar que todos los gastos seleccionados siguen pendientes
+      // (pueden haber cambiado de estado por sync desde otro dispositivo)
+      const staleGastos = [];
+      for (const id of gastoIds) {
+        const e = await getExpense(id);
+        if (!e || e.estado !== "pendiente") {
+          staleGastos.push(e?.docNumero || e?.detalle || id);
+        }
+      }
+      if (staleGastos.length > 0) {
+        setMsg(`❌ Algunos gastos ya no están disponibles (fueron rendidos desde otro dispositivo):\n${staleGastos.map(l => `• ${l}`).join("\n")}\n\nRefresca la página para ver el estado actualizado.`);
+        await refresh();
+        return;
+      }
+
       const problems = await validateGastos(gastoIds);
       if (problems.length > 0) {
         const lines = problems.slice(0, 6).map((p) => `• ${p}`).join("\n");

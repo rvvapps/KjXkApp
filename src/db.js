@@ -528,6 +528,20 @@ export async function countExpensesByConceptId(conceptId) {
 
 export async function markExpensesReimbursed({ gastoIds, rendicionId }) {
   const db = await getDB();
+
+  // Verificar que todos los gastos están pendientes antes de abrir la tx
+  // Previene que un gasto ya rendido en otra rendición quede duplicado
+  for (const id of gastoIds) {
+    const e = await db.get("expenses", id);
+    if (!e) continue;
+    if (e.estado !== "pendiente") {
+      throw Object.assign(
+        new Error(`El gasto "${e.docNumero || e.detalle || id}" ya está en otra rendición (estado: "${e.estado}"). Refresca la página e intenta de nuevo.`),
+        { code: "already_reimbursed", gastoId: id }
+      );
+    }
+  }
+
   const tx = db.transaction(["settings", "expenses", "sync_outbox"], "readwrite");
   const { settings, revision } = await bumpRevisionInTx(tx);
   for (const id of gastoIds) {
