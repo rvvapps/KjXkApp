@@ -9,6 +9,7 @@ import EditExpense from "./pages/EditExpense.jsx";
 import Transfers from "./pages/Transfers.jsx";
 import Expenses from "./pages/Expenses.jsx";
 import ErrorBanner from "./components/ErrorBanner.jsx";
+import HelpButton from "./components/HelpButton.jsx";
 import { ensureSeedData } from "./db.js";
 import { syncOnce } from "./services/syncEngine.js";
 
@@ -242,6 +243,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+      <HelpButton pathname={location.pathname} />
     </div>
   );
 }
