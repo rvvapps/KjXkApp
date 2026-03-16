@@ -181,7 +181,7 @@ export const HELP_CONTENT = {
       },
       {
         heading: "Pestaña Datos — Sync OneDrive",
-        text: "Configura la sincronización automática entre dispositivos.\n• Tenant ID y Client ID: credenciales de tu Azure App Registration.\n• Conectar: inicia sesión en OneDrive.\n• Sincronizar ahora: fuerza una sincronización manual.\n• Recibir todo de nuevo: limpia el historial de eventos recibidos y vuelve a bajar todo desde OneDrive. Úsalo si este dispositivo no recibió datos de otro tras un restore.\n• Re-sincronizar todo: re-envía todos los datos locales (útil si un dispositivo nuevo no tiene los datos).\n• Limpiar eventos: elimina eventos acumulados viejos en OneDrive (solo si hay problemas de sync).",
+        text: "Configura la sincronización automática entre dispositivos.\n• Tenant ID y Client ID: credenciales de tu Azure App Registration.\n• 🔗 Conectar: inicia sesión en OneDrive.\n• 🔄 Sincronizar ahora: fuerza una sincronización manual.\n• ⬇️ Recibir todo de nuevo: limpia el historial de eventos recibidos y vuelve a bajar todo desde OneDrive. Úsalo si este dispositivo no recibió datos de otro tras un restore.\n• ⬆️ Re-sincronizar todo: re-envía todos los datos locales hacia OneDrive. Úsalo si un dispositivo nuevo o recién restaurado no tiene tus datos.\n• 🔌 Desconectar: desvincula este dispositivo de OneDrive.\n• 🗑️ Limpiar eventos OneDrive: borra todos los eventos acumulados en OneDrive. Solo si hay datos corruptos o duplicados. Siempre seguir con Re-sincronizar todo.",
       },
     ],
   },
