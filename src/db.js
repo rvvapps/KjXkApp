@@ -1263,10 +1263,45 @@ export async function returnReimbursement({ rendicionId, motivo = "" }) {
   const db = await getDB();
   const r = await db.get("reimbursements", rendicionId);
   if (!r) return;
-  r.estado = "devuelta";
-  r.motivoDevuelta = motivo || r.motivoDevuelta || "";
-  r.updatedAt = new Date().toISOString();
-  await db.put("reimbursements", r);
+
+  // Al devolver, liberar los gastos a "pendiente" para que queden disponibles.
+  // Esto previene que queden atrapados en estado "rendido" sin poder usarse.
+  const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", rendicionId);
+  const tx = db.transaction(["settings", "reimbursements", "expenses", "sync_outbox"], "readwrite");
+  const { settings, revision } = await bumpRevisionInTx(tx);
+
+  // Liberar cada gasto
+  for (const it of items) {
+    const e = await tx.objectStore("expenses").get(it.gastoId);
+    if (!e) continue;
+    // Solo liberar si el gasto apunta a esta rendición (no tocar si ya fue reasignado)
+    if (e.rendicionId !== rendicionId) continue;
+    const released = withAuditFields(
+      { ...e, estado: "pendiente", rendicionId: undefined },
+      { deviceId: settings.deviceId, revision }
+    );
+    delete released.rendicionId;
+    await tx.objectStore("expenses").put(released);
+    await enqueueEventInTx(tx, {
+      settings, revision,
+      type: "entity.upsert",
+      payload: { entityType: "expense", entityId: released.gastoId, data: released },
+    });
+  }
+
+  // Actualizar estado de la rendición
+  const updated = withAuditFields(
+    { ...r, estado: "devuelta", motivoDevuelta: motivo || r.motivoDevuelta || "" },
+    { deviceId: settings.deviceId, revision }
+  );
+  await tx.objectStore("reimbursements").put(updated);
+  await enqueueEventInTx(tx, {
+    settings, revision,
+    type: "entity.upsert",
+    payload: { entityType: "reimbursement", entityId: rendicionId, data: updated },
+  });
+
+  await tx.done;
 }
 
 export async function approveReimbursement({ rendicionId }) {

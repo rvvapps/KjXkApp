@@ -64,6 +64,24 @@ export default function Expenses() {
     }
   }, [location.pathname]);
 
+  // Al completar un sync, refrescar la lista y deseleccionar gastos que ya no estén pendientes
+  useEffect(() => {
+    async function onSyncCompleted() {
+      const [exps] = await Promise.all([listPendingExpenses()]);
+      const pendingIds = new Set(exps.map((e) => e.gastoId));
+      setSelected((prev) => {
+        const stale = [...prev].filter((id) => !pendingIds.has(id));
+        if (stale.length === 0) return prev;
+        const next = new Set(prev);
+        stale.forEach((id) => next.delete(id));
+        return next;
+      });
+      await refresh();
+    }
+    window.addEventListener("cc:syncCompleted", onSyncCompleted);
+    return () => window.removeEventListener("cc:syncCompleted", onSyncCompleted);
+  }, []);
+
   const conceptById = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
   const incomplete = useMemo(() => expenses.filter((e) => !Number(e.monto)), [expenses]);
   const complete   = useMemo(() => expenses.filter((e) => Number(e.monto) > 0), [expenses]);
@@ -72,15 +90,51 @@ export default function Expenses() {
     [expenses, selected]
   );
 
-  function toggle(id) {
+  async function toggle(id) {
+    // Si ya está seleccionado, deseleccionar directamente
+    if (selected.has(id)) {
+      const next = new Set(selected);
+      next.delete(id);
+      setSelected(next);
+      return;
+    }
     const e = expenses.find((x) => x.gastoId === id);
     if (!e || !Number(e.monto)) return;
+
+    // Re-consultar estado real desde IndexedDB antes de seleccionar
+    // (puede haber cambiado por sync desde otro dispositivo)
+    const fresh = await getExpense(id);
+    if (!fresh || fresh.estado !== "pendiente") {
+      setMsg(`⚠️ Este gasto ya no está disponible — fue incluido en otra rendición desde otro dispositivo. Sincronizando para actualizar la lista…`);
+      window.dispatchEvent(new Event("cc:dataChanged"));
+      await refresh();
+      return;
+    }
+
     const next = new Set(selected);
-    if (next.has(id)) next.delete(id); else next.add(id);
+    next.add(id);
     setSelected(next);
   }
 
-  function selectAll() { setSelected(new Set(complete.map((e) => e.gastoId))); }
+  async function selectAll() {
+    // Re-consultar estado de todos los gastos completos antes de seleccionar
+    const validIds = [];
+    let staleCount = 0;
+    for (const e of complete) {
+      const fresh = await getExpense(e.gastoId);
+      if (fresh && fresh.estado === "pendiente") {
+        validIds.push(e.gastoId);
+      } else {
+        staleCount++;
+      }
+    }
+    if (staleCount > 0) {
+      setMsg(`⚠️ ${staleCount} gasto${staleCount > 1 ? "s" : ""} ya no disponible${staleCount > 1 ? "s" : ""} — incluido${staleCount > 1 ? "s" : ""} en otra rendición. Sincronizando…`);
+      window.dispatchEvent(new Event("cc:dataChanged"));
+      await refresh();
+    }
+    setSelected(new Set(validIds));
+  }
 
   async function handleDelete(gastoId) {
     if (!confirm("¿Eliminar este gasto y sus adjuntos?")) return;

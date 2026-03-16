@@ -85,7 +85,30 @@ async function applyIncomingEvent(db, ev) {
     } else {
       await db.put(store, data);
     }
-  }
+
+    // Efecto secundario: si una rendición llega como "devuelta" desde otro dispositivo,
+    // liberar sus gastos a "pendiente" localmente (igual que hace returnReimbursement).
+    // Esto evita que los gastos queden atrapados en estado "rendido" sin poder usarse.
+    if (entityType === "reimbursement" && data.estado === "devuelta") {
+      try {
+        const rendicionId = data.rendicionId;
+        const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", rendicionId);
+        for (const it of items) {
+          const e = await db.get("expenses", it.gastoId);
+          if (!e) continue;
+          if (e.rendicionId !== rendicionId) continue; // ya fue reasignado
+          if (e.estado === "pendiente") continue;      // ya está libre
+          const released = { ...e, estado: "pendiente" };
+          delete released.rendicionId;
+          released.updatedAt = new Date().toISOString();
+          await db.put("expenses", released);
+        }
+      } catch (err) {
+        console.warn("applyIncomingEvent: error liberando gastos de rendición devuelta", err);
+      }
+    }
+
+  }  // end entity.upsert
 
   if (type === "entity.delete") {
     const { entityType, entityId } = payload;
