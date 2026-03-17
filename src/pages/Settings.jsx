@@ -371,7 +371,7 @@ function TabApp() {
                 <SelectField label="Cuenta por defecto" value={conceptForm.ctaDefaultCodigo} onChange={(v) => setConceptForm({ ...conceptForm, ctaDefaultCodigo: v })}
                   options={acctsFull.map((x) => ({ value: x.ctaCodigo, label: `${x.ctaCodigo} - ${x.ctaNombre}` }))} placeholder="Seleccione..." />
                 <SelectField label="Partida por defecto" value={conceptForm.partidaDefaultCodigo} onChange={(v) => setConceptForm({ ...conceptForm, partidaDefaultCodigo: v })}
-                  options={partsFull.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))} placeholder="Seleccione..." />
+                  options={partsFull.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))} placeholder="Sin partida" />
               </div>
               <div className="row row-form" style={{ marginTop: 12 }}>
                 <SelectField label="Clasificación por defecto" value={conceptForm.clasificacionDefaultCodigo || ""} onChange={(v) => setConceptForm({ ...conceptForm, clasificacionDefaultCodigo: v })}
@@ -396,7 +396,6 @@ function TabApp() {
                   setMsg("");
                   if (!conceptForm.nombre.trim()) return setMsg("Ingresa el nombre.");
                   if (!conceptForm.ctaDefaultCodigo) return setMsg("Selecciona la cuenta.");
-                  if (!conceptForm.partidaDefaultCodigo) return setMsg("Selecciona la partida.");
                   await upsertConcept({ ...conceptForm, conceptId: conceptForm.conceptId || uuid(), activo: true });
                   setConceptForm(null);
                   await refresh();
