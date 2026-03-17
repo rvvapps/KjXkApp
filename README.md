@@ -1,5 +1,7 @@
 # Caja Chica PWA
 
+> **Versión actual: 0.15.54**
+
 Aplicación web progresiva (PWA) para gestión de caja chica personal. Permite registrar gastos, agruparlos en rendiciones y exportar el formulario corporativo en Excel, todo desde el navegador sin necesidad de instalación ni backend.
 
 **Deploy:** `https://rvvapps.github.io/KjXkApp/`

@@ -33,7 +33,7 @@ export const HELP_CONTENT = {
       },
       {
         heading: "Cómo ingresar un gasto",
-        text: "Toca el botón + Nuevo gasto. Completa:\n• Concepto: tipo de gasto (combustible, estacionamiento, etc.)\n• Fecha y monto\n• Tipo de documento: Boleta, Factura, Voucher o Sin Doc\n• Número de documento\n• Centro de Responsabilidad (CR), Cuenta Contable y Partida\n• Adjunta la foto del documento",
+        text: "Toca el botón + Nuevo gasto. Completa:\n• Concepto: tipo de gasto (combustible, estacionamiento, etc.)\n• Fecha y monto\n• Tipo de documento: Boleta, Factura, Voucher o Sin Doc\n• Número de documento\n• Centro de Responsabilidad (CR) y Cuenta Contable (obligatorios)\n• Partida y Clasificación (opcionales — depende del CR y cuenta)\n• Adjunta la foto del documento",
       },
       {
         heading: "Gastos incompletos",
@@ -143,7 +143,7 @@ export const HELP_CONTENT = {
       },
       {
         heading: "Rendición devuelta",
-        text: "Si la rendición fue devuelta, puedes quitar gastos con error y agregar otros gastos pendientes. Una vez corregida, vuelve a exportar el Excel y cámbiala a Enviada.",
+        text: "Si la rendición fue devuelta, sus gastos quedan automáticamente disponibles en la lista de Gastos para corregir y volver a rendir. Puedes quitar gastos con error y agregar otros gastos pendientes. Una vez corregida, vuelve a exportar el Excel y cámbiala a Enviada.",
       },
     ],
   },
@@ -161,7 +161,7 @@ export const HELP_CONTENT = {
       },
       {
         heading: "Pestaña App — Conceptos",
-        text: "Los conceptos son los tipos de gasto (Combustible, Estacionamiento, Alimentación, etc.). Cada concepto tiene valores por defecto para cuenta, partida y clasificación, lo que agiliza el ingreso. Puedes marcar favoritos para que aparezcan primero en el selector.",
+        text: "Los conceptos son los tipos de gasto (Combustible, Estacionamiento, Alimentación, etc.). Cada concepto tiene valores por defecto para cuenta, partida y clasificación — estos dos últimos son opcionales. Puedes marcar favoritos para que aparezcan primero en el selector.\n\nConceptos sin usos: puedes eliminarlos definitivamente con el botón 🗑️.\nConceptos con gastos asociados: solo se pueden desactivar, no eliminar.",
       },
       {
         heading: "Pestaña App — Destinos",
