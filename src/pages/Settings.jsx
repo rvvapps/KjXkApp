@@ -482,7 +482,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.50";
+const APP_VERSION = "0.15.51";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -569,7 +569,10 @@ export default function Settings() {
   const [restoreFile, setRestoreFile] = useState(null);
   const [resumen, setResumen] = useState(null);
 
-  // Mostrar aviso si el autosync en background detectó token expirado
+  // Recargar CRs al cambiar a Perfil (pueden haberse agregado desde App)
+  useEffect(() => {
+    if (tab === "Perfil") listActiveCR().then(setCrs);
+  }, [tab]);
   useEffect(() => {
     if (sessionStorage.getItem("cc_sync_auth_error")) {
       sessionStorage.removeItem("cc_sync_auth_error");
