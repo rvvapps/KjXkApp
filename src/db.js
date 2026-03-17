@@ -176,61 +176,10 @@ export async function ensureSeedData() {
   if (!st) {
     await db.put("sync_state", {
       key: "main",
-      rootMode: null, // 'approot' | 'folder'
+      rootMode: null,
       driveId: null,
       rootFolderItemId: null,
       lastCheckpoint: {},
-    });
-  }
-
-  // Seed some sample catalog values if empty (optional)
-  const anyCR = await db.getAll("catalog_cr");
-  if (anyCR.length === 0) {
-    await db.put("catalog_cr", { crCodigo: "0001", crNombre: "Gerencia Constructora", activo: true });
-    await db.put("catalog_cr", { crCodigo: "0002", crNombre: "Calidad", activo: true });
-  }
-  const anyAcct = await db.getAll("catalog_accounts");
-  if (anyAcct.length === 0) {
-    await db.put("catalog_accounts", { ctaCodigo: "510100", ctaNombre: "Gastos de Viaje", activo: true });
-    await db.put("catalog_accounts", { ctaCodigo: "510200", ctaNombre: "Combustibles", activo: true });
-  }
-  const anyPart = await db.getAll("catalog_partidas");
-  if (anyPart.length === 0) {
-    await db.put("catalog_partidas", { partidaCodigo: "01", partidaNombre: "Operación", activo: true });
-    await db.put("catalog_partidas", { partidaCodigo: "02", partidaNombre: "Administración", activo: true });
-  }
-
-  // Seed clasificaciones si está vacío
-  const anyClasif = await db.getAll("catalog_clasificaciones");
-  if (anyClasif.length === 0) {
-    await db.put("catalog_clasificaciones", { clasificacionCodigo: "01", clasificacionNombre: "Nacional", activo: true });
-    await db.put("catalog_clasificaciones", { clasificacionCodigo: "02", clasificacionNombre: "Internacional", activo: true });
-  }
-
-  // Seed a couple concepts if missing
-  const concepts = await db.getAll("concepts");
-  if (concepts.length === 0) {
-    await db.put("concepts", {
-      conceptId: uuid(),
-      nombre: "Combustible",
-      ctaDefaultCodigo: "510200",
-      partidaDefaultCodigo: "01",
-      clasificacionDefaultCodigo: "",
-      requiereDoc: true,
-      requiereRespaldo: true,
-      favorito: true,
-      activo: true,
-    });
-    await db.put("concepts", {
-      conceptId: uuid(),
-      nombre: "Estacionamiento",
-      ctaDefaultCodigo: "510100",
-      partidaDefaultCodigo: "01",
-      clasificacionDefaultCodigo: "",
-      requiereDoc: true,
-      requiereRespaldo: true,
-      favorito: true,
-      activo: true,
     });
   }
 }
@@ -898,6 +847,13 @@ export async function activateConcept(conceptId) {
   c.activo = true;
   await db.put("concepts", c);
   await enqueueEvent(db, { type: "entity.upsert", payload: { entityType: "concept", entityId: conceptId, data: c } });
+}
+
+export async function deleteConcept(conceptId) {
+  const db = await getDB();
+  await db.delete("concepts", conceptId);
+  await enqueueEvent(db, { type: "entity.delete", payload: { entityType: "concept", entityId: conceptId, deletedAt: new Date().toISOString() } });
+  notifyDataChanged();
 }
 
 export async function listAllConcepts() {

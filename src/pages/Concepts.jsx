@@ -5,6 +5,7 @@ import {
   upsertConcept,
   deactivateConcept,
   activateConcept,
+  deleteConcept,
   listActiveAccounts,
   listActivePartidas,
   listActiveClasificaciones,
@@ -98,6 +99,12 @@ export default function Concepts() {
     await refresh();
   }
 
+  async function handleDelete(conceptId) {
+    if (!confirm("¿Eliminar este concepto definitivamente? Esta acción no se puede deshacer.")) return;
+    await deleteConcept(conceptId);
+    await refresh();
+  }
+
   async function reactivate(conceptId) {
     await activateConcept(conceptId);
     await refresh();
@@ -179,6 +186,15 @@ export default function Concepts() {
                           onClick={() => remove(c.conceptId)}
                         >
                           Desactivar
+                        </button>
+                      )}
+                      {!isUsed && (
+                        <button
+                          className="btn danger"
+                          title="Eliminar definitivamente"
+                          onClick={() => handleDelete(c.conceptId)}
+                        >
+                          🗑️
                         </button>
                       )}
                     </div>
