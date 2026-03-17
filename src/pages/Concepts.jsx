@@ -236,8 +236,8 @@ export default function Concepts() {
             label="Partida por defecto"
             value={form.partidaDefaultCodigo}
             onChange={(v) => setForm({ ...form, partidaDefaultCodigo: v })}
-            options={[{ value: "", label: "Sin partida" }, ...parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))]}
-            placeholder="Sin partida..."
+            options={parts.map((x) => ({ value: x.partidaCodigo, label: `${x.partidaCodigo} - ${x.partidaNombre}` }))}
+            placeholder="Sin partida"
           />
         </div>
 
