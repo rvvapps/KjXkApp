@@ -744,22 +744,49 @@ export async function cancelReimbursement({ rendicionId }) {
     );
   }
 
-  const tx = db.transaction(["reimbursements", "reimbursement_items", "expenses"], "readwrite");
-  const items = await tx.objectStore("reimbursement_items").index("rendicionId").getAll(rendicionId);
+  const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", rendicionId);
 
+  const tx = db.transaction(["settings", "reimbursements", "reimbursement_items", "expenses", "sync_outbox"], "readwrite");
+  const { settings, revision } = await bumpRevisionInTx(tx);
+  const now = nowIso();
+
+  // Liberar gastos a pendiente
   for (const it of items) {
     const e = await tx.objectStore("expenses").get(it.gastoId);
     if (!e) continue;
-    e.estado = "pendiente";
-    delete e.rendicionId;
-    e.updatedAt = new Date().toISOString();
-    await tx.objectStore("expenses").put(e);
+    const released = withAuditFields(
+      { ...e, estado: "pendiente", rendicionId: undefined },
+      { deviceId: settings.deviceId, revision }
+    );
+    delete released.rendicionId;
+    await tx.objectStore("expenses").put(released);
+    await enqueueEventInTx(tx, {
+      settings, revision,
+      type: "entity.upsert",
+      payload: { entityType: "expense", entityId: released.gastoId, data: released },
+    });
   }
+
+  // Borrar items de rendición con evento sync
   for (const it of items) {
     await tx.objectStore("reimbursement_items").delete(it.itemId);
+    await enqueueEventInTx(tx, {
+      settings, revision,
+      type: "entity.delete",
+      payload: { entityType: "reimbursement_item", entityId: it.itemId, deletedAt: now },
+    });
   }
+
+  // Borrar rendición con evento sync
   await tx.objectStore("reimbursements").delete(rendicionId);
+  await enqueueEventInTx(tx, {
+    settings, revision,
+    type: "entity.delete",
+    payload: { entityType: "reimbursement", entityId: rendicionId, deletedAt: now },
+  });
+
   await tx.done;
+  notifyDataChanged();
 }
 
 /** Quita un gasto de una rendición devuelta — lo devuelve a pendiente sin borrarlo. */
