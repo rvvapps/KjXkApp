@@ -483,6 +483,19 @@ export async function listPendingExpenses() {
   const db = await getDB();
   return db.getAllFromIndex("expenses", "estado", "pendiente");
 }
+
+// Retorna gastos en rendiciones devueltas — se muestran bloqueados en la lista de gastos
+export async function listExpensesInReturnedReimbursements() {
+  const db = await getDB();
+  const rendidas = await db.getAllFromIndex("expenses", "estado", "rendido");
+  const result = [];
+  for (const e of rendidas) {
+    if (!e.rendicionId) continue;
+    const reim = await db.get("reimbursements", e.rendicionId);
+    if (reim?.estado === "devuelta") result.push({ ...e, _rendicionCorrelativo: reim.correlativo });
+  }
+  return result;
+}
 export async function countExpensesByConceptId(conceptId) {
   const db = await getDB();
 
@@ -1242,32 +1255,13 @@ export async function returnReimbursement({ rendicionId, motivo = "" }) {
   const r = await db.get("reimbursements", rendicionId);
   if (!r) return;
 
-  // Al devolver, liberar los gastos a "pendiente" para que queden disponibles.
-  // Esto previene que queden atrapados en estado "rendido" sin poder usarse.
-  const items = await db.getAllFromIndex("reimbursement_items", "rendicionId", rendicionId);
-  const tx = db.transaction(["settings", "reimbursements", "expenses", "sync_outbox"], "readwrite");
+  // Al devolver, los gastos NO se liberan — mantienen estado "rendido" y rendicionId.
+  // Siguen perteneciendo a esta rendición devuelta.
+  // Para liberar un gasto hay que quitarlo explícitamente desde el detalle
+  // de la rendición devuelta, o cancelar la rendición completa.
+  const tx = db.transaction(["settings", "reimbursements", "sync_outbox"], "readwrite");
   const { settings, revision } = await bumpRevisionInTx(tx);
 
-  // Liberar cada gasto
-  for (const it of items) {
-    const e = await tx.objectStore("expenses").get(it.gastoId);
-    if (!e) continue;
-    // Solo liberar si el gasto apunta a esta rendición (no tocar si ya fue reasignado)
-    if (e.rendicionId !== rendicionId) continue;
-    const released = withAuditFields(
-      { ...e, estado: "pendiente", rendicionId: undefined },
-      { deviceId: settings.deviceId, revision }
-    );
-    delete released.rendicionId;
-    await tx.objectStore("expenses").put(released);
-    await enqueueEventInTx(tx, {
-      settings, revision,
-      type: "entity.upsert",
-      payload: { entityType: "expense", entityId: released.gastoId, data: released },
-    });
-  }
-
-  // Actualizar estado de la rendición
   const updated = withAuditFields(
     { ...r, estado: "devuelta", motivoDevuelta: motivo || r.motivoDevuelta || "" },
     { deviceId: settings.deviceId, revision }

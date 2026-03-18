@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import {
-  listPendingExpenses, deleteExpense, listConcepts,
+  listPendingExpenses, listExpensesInReturnedReimbursements, deleteExpense, listConcepts,
   listAttachmentsForExpense, getGastoIdsWithAttachments, getSettings, saveSettings,
   createReimbursement, addReimbursementItems, markExpensesReimbursed,
   getExpense,
@@ -28,6 +28,7 @@ export default function Expenses() {
 
   const [expenses, setExpenses] = useState([]);
   const [concepts, setConcepts] = useState([]);
+  const [returnedExpenses, setReturnedExpenses] = useState([]);
   const [selected, setSelected] = useState(new Set());
   const [attachData, setAttachData] = useState({});
   const [hasAttSet, setHasAttSet] = useState(new Set());
@@ -36,10 +37,12 @@ export default function Expenses() {
   const [lightbox, setLightbox] = useState(null);
 
   async function refresh() {
-    const [exps, concs, attSet] = await Promise.all([
-      listPendingExpenses(), listConcepts(), getGastoIdsWithAttachments()
+    const [exps, returned, concs, attSet] = await Promise.all([
+      listPendingExpenses(), listExpensesInReturnedReimbursements(),
+      listConcepts(), getGastoIdsWithAttachments()
     ]);
     setExpenses(exps);
+    setReturnedExpenses(returned);
     setConcepts(concs);
     setHasAttSet(attSet);
     setAttachData((prev) => {
@@ -356,6 +359,32 @@ export default function Expenses() {
               </>
             )}
             {complete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
+          </div>
+        )}
+
+        {/* Gastos en rendiciones devueltas — visibles pero no seleccionables */}
+        {returnedExpenses.length > 0 && (
+          <div className="card" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 8 }}>
+              🔒 En rendición devuelta ({returnedExpenses.length})
+            </div>
+            {returnedExpenses.map((e) => {
+              const concept = conceptById.get(e.conceptId);
+              const label = concept?.nombre || e.detalle?.split("\n")[0]?.slice(0, 40) || "Sin detalle";
+              return (
+                <div key={e.gastoId} style={{ paddingTop: 8, paddingBottom: 6, borderTop: "1px solid rgba(255,255,255,.07)", opacity: 0.7 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>🔒 {label}</div>
+                  <div className="small" style={{ marginTop: 2 }}>
+                    {new Date(e.fecha).toLocaleDateString("es-CL")}
+                    {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : " S/n"}
+                    {" · $"}{Number(e.monto || 0).toLocaleString("es-CL")}
+                  </div>
+                  <div className="small" style={{ marginTop: 2, color: "#f87171" }}>
+                    En rendición {e._rendicionCorrelativo} — ve a rendiciones para editarla
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

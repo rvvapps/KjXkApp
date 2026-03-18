@@ -130,7 +130,7 @@ function SyncIndicator() {
   return (
     <span title="Sincronizando…" style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      fontSize: 11, color: "rgba(255,255,255,.5)", flexShrink: 0,
+      fontSize: 18, color: "rgba(255,255,255,.7)", flexShrink: 0,
     }}>
       <span style={{ animation: "cc-spin 1s linear infinite", display: "inline-block" }}>⟳</span>
     </span>

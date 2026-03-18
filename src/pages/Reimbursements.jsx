@@ -29,6 +29,12 @@ export default function Reimbursements() {
     listReimbursements().then(setReims);
   }, []);
 
+  useEffect(() => {
+    function onSync() { listReimbursements().then(setReims); }
+    window.addEventListener("cc:syncCompleted", onSync);
+    return () => window.removeEventListener("cc:syncCompleted", onSync);
+  }, []);
+
   const filtered = useMemo(() => {
     const list = filtro === "todos" ? reims : reims.filter((r) => r.estado === filtro);
     return list.slice().sort((a, b) => (b.fechaCreacion || "").localeCompare(a.fechaCreacion || ""));

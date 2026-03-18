@@ -133,6 +133,24 @@ export default function Dashboard() {
     })();
   }, []);
 
+  // Auto-refresh al completar sync
+  useEffect(() => {
+    async function onSync() {
+      const [pend, rms, trns, concs] = await Promise.all([
+        listPendingExpenses(),
+        listReimbursements(),
+        listTransfersByEstado("pendiente").catch(() => []),
+        listConcepts(),
+      ]);
+      setPending(pend);
+      setReims(rms);
+      setTransfers(trns);
+      setConcepts(concs);
+    }
+    window.addEventListener("cc:syncCompleted", onSync);
+    return () => window.removeEventListener("cc:syncCompleted", onSync);
+  }, []);
+
   const conceptMap = useMemo(() => new Map(concepts.map((c) => [c.conceptId, c])), [concepts]);
 
   // Gastos
