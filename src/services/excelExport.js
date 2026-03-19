@@ -330,24 +330,15 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   // ── Hoja 2: Resumen agrupado por CR / Cuenta / Partida ───────────────────────
   buildResumenSheet(wb, sorted, correlativo);
 
-  // Escribir buffer — si falla por anchors inválidos (bug ExcelJS + imágenes),
-  // reintentar limpiando las imágenes del workbook (se pierde el logo pero el resto queda intacto)
-  let buffer;
-  try {
-    buffer = await wb.xlsx.writeBuffer();
-  } catch (err) {
-    if (String(err?.message).includes("anchors") || String(err?.message).includes("Cannot read properties")) {
-      // Limpiar imágenes de todos los worksheets y reintentar
-      wb.worksheets.forEach((sheet) => {
-        try { sheet._drawings = []; } catch {}
-        try { if (sheet.model) sheet.model.drawings = []; } catch {}
-      });
-      buffer = await wb.xlsx.writeBuffer();
-    } else {
-      throw err;
-    }
-  }
+  // Limpiar imágenes antes de exportar — ExcelJS tiene un bug con anchors
+  // en Safari/iOS que hace fallar el writeBuffer. Se pierde el logo pero
+  // todos los datos, fórmulas y formato quedan intactos.
+  wb.worksheets.forEach((sheet) => {
+    try { sheet._drawings = []; } catch {}
+    try { if (sheet.model) sheet.model.drawings = []; } catch {}
+  });
 
+  const buffer = await wb.xlsx.writeBuffer();
   return new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
