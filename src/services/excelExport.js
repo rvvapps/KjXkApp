@@ -204,6 +204,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   const buf = bytes.buffer.slice(0);
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
+
   const ws = wb.getWorksheet("Formulario");
   if (!ws) throw new Error("Hoja Formulario no encontrada en template");
 
@@ -329,7 +330,24 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   // ── Hoja 2: Resumen agrupado por CR / Cuenta / Partida ───────────────────────
   buildResumenSheet(wb, sorted, correlativo);
 
-  const buffer = await wb.xlsx.writeBuffer();
+  // Escribir buffer — si falla por anchors inválidos (bug ExcelJS + imágenes),
+  // reintentar limpiando las imágenes del workbook (se pierde el logo pero el resto queda intacto)
+  let buffer;
+  try {
+    buffer = await wb.xlsx.writeBuffer();
+  } catch (err) {
+    if (String(err?.message).includes("anchors") || String(err?.message).includes("Cannot read properties")) {
+      // Limpiar imágenes de todos los worksheets y reintentar
+      wb.worksheets.forEach((sheet) => {
+        try { sheet._drawings = []; } catch {}
+        try { if (sheet.model) sheet.model.drawings = []; } catch {}
+      });
+      buffer = await wb.xlsx.writeBuffer();
+    } else {
+      throw err;
+    }
+  }
+
   return new Blob([buffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
