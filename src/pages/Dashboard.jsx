@@ -243,8 +243,8 @@ export default function Dashboard() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, opacity: 0.65, paddingLeft: 2 }}>
           <span>
             {syncInfo.connected
-              ? <span style={{ color: "#86efac" }}>● OneDrive conectado</span>
-              : <span style={{ color: "#f87171" }}>● OneDrive desconectado</span>
+              ? <span style={{ color: "var(--success)" }}>● OneDrive conectado</span>
+              : <span style={{ color: "var(--danger)" }}>● OneDrive desconectado</span>
             }
           </span>
           {syncInfo.lastSync && (

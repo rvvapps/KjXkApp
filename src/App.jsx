@@ -87,7 +87,7 @@ function getPageTitle(pathname) {
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
   if (pathname.startsWith("/gastos/")) return "Editar gasto";
   if (pathname.startsWith("/rendiciones/")) return "Detalle rendición";
-  return "Caja Chica";
+  return "Rendicion";
 }
 
 function NavItem({ to, label, currentPath, onClick }) {
@@ -159,8 +159,8 @@ function AppContent() {
       }}>
         {/* Marca */}
         <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px" }}>
-            CAJA CHICA
+          <span style={{ fontSize: 14, fontWeight: 800, color: "var(--brand)", letterSpacing: "1px" }}>
+            RENDICION
           </span>
         </Link>
 
