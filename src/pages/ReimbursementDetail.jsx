@@ -149,6 +149,13 @@ export default function ReimbursementDetail() {
 
   useEffect(() => { reloadAll(); }, [rendicionId]);
 
+  // Auto-refresh al llegar sync desde otro dispositivo
+  useEffect(() => {
+    function onSync() { reloadAll(); }
+    window.addEventListener("cc:syncCompleted", onSync);
+    return () => window.removeEventListener("cc:syncCompleted", onSync);
+  }, [rendicionId]);
+
   const total = useMemo(() => expenses.reduce((s, e) => s + (Number(e.monto) || 0), 0), [expenses]);
 
   // ── Validación ──────────────────────────────────────────────────────────────
