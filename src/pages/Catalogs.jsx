@@ -53,7 +53,7 @@ function CatalogBlock({ title, rows, onSave, onDelete, onAdd }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {rows.map((r) => (
             <div key={r.code} style={{
-              borderTop: "1px solid rgba(255,255,255,.08)",
+              borderTop: "1px solid var(--sep)",
               paddingTop: 8,
               opacity: r.activo === false ? 0.55 : 1,
             }}>
@@ -154,7 +154,7 @@ function DestsBlock({ dests, crs, onRefresh, destForm, setDestForm, onAdd }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {dests.map((d) => (
             <div key={d.destinationId} style={{
-              borderTop: "1px solid rgba(255,255,255,.08)",
+              borderTop: "1px solid var(--sep)",
               paddingTop: 8,
               opacity: d.activo === false ? 0.55 : 1,
             }}>

@@ -35,7 +35,7 @@ function MsgBox({ msg }) {
       className="small"
       style={{
         padding: 10,
-        border: "1px solid rgba(255,255,255,.12)",
+        border: "1px solid var(--sep)",
         borderRadius: 12,
         marginTop: 10,
         whiteSpace: "pre-line",
@@ -269,7 +269,7 @@ export default function NewExpense() {
           className="small"
           style={{
             padding: 10,
-            border: "1px solid rgba(255,255,255,.12)",
+            border: "1px solid var(--sep)",
             borderRadius: 12,
           }}
         >

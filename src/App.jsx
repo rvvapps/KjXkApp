@@ -155,7 +155,7 @@ function AppContent() {
       <header style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 12, paddingBottom: 8,
-        borderBottom: "1px solid rgba(255,255,255,.07)",
+        borderBottom: "1px solid var(--sep)",
       }}>
         {/* Marca */}
         <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>

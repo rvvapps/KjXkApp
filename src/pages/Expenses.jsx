@@ -241,11 +241,11 @@ export default function Expenses() {
     }
 
     return (
-      <div style={{ paddingTop: 10, paddingBottom: 6, borderTop: "1px solid rgba(255,255,255,.07)" }}>
+      <div style={{ paddingTop: 10, paddingBottom: 6, borderTop: "1px solid var(--sep)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              {isIncomplete && <span title="Falta monto" style={{ color: "#facc15" }}>⚠️</span>}
+              {isIncomplete && <span title="Falta monto" style={{ color: "var(--warning)" }}>⚠️</span>}
               <span
                 onClick={handleClipClick}
                 title={hasAtt ? "Ver adjunto" : "Sin adjunto"}
@@ -263,7 +263,7 @@ export default function Expenses() {
               {new Date(e.fecha).toLocaleDateString("es-CL")}
               {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : " S/n"}
               {" · CR "}{e.crCodigo || "—"}
-              {" · "}{isIncomplete ? <span style={{ color: "#facc15" }}>sin monto</span> : `$${Number(e.monto).toLocaleString("es-CL")}`}
+              {" · "}{isIncomplete ? <span style={{ color: "var(--warning)" }}>sin monto</span> : `$${Number(e.monto).toLocaleString("es-CL")}`}
             </div>
           </div>
 
@@ -281,14 +281,14 @@ export default function Expenses() {
             <button
               title={isIncomplete ? "Completar" : "Editar"}
               onClick={() => nav(`/gastos/${e.gastoId}`)}
-              style={{ background: "transparent", border: "1px solid rgba(255,255,255,.2)", borderRadius: 8, color: "#e5e7eb", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+              style={{ background: "transparent", border: "1px solid var(--sep)", borderRadius: 8, color: "var(--text)", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
             >
               <IconEdit />
             </button>
             <button
               title="Eliminar"
               onClick={() => handleDelete(e.gastoId)}
-              style={{ background: "transparent", border: "1px solid rgba(239,68,68,.4)", borderRadius: 8, color: "#f87171", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
+              style={{ background: "transparent", border: "1px solid rgba(239,68,68,.4)", borderRadius: 8, color: "var(--danger)", padding: "6px 8px", cursor: "pointer", display: "flex", alignItems: "center" }}
             >
               <IconTrash />
             </button>
@@ -308,10 +308,10 @@ export default function Expenses() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
-            <div className="small" style={{ opacity: 0.6 }}>Gastos pendientes</div>
+            <div className="small" style={{ color: "var(--text3)" }}>Gastos pendientes</div>
             <div style={{ display: "flex", gap: 20, marginTop: 4 }}>
               <div><div className="kpi" style={{ fontSize: 22 }}>{expenses.length}</div><div className="small">total</div></div>
-              <div><div className="kpi" style={{ fontSize: 22, color: selected.size > 0 ? "#e5e7eb" : "inherit" }}>{selected.size}</div><div className="small">selec.</div></div>
+              <div><div className="kpi" style={{ fontSize: 22, color: "var(--text)" }}>{selected.size}</div><div className="small">selec.</div></div>
               <div><div className="kpi" style={{ fontSize: 22, color: totalSelected > 0 ? "#86efac" : "inherit" }}>${totalSelected.toLocaleString("es-CL")}</div><div className="small">monto</div></div>
             </div>
           </div>
@@ -334,7 +334,7 @@ export default function Expenses() {
         </div>
 
         {msg && (
-          <div className="small" style={{ padding: "8px 12px", border: "1px solid rgba(255,255,255,.12)", borderRadius: 10, marginTop: 10, whiteSpace: "pre-line" }}>
+          <div className="small" style={{ padding: "8px 12px", border: "1px solid var(--sep)", borderRadius: 10, marginTop: 10, whiteSpace: "pre-line" }}>
             {msg}
           </div>
         )}
@@ -344,16 +344,16 @@ export default function Expenses() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontWeight: 700 }}>Detalle</div>
-          <div className="small" style={{ opacity: 0.5 }}>📎 = imagen</div>
+          <div className="small" style={{ color: "var(--text3)" }}>📎 = imagen</div>
         </div>
 
         {expenses.length === 0 ? (
-          <div className="small" style={{ opacity: 0.6 }}>No hay gastos pendientes 🎉</div>
+          <div className="small" style={{ color: "var(--text3)" }}>No hay gastos pendientes 🎉</div>
         ) : (
           <div>
             {incomplete.length > 0 && (
               <>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#facc15", marginBottom: 4 }}>Incompletos ({incomplete.length})</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--warning)", marginBottom: 4 }}>Incompletos ({incomplete.length})</div>
                 {incomplete.map((e) => <ExpenseRow key={e.gastoId} e={e} />)}
                 <div style={{ fontSize: 12, fontWeight: 700, marginTop: 12, marginBottom: 4, opacity: 0.7 }}>Listos ({complete.length})</div>
               </>
@@ -365,21 +365,21 @@ export default function Expenses() {
         {/* Gastos en rendiciones devueltas — visibles pero no seleccionables */}
         {returnedExpenses.length > 0 && (
           <div className="card" style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--danger)", marginBottom: 8 }}>
               🔒 En rendición devuelta ({returnedExpenses.length})
             </div>
             {returnedExpenses.map((e) => {
               const concept = conceptById.get(e.conceptId);
               const label = concept?.nombre || e.detalle?.split("\n")[0]?.slice(0, 40) || "Sin detalle";
               return (
-                <div key={e.gastoId} style={{ paddingTop: 8, paddingBottom: 6, borderTop: "1px solid rgba(255,255,255,.07)", opacity: 0.7 }}>
+                <div key={e.gastoId} style={{ paddingTop: 8, paddingBottom: 6, borderTop: "1px solid var(--sep)", opacity: 0.7 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>🔒 {label}</div>
                   <div className="small" style={{ marginTop: 2 }}>
                     {new Date(e.fecha).toLocaleDateString("es-CL")}
                     {" · "}{e.docTipo || "—"}{e.docNumero ? ` ${e.docNumero}` : " S/n"}
                     {" · $"}{Number(e.monto || 0).toLocaleString("es-CL")}
                   </div>
-                  <div className="small" style={{ marginTop: 2, color: "#f87171" }}>
+                  <div className="small" style={{ marginTop: 2, color: "var(--danger)" }}>
                     En rendición {e._rendicionCorrelativo} — ve a rendiciones para editarla
                   </div>
                 </div>
@@ -407,7 +407,7 @@ export default function Expenses() {
         <div onClick={() => setLightbox(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
           <img src={lightbox.url} alt={lightbox.filename} onClick={(e) => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "85vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 40px rgba(0,0,0,.6)" }} />
           <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
-            <span className="small" style={{ color: "rgba(255,255,255,.7)" }}>{lightbox.filename}</span>
+            <span className="small" style={{ color: "var(--text2)" }}>{lightbox.filename}</span>
             <a href={lightbox.url} download={lightbox.filename} onClick={(e) => e.stopPropagation()} className="btn secondary" style={{ fontSize: 13 }}>Descargar</a>
             <button className="btn secondary" onClick={() => setLightbox(null)} style={{ fontSize: 13 }}>Cerrar</button>
           </div>

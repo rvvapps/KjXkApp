@@ -3,11 +3,11 @@ import { listPendingExpenses, listReimbursements, listTransfersByEstado, listAtt
 import { Link } from "react-router-dom";
 
 const ESTADO_STYLE = {
-  borrador:  { bg: "rgba(255,255,255,.06)",    border: "rgba(255,255,255,.15)",  color: "#e5e7eb",  label: "Borrador" },
-  enviada:   { bg: "rgba(14,165,233,.10)",     border: "rgba(14,165,233,.35)",   color: "#7dd3fc",  label: "Enviada" },
+  borrador:  { bg: "var(--bg3)", border: "var(--sep)",  color: "var(--text)",  label: "Borrador" },
+  enviada:   { bg: "rgba(14,165,233,.10)",     border: "rgba(14,165,233,.35)",   color: "var(--accent)",  label: "Enviada" },
   devuelta:  { bg: "rgba(239,68,68,.10)",      border: "rgba(239,68,68,.35)",    color: "#fca5a5",  label: "Devuelta" },
   aprobada:  { bg: "rgba(99,102,241,.10)",     border: "rgba(99,102,241,.35)",   color: "#a5b4fc",  label: "Aprobada" },
-  pagada:    { bg: "rgba(34,197,94,.10)",      border: "rgba(34,197,94,.35)",    color: "#86efac",  label: "Pagada" },
+  pagada:    { bg: "rgba(34,197,94,.10)",      border: "rgba(34,197,94,.35)",    color: "var(--success)",  label: "Pagada" },
 };
 
 function StatePill({ estado }) {
@@ -33,9 +33,9 @@ function KpiCard({ label, value, sub, color }) {
 
 function AlertBanner({ color, icon, children }) {
   const colors = {
-    yellow: { bg: "rgba(250,204,21,.08)", border: "rgba(250,204,21,.25)", text: "#fde047" },
+    yellow: { bg: "rgba(250,204,21,.08)", border: "rgba(250,204,21,.25)", text: "var(--warning)" },
     red:    { bg: "rgba(239,68,68,.08)",  border: "rgba(239,68,68,.25)",  text: "#fca5a5" },
-    blue:   { bg: "rgba(14,165,233,.08)", border: "rgba(14,165,233,.25)", text: "#7dd3fc" },
+    blue:   { bg: "rgba(14,165,233,.08)", border: "rgba(14,165,233,.25)", text: "var(--accent)" },
   };
   const s = colors[color] || colors.yellow;
   return (
@@ -49,7 +49,7 @@ function AlertBanner({ color, icon, children }) {
 function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableYears, balanceYear, setBalanceYear, fmt }) {
   const [open, setOpen] = React.useState(false);
   return (
-    <div style={{ marginTop: 10, borderTop: "1px solid rgba(255,255,255,.07)", paddingTop: 10 }}>
+    <div style={{ marginTop: 10, borderTop: "1px solid var(--sep)", paddingTop: 10 }}>
       <div
         onClick={() => setOpen((v) => !v)}
         style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", userSelect: "none" }}
@@ -57,7 +57,7 @@ function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableY
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontWeight: 700, fontSize: 13, opacity: 0.8 }}>Balance</span>
           {!open && totalPorCobrar > 0 && (
-            <span style={{ fontSize: 13, fontWeight: 800, color: "#7dd3fc" }}>{fmt(totalPorCobrar)} por cobrar</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: "var(--accent)" }}>{fmt(totalPorCobrar)} por cobrar</span>
           )}
         </div>
         <span style={{ fontSize: 12, opacity: 0.5 }}>{open ? "▲" : "▼"}</span>
@@ -69,7 +69,7 @@ function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableY
             <select
               value={balanceYear}
               onChange={(e) => setBalanceYear(e.target.value)}
-              style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.15)", borderRadius: 8, color: "#e5e7eb", padding: "4px 8px", fontSize: 12, marginBottom: 10 }}
+              style={{ background: "var(--bg3)", border: "1px solid var(--sep)", borderRadius: 8, color: "var(--text)", padding: "4px 8px", fontSize: 12, marginBottom: 10 }}
             >
               <option value="todos">Histórico</option>
               {availableYears.map((y) => <option key={y} value={y}>{y}</option>)}
@@ -77,8 +77,8 @@ function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableY
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { label: "Gastado",    value: fmt(totalGastado),    color: "#e5e7eb" },
-              { label: "Cobrado",    value: fmt(totalCobrado),    color: "#86efac" },
+              { label: "Gastado",    value: fmt(totalGastado),    color: "var(--text)" },
+              { label: "Cobrado",    value: fmt(totalCobrado),    color: "var(--success)" },
               { label: "Por cobrar", value: fmt(totalPorCobrar),  color: totalPorCobrar > 0 ? "#7dd3fc" : "#e5e7eb" },
             ].map(({ label, value, color }) => (
               <div key={label} style={{ display: "flex", justifyContent: "space-between" }}>
@@ -89,13 +89,13 @@ function BalanceSection({ totalGastado, totalCobrado, totalPorCobrar, availableY
           </div>
           {totalGastado > 0 && (
             <div style={{ marginTop: 10 }}>
-              <div style={{ height: 6, borderRadius: 99, background: "rgba(255,255,255,.08)", overflow: "hidden" }}>
+              <div style={{ height: 6, borderRadius: 99, background: "var(--bg3)", overflow: "hidden" }}>
                 <div style={{ height: "100%", borderRadius: 99, background: "linear-gradient(90deg,#22c55e,#86efac)", width: `${Math.min(100, Math.round(totalCobrado / totalGastado * 100))}%`, transition: "width .4s" }} />
               </div>
-              <div className="small" style={{ opacity: 0.5, marginTop: 4 }}>Cobrado {Math.round(totalCobrado / totalGastado * 100)}%</div>
+              <div className="small" style={{ color: "var(--text3)", marginTop: 4 }}>Cobrado {Math.round(totalCobrado / totalGastado * 100)}%</div>
             </div>
           )}
-          {totalGastado === 0 && <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>}
+          {totalGastado === 0 && <div className="small" style={{ color: "var(--text3)" }}>Sin rendiciones {balanceYear !== "todos" ? `en ${balanceYear}` : "registradas"}.</div>}
         </div>
       )}
     </div>
@@ -296,7 +296,7 @@ export default function Dashboard() {
             );
           })}
 
-          {reims.length === 0 && <div className="small" style={{ opacity: 0.5 }}>Sin rendiciones aún.</div>}
+          {reims.length === 0 && <div className="small" style={{ color: "var(--text3)" }}>Sin rendiciones aún.</div>}
 
           {/* Balance colapsable */}
           <BalanceSection
@@ -319,11 +319,11 @@ export default function Dashboard() {
                 <Link key={r.rendicionId} to={`/rendiciones/${r.rendicionId}`} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "8px 0", borderTop: "1px solid rgba(255,255,255,.07)",
+                    padding: "8px 0", borderTop: "1px solid var(--sep)",
                   }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{r.correlativo}</div>
-                      <div className="small" style={{ opacity: 0.5 }}>
+                      <div className="small" style={{ color: "var(--text3)" }}>
                         {new Date(r.fechaCreacion).toLocaleDateString("es-CL")}
                         {r.total ? ` · ${fmt(r.total)}` : ""}
                       </div>

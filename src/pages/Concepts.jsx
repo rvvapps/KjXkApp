@@ -210,7 +210,7 @@ export default function Concepts() {
         <h2>{isEditing ? "Editar concepto" : "Nuevo concepto"}</h2>
 
         {msg && (
-          <div className="small" style={{ padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12 }}>
+          <div className="small" style={{ padding: 10, border: "1px solid var(--sep)", borderRadius: 12 }}>
             {msg}
           </div>
         )}

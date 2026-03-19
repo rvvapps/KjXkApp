@@ -218,7 +218,7 @@ export default function Transfers() {
 
         {msg && (
           <div className="small" style={{
-            padding: 10, border: "1px solid rgba(255,255,255,.12)",
+            padding: 10, border: "1px solid var(--sep)",
             borderRadius: 12, marginTop: 8, whiteSpace: "pre-line",
           }}>
             {msg}
@@ -372,7 +372,7 @@ export default function Transfers() {
                         justifyContent: "space-between",
                         alignItems: "center",
                         paddingTop: 8,
-                        borderTop: "1px solid rgba(255,255,255,.08)",
+                        borderTop: "1px solid var(--sep)",
                       }}
                     >
                       <div>

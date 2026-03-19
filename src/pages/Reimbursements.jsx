@@ -58,16 +58,16 @@ export default function Reimbursements() {
                 onClick={() => setFiltro(e)}
                 className="btn"
                 style={{
-                  background: filtro === e ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
-                  border: filtro === e ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
-                  color: filtro === e ? "#fff" : "rgba(255,255,255,.75)",
+                  background: filtro === e ? "var(--accent)" : "var(--bg3)",
+                  border: filtro === e ? "2px solid var(--accent)" : "1px solid var(--sep)",
+                  color: filtro === e ? "#fff" : "var(--text)",
                   fontWeight: filtro === e ? 800 : 500,
-                  opacity: counts[e] || e === "todos" ? 1 : 0.35,
+                  opacity: counts[e] || e === "todos" ? 1 : 0.4,
                   fontSize: 13,
                 }}
               >
                 {ESTADO_LABEL[e]}
-                {counts[e] ? <span style={{ marginLeft: 6, opacity: 0.7 }}>({counts[e]})</span> : null}
+                {counts[e] ? <span style={{ marginLeft: 6, color: "var(--text3)" }}>({counts[e]})</span> : null}
               </button>
             ))}
         </div>
@@ -94,9 +94,9 @@ export default function Reimbursements() {
                   <div style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                     padding: "10px 14px",
-                    background: ESTADO_COLOR[r.estado] || "rgba(255,255,255,.04)",
+                    background: ESTADO_COLOR[r.estado] || "var(--bg3)",
                     borderRadius: 12,
-                    border: "1px solid rgba(255,255,255,.08)",
+                    border: "1px solid var(--sep)",
                   }}>
                     <div>
                       <div style={{ fontWeight: 900 }}>{r.correlativo}</div>
@@ -109,11 +109,11 @@ export default function Reimbursements() {
                     <div className="row" style={{ gap: 8, alignItems: "center" }}>
                       <span style={{
                         padding: "3px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-                        background: ESTADO_COLOR[r.estado] || "rgba(255,255,255,.06)",
-                        border: "1px solid rgba(255,255,255,.15)",
-                        color: "#e5e7eb",
+                        background: ESTADO_COLOR[r.estado] || "var(--bg4)",
+                        border: "1px solid var(--sep)",
+                        color: "var(--text)",
                       }}>{ESTADO_LABEL[r.estado] || r.estado}</span>
-                      <span style={{ opacity: 0.5, fontSize: 16 }}>›</span>
+                      <span style={{ color: "var(--text3)", fontSize: 16 }}>›</span>
                     </div>
                   </div>
                 </Link>

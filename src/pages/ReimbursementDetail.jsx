@@ -26,7 +26,7 @@ const IconRemove  = () => <svg width="14" height="14" viewBox="0 0 20 20" fill="
 
 // ── Estado → pill color ──────────────────────────────────────────────────────
 const ESTADO_COLOR = {
-  borrador: "rgba(255,255,255,.12)",
+  borrador: "var(--bg3)",
   enviada:  "#1d4ed8",
   devuelta: "#b91c1c",
   aprobada: "#4f46e5",
@@ -37,7 +37,7 @@ function EstadoPill({ estado }) {
   return (
     <span style={{
       padding: "2px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700,
-      background: ESTADO_COLOR[estado] || "rgba(255,255,255,.1)",
+      background: ESTADO_COLOR[estado] || "var(--bg3)",
       color: "#fff", letterSpacing: ".3px",
     }}>{estado}</span>
   );
@@ -54,7 +54,7 @@ function Banner({ type = "info", children }) {
   const s = colors[type] || colors.info;
   return (
     <div style={{ background: s.bg, border: `1px solid ${s.border}`, borderRadius: 10, padding: "8px 12px", marginTop: 10 }}>
-      <div className="small" style={{ whiteSpace: "pre-wrap", color: "#e5e7eb" }}>{children}</div>
+      <div className="small" style={{ whiteSpace: "pre-wrap", color: "var(--text)" }}>{children}</div>
     </div>
   );
 }
@@ -65,7 +65,7 @@ function IconBtn({ icon, label, onClick, disabled, variant = "secondary", title,
     display: "inline-flex", alignItems: "center", gap: 5,
     padding: "7px 12px", borderRadius: 10, fontWeight: 600, fontSize: 13,
     cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1,
-    border: "1px solid rgba(255,255,255,.2)", background: "transparent", color: "#e5e7eb",
+    border: "1px solid var(--sep)", background: "transparent", color: "var(--text)",
     ...style,
   };
   if (variant === "primary") { base.background = "#0ea5e9"; base.color = "#001018"; base.border = "none"; }
@@ -363,9 +363,9 @@ export default function ReimbursementDetail() {
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           padding: "10px 16px", background: "#1a1d2e",
-          borderBottom: "1px solid rgba(255,255,255,.1)", flexShrink: 0,
+          borderBottom: "1px solid var(--sep)", flexShrink: 0,
         }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: "#e5e7eb" }}>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
             📄 {pdfViewer.filename}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
@@ -382,8 +382,8 @@ export default function ReimbursementDetail() {
               onClick={closePdfViewer}
               style={{
                 padding: "6px 14px", borderRadius: 8,
-                border: "1px solid rgba(255,255,255,.2)",
-                background: "transparent", color: "#e5e7eb",
+                border: "1px solid var(--sep)",
+                background: "transparent", color: "var(--text)",
                 fontWeight: 700, fontSize: 13, cursor: "pointer",
               }}
             >✕ Cerrar</button>
@@ -417,11 +417,11 @@ export default function ReimbursementDetail() {
           <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4 }}>{reim.correlativo}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <EstadoPill estado={reim.estado} />
-            <span className="small" style={{ opacity: 0.6 }}>
+            <span className="small" style={{ color: "var(--text3)" }}>
               {reim.fechaCreacion ? new Date(reim.fechaCreacion).toLocaleDateString("es-CL") : "—"}
             </span>
             <span style={{ fontWeight: 800 }}>${total.toLocaleString("es-CL")}</span>
-            {reim.pagadaAt && <span className="small" style={{ opacity: 0.6 }}>Pagada {new Date(reim.pagadaAt).toLocaleDateString("es-CL")}</span>}
+            {reim.pagadaAt && <span className="small" style={{ color: "var(--text3)" }}>Pagada {new Date(reim.pagadaAt).toLocaleDateString("es-CL")}</span>}
           </div>
           {desglose.length > 0 && (
             <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
@@ -528,13 +528,13 @@ export default function ReimbursementDetail() {
         )}
 
         {expenses.length === 0 ? (
-          <div className="small" style={{ opacity: 0.6 }}>No hay gastos en esta rendición.</div>
+          <div className="small" style={{ color: "var(--text3)" }}>No hay gastos en esta rendición.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {expenses.map((e) => {
               const atts = expAtts[e.gastoId] || [];
               return (
-                <div key={e.gastoId} style={{ padding: "10px 0", borderTop: "1px solid rgba(255,255,255,.07)" }}>
+                <div key={e.gastoId} style={{ padding: "10px 0", borderTop: "1px solid var(--sep)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
@@ -549,7 +549,7 @@ export default function ReimbursementDetail() {
                       <div className="small" style={{ marginTop: 2 }}>
                         {e.detalle?.split("\n")[0]?.slice(0, 55) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
                       </div>
-                      <div className="small" style={{ opacity: 0.6 }}>
+                      <div className="small" style={{ color: "var(--text3)" }}>
                         CR {e.crCodigo || "—"} · CTA {e.ctaCodigo || "—"} · Part {e.partidaCodigo || "—"}
                       </div>
                     </div>

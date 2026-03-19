@@ -78,7 +78,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                   style={{
                     width: 90, height: 90, objectFit: "cover",
                     borderRadius: 10, cursor: "zoom-in",
-                    border: "2px solid rgba(255,255,255,.15)",
+                    border: "2px solid var(--sep)",
                     display: "block",
                   }}
                 />
@@ -87,8 +87,8 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                   onClick={() => a.objectUrl && setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: true })}
                   style={{
                     width: 90, height: 90, borderRadius: 10,
-                    background: "rgba(255,255,255,.08)",
-                    border: "2px solid rgba(255,255,255,.15)",
+                    background: "var(--bg3)",
+                    border: "2px solid var(--sep)",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     cursor: "pointer", gap: 4,
@@ -134,7 +134,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                   style={{
                     width: 90, height: 90, objectFit: "cover",
                     borderRadius: 10, cursor: "zoom-in",
-                    border: "2px solid rgba(255,255,255,.15)",
+                    border: "2px solid var(--sep)",
                     display: "block",
                   }}
                 />
@@ -143,8 +143,8 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
                   onClick={() => a.objectUrl && setLightbox({ url: a.objectUrl, filename: a.filename, isPdf: true })}
                   style={{
                     width: 90, height: 90, borderRadius: 10,
-                    background: "rgba(255,255,255,.08)",
-                    border: "2px solid rgba(255,255,255,.15)",
+                    background: "var(--bg3)",
+                    border: "2px solid var(--sep)",
                     display: "flex", flexDirection: "column",
                     alignItems: "center", justifyContent: "center",
                     cursor: "pointer", gap: 4,
@@ -207,7 +207,7 @@ export default function AttachmentGallery({ atts, locked, onRemove, showIcon = t
             />
           )}
           <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "center" }}>
-            <span className="small" style={{ color: "rgba(255,255,255,.7)" }}>{lightbox.filename}</span>
+            <span className="small" style={{ color: "var(--text2)" }}>{lightbox.filename}</span>
             <a
               href={lightbox.url}
               download={lightbox.filename}

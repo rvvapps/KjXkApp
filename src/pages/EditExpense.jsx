@@ -250,7 +250,7 @@ export default function EditExpense() {
           className="small"
           style={{
             padding: 10,
-            border: "1px solid rgba(255,255,255,.12)",
+            border: "1px solid var(--sep)",
             borderRadius: 12,
             marginTop: 10,
             whiteSpace: "pre-line",
