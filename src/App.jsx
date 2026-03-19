@@ -179,8 +179,18 @@ function AppContent() {
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>{pageTitle}</h1>
         {location.pathname === "/" && (
           <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-            <Link className="btn secondary" to="/traslados" state={{ openForm: true }} style={{ fontSize: 13, padding: "8px 12px" }}>+ Trayecto</Link>
-            <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13, padding: "8px 12px" }}>+ Gasto</Link>
+            <Link to="/traslados" state={{ openForm: true }} style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 44, height: 44, borderRadius: 22,
+              background: "var(--bg3)", border: "1px solid var(--sep)",
+              fontSize: 24, textDecoration: "none",
+            }} title="+ Trayecto">🚗</Link>
+            <Link to="/gastos/nuevo" style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 44, height: 44, borderRadius: 22,
+              background: "var(--accent)",
+              fontSize: 24, textDecoration: "none",
+            }} title="+ Gasto">💸</Link>
           </div>
         )}
       </div>
