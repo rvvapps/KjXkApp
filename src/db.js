@@ -195,7 +195,7 @@ export async function getSettings() {
 export const PROFILE_FIELDS = [
   "responsableNombre", "responsableRut", "cargo", "telefono", "empresa",
   "banco", "tipoCuenta", "numeroCuenta", "crDefaultCodigo",
-  "correlativoPrefix", "defaultOrigen",
+  "correlativoPrefix", "correlativoNextNumber", "defaultOrigen",
 ];
 
 export async function saveSettings(patch) {
@@ -209,6 +209,8 @@ export async function saveSettings(patch) {
   if (profileTouched) {
     const profileData = {};
     PROFILE_FIELDS.forEach((f) => { profileData[f] = next[f] ?? ""; });
+    // correlativoNextNumber debe ser número
+    if ("correlativoNextNumber" in next) profileData.correlativoNextNumber = Number(next.correlativoNextNumber) || 1;
     profileData.updatedAt = new Date().toISOString();
     await enqueueEvent(db, {
       type: "entity.upsert",

@@ -82,6 +82,8 @@ async function applyIncomingEvent(db, ev) {
       if (cur.profileUpdatedAt && data.updatedAt && data.updatedAt <= cur.profileUpdatedAt) return;
       const patch = { key: "app" };
       PROFILE_FIELDS.forEach((f) => { if (f in data) patch[f] = data[f]; });
+      // correlativoNextNumber debe ser número
+      if ("correlativoNextNumber" in patch) patch.correlativoNextNumber = Number(patch.correlativoNextNumber) || 1;
       patch.profileUpdatedAt = data.updatedAt;
       await db.put("settings", { ...cur, ...patch });
       return;
