@@ -87,8 +87,13 @@ function Accordion({ title, defaultOpen = false, children }) {
 
 function MsgBox({ msg }) {
   if (!msg) return null;
+  const isOk  = msg.startsWith("✅");
+  const isErr = msg.startsWith("❌");
+  const isWarn = msg.startsWith("⚠️");
+  const bg     = isOk ? "rgba(34,197,94,.12)" : isErr ? "rgba(239,68,68,.12)" : isWarn ? "rgba(250,204,21,.10)" : "rgba(255,255,255,.06)";
+  const border = isOk ? "rgba(34,197,94,.35)"  : isErr ? "rgba(239,68,68,.35)"  : isWarn ? "rgba(250,204,21,.30)"  : "rgba(255,255,255,.12)";
   return (
-    <div className="small" style={{ padding: 10, border: "1px solid rgba(255,255,255,.12)", borderRadius: 12, marginTop: 10, whiteSpace: "pre-line" }}>
+    <div className="small" style={{ padding: 10, background: bg, border: `1px solid ${border}`, borderRadius: 12, marginTop: 10, whiteSpace: "pre-line" }}>
       {msg}
     </div>
   );
@@ -481,7 +486,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.60";
+const APP_VERSION = "0.15.61";
 
 function TabGeneral() {
   const [s, setS] = useState(null);

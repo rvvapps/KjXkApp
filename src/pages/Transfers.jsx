@@ -31,7 +31,7 @@ export default function Transfers() {
   const location = useLocation();
 
   const [form, setForm] = useState(emptyForm());
-  const [formOpen, setFormOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(location.state?.openForm === true);
   const [view, setView] = useState("pendiente");
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(new Set());

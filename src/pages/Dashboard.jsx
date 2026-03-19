@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { listPendingExpenses, listReimbursements, listTransfersByEstado, listAttachmentsForExpense, listConcepts } from "../db.js";
+import { listPendingExpenses, listReimbursements, listTransfersByEstado, listAttachmentsForExpense, listConcepts, getSettings, getSyncState } from "../db.js";
 import { Link } from "react-router-dom";
 
 const ESTADO_STYLE = {
@@ -109,6 +109,17 @@ export default function Dashboard() {
   const [attachCounts, setAttachCounts] = useState({});
   const [concepts, setConcepts] = useState([]);
   const [balanceYear, setBalanceYear] = useState("todos");
+  const [syncInfo, setSyncInfo] = useState({ connected: false, lastSync: null });
+
+  async function loadSyncInfo() {
+    try {
+      const [st, s] = await Promise.all([getSyncState(), getSettings()]);
+      setSyncInfo({
+        connected: !!(st?.auth?.connectedAt && st?.rootFolderItemId),
+        lastSync: s?.lastSyncAt || null,
+      });
+    } catch {}
+  }
 
   useEffect(() => {
     (async () => {
@@ -122,6 +133,7 @@ export default function Dashboard() {
       setReims(rms);
       setTransfers(trns);
       setConcepts(concs);
+      await loadSyncInfo();
 
       // Contar adjuntos solo para gastos completos (lazy: solo contamos, no cargamos blobs)
       const counts = {};
@@ -146,6 +158,7 @@ export default function Dashboard() {
       setReims(rms);
       setTransfers(trns);
       setConcepts(concs);
+      await loadSyncInfo();
     }
     window.addEventListener("cc:syncCompleted", onSync);
     return () => window.removeEventListener("cc:syncCompleted", onSync);
@@ -225,6 +238,19 @@ export default function Dashboard() {
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+        {/* ── ESTADO SYNC ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, opacity: 0.65, paddingLeft: 2 }}>
+          <span>
+            {syncInfo.connected
+              ? <span style={{ color: "#86efac" }}>● OneDrive conectado</span>
+              : <span style={{ color: "#f87171" }}>● OneDrive desconectado</span>
+            }
+          </span>
+          {syncInfo.lastSync && (
+            <span>Último sync: {new Date(syncInfo.lastSync).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })}</span>
+          )}
+        </div>
 
         {/* ── PENDIENTE ── */}
         <div className="card">

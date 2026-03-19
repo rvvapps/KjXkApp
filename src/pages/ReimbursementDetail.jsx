@@ -118,6 +118,7 @@ export default function ReimbursementDetail() {
   const [reim, setReim] = useState(null);
   const [items, setItems] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [concepts, setConcepts] = useState([]);
   const [msg, setMsg] = useState({ text: "", type: "info" });
   const [busy, setBusy] = useState(false);
   const [pendingExpenses, setPendingExpenses] = useState([]);
@@ -140,6 +141,7 @@ export default function ReimbursementDetail() {
       .filter(Boolean).sort((a, b) => (a._orden ?? 0) - (b._orden ?? 0));
     setExpenses(exps);
     setPendingExpenses(await listPendingExpenses());
+    setConcepts(await listConcepts());
     const map = {};
     await Promise.all(exps.map(async (e) => {
       map[e.gastoId] = await listAttachmentsForExpense(e.gastoId).catch(() => []);
@@ -157,6 +159,17 @@ export default function ReimbursementDetail() {
   }, [rendicionId]);
 
   const total = useMemo(() => expenses.reduce((s, e) => s + (Number(e.monto) || 0), 0), [expenses]);
+
+  // Desglose por concepto
+  const desglose = useMemo(() => {
+    const conceptById = new Map(concepts.map((c) => [c.conceptId, c]));
+    const map = new Map();
+    for (const e of expenses) {
+      const nombre = conceptById.get(e.conceptId)?.nombre || e.detalle?.split("\n")[0]?.slice(0, 30) || "Otro";
+      map.set(nombre, (map.get(nombre) || 0) + (Number(e.monto) || 0));
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [expenses, concepts]);
 
   // ── Validación ──────────────────────────────────────────────────────────────
   async function validateBeforeStateChange(gastoIds) {
@@ -410,6 +423,15 @@ export default function ReimbursementDetail() {
             <span style={{ fontWeight: 800 }}>${total.toLocaleString("es-CL")}</span>
             {reim.pagadaAt && <span className="small" style={{ opacity: 0.6 }}>Pagada {new Date(reim.pagadaAt).toLocaleDateString("es-CL")}</span>}
           </div>
+          {desglose.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: "4px 12px" }}>
+              {desglose.map(([nombre, monto]) => (
+                <span key={nombre} className="small" style={{ opacity: 0.7 }}>
+                  {nombre}: <b>${monto.toLocaleString("es-CL")}</b>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Acciones según estado ─────────────────────────────────────────── */}
@@ -515,9 +537,14 @@ export default function ReimbursementDetail() {
                 <div key={e.gastoId} style={{ padding: "10px 0", borderTop: "1px solid rgba(255,255,255,.07)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div
+                        style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: frozen ? "default" : "pointer" }}
+                        onClick={() => !frozen && nav(`/gastos/${e.gastoId}`)}
+                        title={frozen ? undefined : "Editar gasto"}
+                      >
                         <AttachmentGallery atts={atts} locked={frozen} />
                         {e.docTipo || "Doc"} {e.docNumero || "S/n"} · ${Number(e.monto || 0).toLocaleString("es-CL")}
+                        {!frozen && <span style={{ opacity: 0.35, fontSize: 12 }}>›</span>}
                       </div>
                       <div className="small" style={{ marginTop: 2 }}>
                         {e.detalle?.split("\n")[0]?.slice(0, 55) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
