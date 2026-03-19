@@ -139,20 +139,7 @@ function SyncIndicator() {
 
 function AppContent() {
   const location = useLocation();
-  const [openHamburger, setOpenHamburger] = React.useState(false);
   const pageTitle = getPageTitle(location.pathname);
-
-  useEffect(() => {
-    if (!openHamburger) return;
-    const handler = (e) => {
-      if (!e.target.closest("[data-menu='hamburger']")) setOpenHamburger(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [openHamburger]);
-
-  // Cerrar hamburguesa al navegar
-  useEffect(() => { setOpenHamburger(false); }, [location.pathname]);
 
   const navLinks = [
     { to: "/",           label: "Inicio" },
@@ -170,12 +157,13 @@ function AppContent() {
         gap: 12, paddingBottom: 8,
         borderBottom: "1px solid rgba(255,255,255,.07)",
       }}>
-        {/* Marca — pequeña, siempre visible */}
+        {/* Marca */}
         <Link to="/" style={{ textDecoration: "none", flexShrink: 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.5)", letterSpacing: ".5px" }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "rgba(255,255,255,.4)", letterSpacing: "1px" }}>
             CAJA CHICA
           </span>
         </Link>
+
         <SyncIndicator />
 
         {/* Nav desktop */}
@@ -184,42 +172,6 @@ function AppContent() {
             <NavItem key={n.to} to={n.to} label={n.label} currentPath={location.pathname} />
           ))}
         </nav>
-
-        {/* Hamburguesa móvil */}
-        <div className="nav-mobile" style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <Link to="/" style={{ display:"flex", alignItems:"center", padding:"6px 10px", borderRadius:10, border:"1px solid rgba(255,255,255,.2)", color:"#e5e7eb", fontSize:16, lineHeight:1 }} title="Inicio">🏠</Link>
-        <div data-menu="hamburger" style={{ position: "relative" }}>
-          <button
-            onClick={() => setOpenHamburger((v) => !v)}
-            style={{
-              background: "transparent", border: "1px solid rgba(255,255,255,.2)",
-              borderRadius: 10, color: "#e5e7eb", fontSize: 18,
-              padding: "5px 12px", cursor: "pointer",
-            }}
-          >
-            {openHamburger ? "✕" : "☰"}
-          </button>
-
-          {openHamburger && (
-            <div style={{
-              position: "absolute", top: "110%", right: 0,
-              background: "#0f172a", border: "1px solid rgba(255,255,255,.12)",
-              borderRadius: 14, padding: 10,
-              display: "flex", flexDirection: "column", gap: 4,
-              minWidth: 190, zIndex: 1000,
-              boxShadow: "0 8px 32px rgba(0,0,0,.6)",
-            }}>
-              {navLinks.map((n) => (
-                <NavItem
-                  key={n.to} to={n.to} label={n.label}
-                  currentPath={location.pathname}
-                  onClick={() => setOpenHamburger(false)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-        </div>
       </header>
 
       {/* ── Título de página ── */}
@@ -250,6 +202,26 @@ function AppContent() {
         </Routes>
       </main>
       <HelpButton pathname={location.pathname} />
+
+      {/* ── Tab bar iOS (solo móvil) ── */}
+      <nav className="tab-bar nav-mobile">
+        {[
+          { to: "/",            icon: "🏠", label: "Inicio" },
+          { to: "/traslados",   icon: "🚗", label: "Traslados" },
+          { to: "/gastos",      icon: "💸", label: "Gastos" },
+          { to: "/rendiciones", icon: "📋", label: "Rendiciones" },
+          { to: "/ajustes",     icon: "⚙️", label: "Ajustes" },
+        ].map((t) => {
+          const active = location.pathname === t.to ||
+            (t.to !== "/" && location.pathname.startsWith(t.to));
+          return (
+            <Link key={t.to} to={t.to} className={`tab-item${active ? " active" : ""}`}>
+              <span className="tab-icon">{t.icon}</span>
+              <span>{t.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
     </div>
   );
 }
