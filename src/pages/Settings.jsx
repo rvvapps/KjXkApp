@@ -69,15 +69,15 @@ function Accordion({ title, defaultOpen = false, children }) {
     <div style={{ marginBottom: 4 }}>
       <button onClick={() => setOpen(!open)} style={{
         width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center",
-        padding: "10px 14px", background: "rgba(255,255,255,.06)",
-        border: "1px solid rgba(255,255,255,.12)", borderRadius: open ? "10px 10px 0 0" : 10,
-        color: "#e5e7eb", fontWeight: 700, fontSize: 14, cursor: "pointer",
+        padding: "10px 14px", background: "var(--bg3)",
+        border: "1px solid var(--sep)", borderRadius: open ? "10px 10px 0 0" : 10,
+        color: "var(--text)", fontWeight: 700, fontSize: 14, cursor: "pointer",
       }}>
         <span>{title}</span>
         <span style={{ fontSize: 12, opacity: 0.7, transition: "transform .2s", display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
       </button>
       {open && (
-        <div style={{ border: "1px solid rgba(255,255,255,.12)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px" }}>
+        <div style={{ border: "1px solid var(--sep)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "14px" }}>
           {children}
         </div>
       )}
@@ -90,8 +90,8 @@ function MsgBox({ msg }) {
   const isOk  = msg.startsWith("✅");
   const isErr = msg.startsWith("❌");
   const isWarn = msg.startsWith("⚠️");
-  const bg     = isOk ? "rgba(34,197,94,.12)" : isErr ? "rgba(239,68,68,.12)" : isWarn ? "rgba(250,204,21,.10)" : "rgba(255,255,255,.06)";
-  const border = isOk ? "rgba(34,197,94,.35)"  : isErr ? "rgba(239,68,68,.35)"  : isWarn ? "rgba(250,204,21,.30)"  : "rgba(255,255,255,.12)";
+  const bg     = isOk ? "rgba(34,197,94,.12)" : isErr ? "rgba(239,68,68,.12)" : isWarn ? "rgba(250,204,21,.10)" : "var(--bg3)";
+  const border = isOk ? "rgba(34,197,94,.35)"  : isErr ? "rgba(239,68,68,.35)"  : isWarn ? "rgba(250,204,21,.30)"  : "var(--sep)";
   return (
     <div className="small" style={{ padding: 10, background: bg, border: `1px solid ${border}`, borderRadius: 12, marginTop: 10, whiteSpace: "pre-line" }}>
       {msg}
@@ -144,7 +144,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
           {rows.map((r) => (
             <div key={r.code} style={{ opacity: r.activo === false ? 0.5 : 1 }}>
               {editing?.originalCode === r.code ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px", background: "rgba(255,255,255,.05)", borderRadius: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px", background: "var(--bg3)", borderRadius: 10 }}>
                   <div className="row row-form" style={{ gap: 8 }}>
                     <TextField label={codeLabel} value={editing.code} onChange={(v) => setEditing({ ...editing, code: v })} />
                     <TextField label={nameLabel} value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
@@ -157,7 +157,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
               ) : (
                 <div style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "8px 4px", borderBottom: "1px solid rgba(255,255,255,.07)", position: "relative",
+                  padding: "8px 4px", borderBottom: "1px solid var(--sep)", position: "relative",
                 }}>
                   <div style={{ flex: 1 }}>
                     <b>{r.code}</b>
@@ -169,7 +169,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
                     <button
                       onClick={() => setMenuOpen(menuOpen === r.code ? null : r.code)}
                       style={{
-                        background: "transparent", border: "1px solid rgba(255,255,255,.15)",
+                        background: "transparent", border: "1px solid var(--sep)",
                         borderRadius: 8, color: "#e5e7eb", fontSize: 18, padding: "2px 10px",
                         cursor: "pointer", lineHeight: 1,
                       }}
@@ -177,7 +177,7 @@ function CatalogSection({ title, rows, onSave, onDelete, codeLabel = "Código", 
                     {menuOpen === r.code && (
                       <div style={{
                         position: "absolute", right: 0, top: "110%", zIndex: 100,
-                        background: "#0f172a", border: "1px solid rgba(255,255,255,.15)",
+                        background: "var(--bg2)", border: "1px solid var(--sep)",
                         borderRadius: 12, padding: 6, minWidth: 150,
                         boxShadow: "0 8px 24px rgba(0,0,0,.6)",
                         display: "flex", flexDirection: "column", gap: 4,
@@ -275,9 +275,9 @@ function TabApp() {
       <div className="row row-form" style={{ gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
         {SECTIONS.map((sec) => (
           <button key={sec.id} className="btn secondary" onClick={() => setSection(sec.id)} style={{
-            background: section === sec.id ? "rgba(255,255,255,.15)" : "rgba(255,255,255,.04)",
-            border: section === sec.id ? "1px solid rgba(255,255,255,.35)" : "1px solid rgba(255,255,255,.12)",
-            color: section === sec.id ? "#fff" : "rgba(255,255,255,.7)",
+            background: section === sec.id ? "var(--bg3)" : "var(--bg3)",
+            border: section === sec.id ? "2px solid var(--accent)" : "1px solid var(--sep)",
+            color: section === sec.id ? "var(--text)" : "var(--text3)",
             fontWeight: section === sec.id ? 700 : 500,
             fontSize: 13,
           }}>
@@ -343,7 +343,7 @@ function TabApp() {
                   return (
                     <div key={c.conceptId} style={{
                       display: "flex", justifyContent: "space-between", alignItems: "center",
-                      borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 8,
+                      borderTop: "1px solid var(--sep)", paddingTop: 8,
                       opacity: c.activo === false ? 0.5 : 1,
                     }}>
                       <div>
@@ -421,9 +421,9 @@ function TabApp() {
             {[["activos","Activos"],["inactivos","Inactivos"],["todos","Todos"]].map(([v,l]) => (
               <button key={v} onClick={() => setDestFilter(v)} style={{
                 padding: "5px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
-                background: destFilter === v ? "rgba(255,255,255,.2)" : "rgba(255,255,255,.05)",
-                border: destFilter === v ? "1px solid rgba(255,255,255,.4)" : "1px solid rgba(255,255,255,.12)",
-                color: destFilter === v ? "#fff" : "rgba(255,255,255,.6)", fontWeight: destFilter === v ? 700 : 400,
+                background: destFilter === v ? "var(--bg4)" : "var(--bg3)",
+                border: destFilter === v ? "2px solid var(--accent)" : "1px solid var(--sep)",
+                color: destFilter === v ? "var(--text)" : "var(--text3)", fontWeight: destFilter === v ? 700 : 400,
               }}>{l}</button>
             ))}
           </div>
@@ -434,7 +434,7 @@ function TabApp() {
               {dests.filter(d => destFilter === "todos" ? true : destFilter === "activos" ? d.activo !== false : d.activo === false).map((d) => (
                 <div key={d.destinationId} style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center",
-                  borderTop: "1px solid rgba(255,255,255,.08)", paddingTop: 8,
+                  borderTop: "1px solid var(--sep)", paddingTop: 8,
                   opacity: d.activo === false ? 0.5 : 1,
                 }}>
                   <div>
@@ -486,7 +486,7 @@ function TabApp() {
 }
 
 // ── Tab General (dentro de App) ──────────────────────────────────────────────
-const APP_VERSION = "0.15.66";
+const APP_VERSION = "0.15.67";
 
 function TabGeneral() {
   const [s, setS] = useState(null);
@@ -771,10 +771,10 @@ export default function Settings() {
               flex: 1,
               display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
               padding: "8px 4px",
-              background: tab === t.id ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.05)",
-              border: tab === t.id ? "1px solid rgba(255,255,255,.5)" : "1px solid rgba(255,255,255,.18)",
+              background: tab === t.id ? "var(--bg3)" : "var(--bg3)",
+              border: tab === t.id ? "2px solid var(--accent)" : "1px solid var(--sep)",
               borderRadius: 10,
-              color: tab === t.id ? "#fff" : "rgba(255,255,255,.65)",
+              color: tab === t.id ? "var(--text)" : "var(--text3)",
               fontWeight: tab === t.id ? 700 : 500,
               fontSize: 11,
               cursor: "pointer",
@@ -863,7 +863,7 @@ export default function Settings() {
                     ["Sin monto", resumen.gastosSinMonto || "—", "—", "—"],
                     ["Último", resumen.ultimoGasto, resumen.ultimoTrayecto, resumen.ultimaRendicion],
                   ].map(([label, ...vals]) => (
-                    <tr key={label} style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>
+                    <tr key={label} style={{ borderTop: "1px solid var(--sep)" }}>
                       <td style={{ padding: "5px 0", opacity: 0.6 }}>{label}</td>
                       {vals.map((v, i) => (
                         <td key={i} style={{ textAlign: "center", padding: "5px 4px", fontWeight: v !== "—" && v !== 0 ? 600 : 400, opacity: v === "—" || v === 0 ? 0.3 : 1 }}>{v}</td>
@@ -951,7 +951,7 @@ export default function Settings() {
 
           <Accordion title="Sync — OneDrive" defaultOpen={false}>
           <div className="small" style={{ marginBottom: 12, opacity: 0.7 }}>Sincroniza gastos y boletas automáticamente cuando hay conexión.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "rgba(255,255,255,.04)", borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "var(--bg3)", borderRadius: 12, padding: "10px 14px", marginBottom: 16 }}>
             <div><div className="small" style={{ opacity: 0.6 }}>Estado</div><div style={{ fontWeight: 700 }}>{sync?.auth?.connectedAt ? "Conectado" : "No conectado"}</div></div>
             <div><div className="small" style={{ opacity: 0.6 }}>Modo</div><div style={{ fontWeight: 700 }}>{sync?.rootMode || sync?.auth?.mode || "—"}</div></div>
             <div><div className="small" style={{ opacity: 0.6 }}>Última sync</div><div style={{ fontWeight: 700 }}>{s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleString("es-CL") : "—"}</div></div>
