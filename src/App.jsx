@@ -223,8 +223,14 @@ function AppContent() {
       </header>
 
       {/* ── Título de página ── */}
-      <div style={{ marginTop: 16, marginBottom: 4 }}>
+      <div style={{ marginTop: 16, marginBottom: 4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>{pageTitle}</h1>
+        {location.pathname === "/" && (
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            <Link className="btn secondary" to="/traslados" style={{ fontSize: 13, padding: "8px 12px" }}>+ Trayecto</Link>
+            <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13, padding: "8px 12px" }}>+ Gasto</Link>
+          </div>
+        )}
       </div>
 
       <ErrorBanner />

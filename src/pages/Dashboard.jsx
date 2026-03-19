@@ -228,9 +228,8 @@ export default function Dashboard() {
 
         {/* ── PENDIENTE ── */}
         <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div style={{ marginBottom: 10 }}>
             <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8 }}>Pendiente</span>
-            <Link className="btn" to="/gastos/nuevo" style={{ fontSize: 13 }}>+ Nuevo gasto</Link>
           </div>
           <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 10 }}>
             <KpiCard label="Listos" value={complete.length} sub={complete.length > 0 ? fmt(totalPending) : "sin gastos"} color={complete.length > 0 ? "#e5e7eb" : undefined} />
