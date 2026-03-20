@@ -1,0 +1,81 @@
+name: Deploy to GitHub Pages (Web-only, no lockfile)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      NPM_CONFIG_REGISTRY: "https://registry.npmjs.org/"
+      # NODE_ENV debe ser "development" durante el INSTALL para que npm instale
+      # devDependencies (vite, @vitejs/plugin-react). Vite se encarga internamente
+      # de optimizar el bundle para producción con "vite build", independiente de esta variable.
+      NODE_ENV: "development"
+      NPM_CONFIG_AUDIT: "false"
+      NPM_CONFIG_FUND: "false"
+      NPM_CONFIG_FETCH_TIMEOUT: "300000"
+      NPM_CONFIG_FETCH_RETRIES: "5"
+      NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
+      NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
+      NPM_CONFIG_PROGRESS: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      # IMPORTANT: do NOT enable dependency cache when you have no lockfile.
+      - name: Setup Node
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: "24"
+
+      - name: Remove inherited npm config
+        run: |
+          rm -f ~/.npmrc || true
+          rm -f .npmrc || true
+
+      - name: Registry sanity
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          echo "registry => $(npm config get registry)"
+          echo "node => $(node -v)"
+          echo "npm => $(npm -v)"
+
+      - name: Install (no lockfile)
+        run: npm install --no-audit --no-fund --loglevel=warn
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5

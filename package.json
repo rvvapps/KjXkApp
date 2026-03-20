@@ -1,25 +1,15 @@
-{
-  "name": "caja-chica-pwa",
-  "private": true,
-  "version": "0.1.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "exceljs": "^4.4.0",
-    "idb": "^8.0.1",
-    "pdf-lib": "^1.17.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2",
-    "uuid": "^9.0.1",
-    "jszip": "^3.10.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.1",
-    "vite": "^5.4.10"
-  }
+export function saveAs(blob, filename) {
+  // iOS Safari no soporta <a download> con blob URLs.
+  // Convertir a base64 data URL que sí funciona en iOS.
+  const reader = new FileReader();
+  reader.onload = function () {
+    const dataUrl = reader.result;
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+  reader.readAsDataURL(blob);
 }
