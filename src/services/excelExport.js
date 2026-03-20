@@ -521,7 +521,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
   };
   // Quiebre de página MANUAL entre fila 48 y 49
-  ws.rowBreaks = [{ id: 48, max: 16383, min: 1 }];
+  ws.rowBreaks = [{ id: 42, max: 16383, min: 1 }];
 
   // ── Hoja 2: Resumen externo ───────────────────────────────────────────────────
   buildResumenSheet(wb, sorted, correlativo);
