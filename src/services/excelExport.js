@@ -203,7 +203,14 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   // Copiar a ArrayBuffer propio para evitar problemas con SharedArrayBuffer en Safari
   const buf = bytes.buffer.slice(0);
   const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf);
+  // ignoreNodes: saltar nodos que ExcelJS no sabe parsear correctamente
+  await wb.xlsx.load(buf, {
+    ignoreNodes: [
+      "dataValidations",
+      "conditionalFormatting",
+      "extLst",
+    ],
+  });
 
   const ws = wb.getWorksheet("Formulario");
   if (!ws) throw new Error("Hoja Formulario no encontrada en template");
