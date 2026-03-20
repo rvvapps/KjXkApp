@@ -1,6 +1,9 @@
 import ExcelJS from "exceljs";
 import { getSettings, getDB } from "../db.js";
 
+// Logo corporativo (extraído del template original)
+const LOGO_B64 = "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";
+
 const CAPACITY = 42;
 
 // Tipos de rendición reconocidos → celda booleana vinculada en fila 11
@@ -229,6 +232,18 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     return cell;
   };
   const merge = (r) => ws.mergeCells(r);
+
+  // ── Logo corporativo ─────────────────────────────────────────────────────────
+  try {
+    const logoId = wb.addImage({
+      base64: LOGO_B64,
+      extension: "png",
+    });
+    ws.addImage(logoId, {
+      tl: { col: 0.2, row: 0.1 },
+      br: { col: 1.1, row: 5.1 },
+    });
+  } catch {}
 
   // ── Anchos de columna (exactos del template) ─────────────────────────────────
   ws.getColumn(1).width  = 17;      // A
