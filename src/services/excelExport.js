@@ -517,7 +517,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     fitToWidth: 1,
     fitToHeight: 2,
     horizontalCentered: false,
-    paperSize: 9,           // A4
+    paperSize: 5,           // Carta (Letter)
     margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
   };
   // Page break manual entre fila 48 y 49
