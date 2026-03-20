@@ -510,6 +510,9 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     {font:F({bold:true,size:11}),fill:ORANGE,border:allT,numFmt,align:aR});
   ws.getRow(rr).height = 18;
 
+  // ── Page break entre fila 48 y 49 ─────────────────────────────────────────
+  try { ws.addPageBreak(48); } catch {}
+
   // ── Hoja 2: Resumen externo ───────────────────────────────────────────────────
   buildResumenSheet(wb, sorted, correlativo);
 
