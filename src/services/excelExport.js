@@ -202,433 +202,317 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
 
   const wb = new ExcelJS.Workbook();
   wb.creator = "Rendicion App";
-  wb.created = new Date();
 
   const ws = wb.addWorksheet("Formulario");
 
-  // ── Estilos exactos del template corporativo ─────────────────────────────────
-  const F = (opts = {}) => ({ name: "Calibri", size: 9, ...opts });
-  const borderThin   = { style: "thin" };
-  const borderMedium = { style: "medium" };
-  const allThin   = { top: borderThin, bottom: borderThin, left: borderThin, right: borderThin };
-  const botThin   = { bottom: borderThin };
-  const topMedBotThinLeftMed = { top: borderMedium, bottom: borderThin, left: borderMedium, right: borderThin };
-  const topThinBotMedLeftMed = { top: borderThin, bottom: borderMedium, left: borderMedium, right: borderThin };
-  const allMed    = { top: borderMedium, bottom: borderMedium, left: borderMedium, right: borderThin };
-  const fillBlue  = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } };
-  const fillYellow = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFFF99" } };
-  const fillTotal  = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4D6" } };
-  const numFmt = "#,##0";
-
-  const c = (ref) => ws.getCell(ref);
-  const style = (ref, opts) => {
-    const cell = ws.getCell(ref);
-    if (opts.v !== undefined)   cell.value     = opts.v;
-    if (opts.font)              cell.font      = opts.font;
-    if (opts.fill)              cell.fill      = opts.fill;
-    if (opts.border)            cell.border    = opts.border;
-    if (opts.align)             cell.alignment = opts.align;
-    if (opts.numFmt)            cell.numFmt    = opts.numFmt;
-    return cell;
-  };
-  const merge = (r) => ws.mergeCells(r);
-
-  // ── Logo corporativo ─────────────────────────────────────────────────────────
+  // ── Logo ─────────────────────────────────────────────────────────────────────
   try {
-    const logoId = wb.addImage({
-      base64: LOGO_B64,
-      extension: "png",
-    });
-    ws.addImage(logoId, {
-      tl: { col: 0.2, row: 0.1 },
-      br: { col: 1.1, row: 5.1 },
-    });
+    const logoId = wb.addImage({ base64: LOGO_B64, extension: "png" });
+    ws.addImage(logoId, { tl: { col: 0.15, row: 0.08 }, br: { col: 1.0, row: 4.9 } });
   } catch {}
 
-  // ── Anchos de columna (exactos del template) ─────────────────────────────────
-  ws.getColumn(1).width  = 17;      // A
-  ws.getColumn(2).width  = 12.5;    // B
-  ws.getColumn(3).width  = 14.7;    // C
-  ws.getColumn(4).width  = 5.1;     // D
-  ws.getColumn(5).width  = 16.9;    // E
-  ws.getColumn(6).width  = 2.3;     // F
-  ws.getColumn(7).width  = 13.4;    // G
-  ws.getColumn(8).width  = 35.3;    // H
-  ws.getColumn(9).width  = 35;      // I
-  ws.getColumn(10).width = 6;       // J
-  ws.getColumn(11).width = 30;      // K
-  ws.getColumn(12).width = 32.7;    // L
-  ws.getColumn(13).width = 22.4;    // M
+  // ── Colores exactos del template corporativo ─────────────────────────────────
+  const BLUE_HDR  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF203864" } }; // azul oscuro secciones
+  const BLUE_COL  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } }; // azul encabezados col
+  const ORANGE    = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4D6" } }; // total neto
+  const numFmt    = "#,##0";
 
-  // ── Alturas de filas clave ────────────────────────────────────────────────────
-  ws.getRow(1).height  = 15;
-  ws.getRow(2).height  = 6.75;
-  ws.getRow(3).height  = 15;
-  ws.getRow(4).height  = 9;
-  ws.getRow(5).height  = 15;
-  ws.getRow(6).height  = 3.75;
-  ws.getRow(7).height  = 21;
-  ws.getRow(8).height  = 4.5;
-  ws.getRow(10).height = 18.75;
-  ws.getRow(12).height = 6;
-  ws.getRow(13).height = 21;
-  ws.getRow(14).height = 7.5;
-  ws.getRow(16).height = 6;
-  ws.getRow(18).height = 5.25;
-  ws.getRow(20).height = 6.75;
-  ws.getRow(21).height = 6;
-  ws.getRow(23).height = 17.25;
-  ws.getRow(24).height = 21;
-  ws.getRow(25).height = 15;
-  ws.getRow(26).height = 21.75;
-  ws.getRow(27).height = 32.25;
+  const thin   = { style: "thin" };
+  const med    = { style: "medium" };
+  const allT   = { top: thin,  bottom: thin,  left: thin,  right: thin  };
+  const allM   = { top: med,   bottom: med,   left: med,   right: thin  };
+  const topMbotT = { top: med, bottom: thin,  left: med,   right: thin  };
+  const topTbotM = { top: thin, bottom: med,  left: med,   right: thin  };
 
-  // ── FILA 1: Encabezado ───────────────────────────────────────────────────────
-  merge("B1:B2"); style("B1", { v: "N° Operación", font: F({ bold: true }), align: { horizontal: "left", vertical: "center" } });
-  merge("C1:D2"); style("C1", { v: correlativo || "", font: F({ bold: true, size: 11 }), align: { horizontal: "center", vertical: "center" } });
-  merge("E1:M5");
-  style("E1", {
-    v: "Formulario de Rendición de Caja chica, Fondos por rendir, Reembolso de gastos 2026",
-    font: F({ bold: true, size: 14 }),
-    align: { horizontal: "center", vertical: "center", wrapText: true },
-  });
+  const F = (o={}) => ({ name: "Calibri", size: 9, ...o });
+  const WHITE = { name: "Calibri", size: 11, bold: true, color: { argb: "FFFFFFFF" } };
 
-  // ── FILA 3-5: N° Req ─────────────────────────────────────────────────────────
-  merge("B3:D4"); style("B3", { v: "N° Req.", font: F({ bold: true }) });
-  merge("B5:D5"); style("B5", { v: "* Uso exclusivo Control Pagos", font: F({ size: 8, italic: true }) });
+  const s = (ref, v, opts={}) => {
+    const cell = ws.getCell(ref);
+    if (v !== undefined) cell.value = v;
+    if (opts.font)   cell.font      = opts.font;
+    if (opts.fill)   cell.fill      = opts.fill;
+    if (opts.border) cell.border    = opts.border;
+    if (opts.align)  cell.alignment = opts.align;
+    if (opts.numFmt) cell.numFmt    = opts.numFmt;
+    return cell;
+  };
+  const m = (r) => { try { ws.mergeCells(r); } catch {} };
+  const aC = { horizontal: "center", vertical: "middle" };
+  const aL = { horizontal: "left",   vertical: "middle" };
+  const aR = { horizontal: "right",  vertical: "middle" };
+  const aW = { horizontal: "center", vertical: "middle", wrapText: true };
+
+  // ── Anchos de columna exactos ────────────────────────────────────────────────
+  ws.getColumn(1).width  = 17;
+  ws.getColumn(2).width  = 12.57;
+  ws.getColumn(3).width  = 14.71;
+  ws.getColumn(4).width  = 5.14;
+  ws.getColumn(5).width  = 16.86;
+  ws.getColumn(6).width  = 2.29;
+  ws.getColumn(7).width  = 13.43;
+  ws.getColumn(8).width  = 35.29;
+  ws.getColumn(9).width  = 35;
+  ws.getColumn(10).width = 6;
+  ws.getColumn(11).width = 30;
+  ws.getColumn(12).width = 32.71;
+  ws.getColumn(13).width = 22.43;
+
+  // ── Alturas de fila exactas ──────────────────────────────────────────────────
+  const rh = { 1:15, 2:6.75, 3:15, 4:9, 5:15, 6:3.75, 7:21, 8:4.5,
+               10:18.75, 12:6, 13:21, 14:7.5, 16:6, 18:5.25, 20:6.75,
+               21:6, 23:17.25, 24:21, 25:15, 26:21.75, 27:32.25,
+               42:18, 43:17.25, 44:18, 45:28.5, 46:48, 47:43.5, 48:50.85 };
+  for (const [r, h2] of Object.entries(rh)) ws.getRow(Number(r)).height = h2;
+
+  // ── FILA 1-5: Header ─────────────────────────────────────────────────────────
+  m("B1:B2");   s("B1", "N° Operación", { font: F({bold:true}), align: aL });
+  m("C1:D2");   s("C1", correlativo || "", { font: F({bold:true,size:11}), align: aC, border: allT });
+  m("E1:M5");
+  s("E1",
+    "Formulario de Rendición de Caja chica, Fondos por rendir, Reembolso de gastos 2026",
+    { font: { name:"Calibri", size:20, bold:true, color:{argb:"FFFFFFFF"} },
+      fill: BLUE_HDR, align: { horizontal:"center", vertical:"middle", wrapText:true } });
+
+  m("B3:D4"); s("B3", "N° Req.",                      { font: F({bold:true}), align: aL });
+  m("B5:D5"); s("B5", "* Uso exclusivo Control Pagos", { font: F({size:8, italic:true}), align: aL });
 
   // ── FILA 7: Tipo de rendición ────────────────────────────────────────────────
-  merge("A7:M7");
-  style("A7", {
-    v: "Tipo de rendición",
-    font: F({ bold: true, size: 16 }),
-    align: { horizontal: "center", vertical: "center" },
-    border: { bottom: borderThin, left: borderThin, right: borderThin },
-  });
+  m("A7:M7");
+  s("A7", "Tipo de rendición",
+    { font: WHITE, fill: BLUE_HDR, align: aC,
+      border: { bottom: thin, left: thin, right: thin } });
 
-  // ── FILAS 9-11: Checkboxes tipo rendición ────────────────────────────────────
+  // ── FILA 10: Labels checkboxes (los checkboxes reales son Form Controls) ──────
+  // En el template los labels "Caja Chica", etc. son parte del Form Control drawing
+  // Los valores linked están en A11, D11, H11. Simulamos con texto en fila 10.
   const tipoNorm = String(tipoRendicion ?? "").trim().toLowerCase();
-  const tiposRend = [
-    { cols: "A9:C9", key: "caja chica",          label: "Caja Chica" },
-    { cols: "D9:F9", key: "fondos por rendir",    label: "Fondos por rendir" },
-    { cols: "G9:I9", key: "reembolso de gastos",  label: "Reembolso de gastos" },
-    { cols: "J9:M9", key: "gastos operacionales", label: "Gastos Operacionales" },
+  const checkMap = [
+    { col:"A", key:"caja chica",          label:"Caja Chica" },
+    { col:"D", key:"fondos por rendir",   label:"Reembolso de Fondos" },
+    { col:"H", key:"reembolso de gastos", label:"Reembolso de gastos" },
+    { col:"J", key:"gastos operacionales",label:"Rendición de Gastos" },
   ];
-  tiposRend.forEach(({ cols, key, label }) => {
-    const isActive = tipoNorm === key || tipoNorm === key.replace(/\s+/g, "");
-    merge(cols);
-    const startRef = cols.split(":")[0];
-    style(startRef, {
-      v: (isActive ? "☑ " : "☐ ") + label,
+  // Labels en fila 10 (visible), valores boolean en fila 11
+  const endCols = { A:"C", D:"G", H:"I", J:"M" };
+  checkMap.forEach(({ col, key, label }) => {
+    const isActive = tipoNorm === key || tipoNorm === key.replace(/\s+/g,"");
+    m(`${col}10:${endCols[col]}10`);
+    s(`${col}10`, (isActive ? "☑ " : "☐ ") + label, {
       font: F({ bold: isActive, size: 11 }),
-      align: { horizontal: "center", vertical: "center" },
-      border: allThin,
+      align: { horizontal:"left", vertical:"middle" },
     });
+    ws.getRow(10).height = 18.75;
   });
-  ws.getRow(9).height = 18.75;
+  // Número de Fondo por rendir
+  m("J11:K11");
+  s("J11", "Número de Fondo por rendir", { font: F({bold:true,size:11}), align: aL });
+  s("L11", "", { border: allT });
+  m("L11:M11");
 
   // ── FILA 13: Información del responsable ─────────────────────────────────────
-  merge("A13:M13");
-  style("A13", {
-    v: "Información del responsable",
-    font: F({ bold: true, size: 16 }),
-    fill: fillBlue,
-    align: { horizontal: "center", vertical: "center" },
-    border: allThin,
-  });
+  m("A13:M13");
+  s("A13", "Información del responsable",
+    { font: WHITE, fill: BLUE_HDR, align: aC, border: allT });
 
   // ── FILAS 15-22: Datos responsable ───────────────────────────────────────────
-  const labelStyle = { font: F({ bold: true, size: 10 }), border: allThin, align: { horizontal: "left", vertical: "center" } };
-  const valueStyle = { font: F({ size: 10 }), border: allThin, align: { horizontal: "left", vertical: "center" } };
+  const lbl = { font: F({bold:true,size:10}), border: allT, align: aL };
+  const val = { font: F({size:10}),           border: allT, align: aL };
 
-  merge("A15:C15"); style("A15", { v: "Nombre Responsable", ...labelStyle });
-  merge("D15:I15"); style("D15", { v: h.responsableNombre ?? "", ...valueStyle });
-  merge("J15:K15"); style("J15", { v: "Rut", ...labelStyle });
-  merge("L15:M15"); style("L15", { v: h.responsableRut ?? "", ...valueStyle });
-  ws.getRow(15).height = 15;
+  s("A15","Nombre Responsable",lbl); m("A15:C15");
+  m("D15:H15"); s("D15", h.responsableNombre ?? "", val);
+  s("I15","Rut",lbl);
+  m("L15:M15"); s("L15", h.responsableRut ?? "", val);
 
-  merge("A17:C17"); style("A17", { v: "Cargo", ...labelStyle });
-  merge("D17:H17"); style("D17", { v: h.cargo ?? "", ...valueStyle });
-  merge("J17:M17"); style("J17", { v: h.telefono ?? "", ...valueStyle });
-  style("I17", { v: "Teléfono / Cel", ...labelStyle });
-  ws.getRow(17).height = 15;
+  s("A17","Cargo",lbl); m("A17:C17");
+  m("D17:H17"); s("D17", h.cargo ?? "", val);
+  s("I17","Teléfono / Cel",lbl);
+  m("L17:M17"); s("L17", h.telefono ?? "", val);
 
-  merge("A19:C19"); style("A19", { v: "Empresa", ...labelStyle });
-  merge("D19:H19"); style("D19", { v: h.empresa ?? "", ...valueStyle });
-  style("I19", { v: "Fecha", ...labelStyle });
-  merge("J19:K19");
-  merge("L19:M19"); style("L19", { v: fmtDateDDMMYYYY(new Date()), ...valueStyle });
-  ws.getRow(19).height = 15;
+  s("A19","Empresa",lbl); m("A19:C19");
+  m("D19:H19"); s("D19", h.empresa ?? "", val);
+  s("I19","Fecha",lbl);
+  m("L19:M19"); s("L19", fmtDateDDMMYYYY(new Date()), val);
 
   // ── FILA 22: Datos bancarios ──────────────────────────────────────────────────
-  merge("A22:B22"); style("A22", { v: "Tipo de Cuenta", ...labelStyle });
-  merge("C22:E22"); style("C22", { v: h.tipoCuenta ?? "", ...valueStyle });
-  merge("F22:F22"); style("F22", { v: "", border: allThin });
-  style("G22", { v: "N° Cuenta", ...labelStyle });
-  merge("H22:I22"); style("H22", { v: h.numeroCuenta ?? "", ...valueStyle });
-  style("J22", { v: "Banco", ...labelStyle });
-  merge("L22:M22"); style("L22", { v: h.banco ?? "", ...valueStyle });
-  ws.getRow(22).height = 15;
+  s("A22","Tipo de Cuenta",lbl); m("A22:B22");
+  m("C22:E22"); s("C22", h.tipoCuenta ?? "", val);
+  s("G22","N° Cuenta",lbl);
+  s("H22", h.numeroCuenta ?? "", val); m("H22:I22");
+  s("J22","Banco",lbl);
+  m("L22:M22"); s("L22", h.banco ?? "", val);
 
   // ── FILA 24: Información de la rendición ─────────────────────────────────────
-  merge("A24:M24");
-  style("A24", {
-    v: "Información de la rendición",
-    font: F({ bold: true, size: 16 }),
-    fill: fillBlue,
-    align: { horizontal: "center", vertical: "center" },
-    border: allThin,
-  });
+  m("A24:M24");
+  s("A24","Información de la rendición",
+    { font: WHITE, fill: BLUE_HDR, align: aC, border: allT });
 
-  // ── FILA 26: Título correlativo ───────────────────────────────────────────────
-  merge("A26:M26");
-  style("A26", {
-    v: correlativo || "",
-    font: F({ bold: true, size: 12 }),
-    align: { horizontal: "center", vertical: "center" },
-  });
+  // ── FILA 26: Correlativo ──────────────────────────────────────────────────────
+  m("A26:M26");
+  s("A26", correlativo || "", { font: F({bold:true,size:12}), align: aC });
 
   // ── FILA 27: Encabezados columnas ────────────────────────────────────────────
-  const hdrStyle = { font: F({ bold: true, size: 11 }), fill: fillBlue, align: { horizontal: "center", vertical: "center", wrapText: true }, border: allThin };
-  style("A27", { v: "Tipo de Doc.", ...hdrStyle });
-  style("B27", { v: "Fecha", ...hdrStyle });
-  style("C27", { v: "N° Doc", ...hdrStyle });
-  merge("D27:G27"); style("D27", { v: "Descripción", ...hdrStyle });
-  style("H27", { v: "Centro de Responsabilidad", ...hdrStyle });
-  style("I27", { v: "Cuenta Contable", ...hdrStyle });
-  merge("J27:K27"); style("J27", { v: "Partida", ...hdrStyle });
-  style("L27", { v: "Clasificación", ...hdrStyle });
-  style("M27", { v: "Monto ($)", ...hdrStyle });
+  const hdr = { font: { name:"Calibri", size:11, bold:true, color:{argb:"FFFFFFFF"} },
+                fill: BLUE_COL, border: allT, align: aW };
+  s("A27","Tipo de Doc.",hdr);
+  s("B27","Fecha",hdr);
+  s("C27","N° Doc",hdr);
+  m("D27:G27"); s("D27","Descripción",hdr);
+  s("H27","Centro de Responsabilidad",hdr);
+  s("I27","Cuenta Contable",hdr);
+  m("J27:K27"); s("J27","Partida",hdr);
+  s("L27","Clasificación",hdr);
+  s("M27","Monto ($)",hdr);
 
-  // ── FILAS DE DATOS — Bloque 1: filas 28-41 (máx 14) ─────────────────────────
+  // ── DATOS: 2 bloques exactos del template ────────────────────────────────────
   const safeItems = Array.isArray(items) ? items : [];
-  const sorted = [...safeItems].sort((a, b) => {
+  const sorted = [...safeItems].sort((a,b) => {
     const da = parseDateFlexible(a.fechaISO) ?? new Date(0);
     const db = parseDateFlexible(b.fechaISO) ?? new Date(0);
-    return da.getTime() - db.getTime();
+    return da - db;
   });
 
-  const BLOCK1_START = 28;
-  const BLOCK1_ROWS  = 14;  // filas 28-41
-  const BLOCK2_START = 58;
-  const BLOCK2_ROWS  = 28;  // filas 58-85
-  const MAX_ITEMS    = BLOCK1_ROWS + BLOCK2_ROWS; // 42
+  const B1S = 28, B1R = 14;   // bloque 1: filas 28-41
+  const B2S = 58, B2R = 28;   // bloque 2: filas 58-85
+  const b1 = sorted.slice(0, B1R);
+  const b2 = sorted.slice(B1R, B1R + B2R);
 
-  const block1Items = sorted.slice(0, BLOCK1_ROWS);
-  const block2Items = sorted.slice(BLOCK1_ROWS, MAX_ITEMS);
-
-  const writeDataRow = (r, it) => {
-    merge(`D${r}:G${r}`);
-    merge(`J${r}:K${r}`);
-    const rowBorder = allThin;
-    const dataFont  = F({ size: 9 });
-    const dataAlign = { vertical: "center", wrapText: true };
-
-    const setD = (col, val, extra = {}) => {
-      const cell = ws.getCell(r, col);
-      cell.value     = val;
-      cell.font      = extra.font  ?? dataFont;
-      cell.border    = rowBorder;
-      cell.alignment = { ...dataAlign, ...(extra.align ?? {}) };
-      if (extra.numFmt) cell.numFmt = extra.numFmt;
-    };
-
-    setD(1,  it?.docTipo ?? "");
-    setD(2,  toDisplayDate(it?.fechaISO));
-    setD(3,  it?.docNumero ?? "");
-    setD(4,  it?.conceptNombre || it?.detalle || "");
-    setD(8,  codeName(it?.crCodigo, it?.crNombre));
-    setD(9,  codeName(it?.ctaCodigo, it?.ctaNombre));
-    setD(10, codeName(it?.partidaCodigo, it?.partidaNombre));
-    setD(12, codeName(it?.clasificacionCodigo, it?.clasificacionNombre));
-    setD(13, Number(it?.monto ?? 0), { numFmt, align: { horizontal: "right", vertical: "center" } });
+  const writeRow = (r, it) => {
+    m(`D${r}:G${r}`); m(`J${r}:K${r}`);
     ws.getRow(r).height = 15;
+    const d = (col, val2, extra={}) => {
+      const cell = ws.getCell(r, col);
+      cell.value     = val2;
+      cell.font      = F({size:9});
+      cell.border    = allT;
+      cell.alignment = { ...aL, wrapText: true };
+      if (extra.numFmt) cell.numFmt    = extra.numFmt;
+      if (extra.align)  cell.alignment = extra.align;
+    };
+    if (!it) {
+      // fila vacía con bordes
+      [1,2,3,4,8,9,10,12,13].forEach(c => d(c, ""));
+      return;
+    }
+    d(1,  it.docTipo ?? "");
+    d(2,  toDisplayDate(it.fechaISO));
+    d(3,  it.docNumero ?? "");
+    d(4,  it.conceptNombre || it.detalle || "");
+    d(8,  codeName(it.crCodigo, it.crNombre));
+    d(9,  codeName(it.ctaCodigo, it.ctaNombre));
+    d(10, codeName(it.partidaCodigo, it.partidaNombre));
+    d(12, codeName(it.clasificacionCodigo, it.clasificacionNombre));
+    d(13, Number(it.monto ?? 0), { numFmt, align: { ...aR } });
   };
 
-  // Escribir bloque 1 (siempre 14 filas, vacías si no hay datos)
-  for (let i = 0; i < BLOCK1_ROWS; i++) {
-    writeDataRow(BLOCK1_START + i, block1Items[i] ?? null);
-  }
+  for (let i = 0; i < B1R; i++) writeRow(B1S + i, b1[i] ?? null);
 
-  // ── FILAS 43-45: Totales bloque 1 ────────────────────────────────────────────
-  const sumTotal = sorted.reduce((acc, it) => acc + Number(it.monto ?? 0), 0);
+  // ── FILAS 43-45: Totales ─────────────────────────────────────────────────────
+  const sumTotal = sorted.reduce((a,it) => a + Number(it.monto ?? 0), 0);
 
-  merge("H43:L43");
-  style("H43", {
-    v: "Total",
-    font: F({ size: 12 }),
-    align: { horizontal: "center", vertical: "center", wrapText: true },
-    border: topMedBotThinLeftMed,
-  });
-  style("M43", {
-    v: { formula: `SUM(M${BLOCK1_START}:M${BLOCK1_START + BLOCK1_ROWS - 1},M${BLOCK2_START}:M${BLOCK2_START + BLOCK2_ROWS - 1})`, result: sumTotal },
-    font: F({ size: 12 }),
-    border: topMedBotThinLeftMed,
-    numFmt,
-    align: { horizontal: "right", vertical: "center" },
-  });
-  ws.getRow(43).height = 17.25;
+  m("H43:L43");
+  s("H43","Total", { font: F({size:12}), align: aW, border: topMbotT });
+  s("M43",
+    { formula: `SUM(M${B1S}:M${B1S+B1R-1},M${B2S}:M${B2S+B2R-1})`, result: sumTotal },
+    { font: F({size:12}), border: topMbotT, numFmt, align: aR });
 
-  merge("H44:L44");
-  style("H44", {
-    v: "(-) Anticipos",
-    font: F({ size: 12 }),
-    align: { horizontal: "center", vertical: "center", wrapText: true },
-    border: topThinBotMedLeftMed,
-  });
-  style("M44", {
-    v: "",
-    font: F({ size: 12 }),
-    border: topThinBotMedLeftMed,
-    numFmt,
-  });
-  ws.getRow(44).height = 18;
+  m("H44:L44");
+  s("H44","(-) Anticipos", { font: F({size:12}), align: aW, border: topTbotM });
+  s("M44", 0, { font: F({size:12}), border: topTbotM, numFmt, align: aR });
 
-  merge("H45:L45");
-  style("H45", {
-    v: "Total Boletas y Facturas",
-    font: F({ bold: true, size: 12 }),
-    align: { horizontal: "center", vertical: "center", wrapText: true },
-    border: allMed,
-  });
-  style("M45", {
-    v: { formula: "+M43+M44", result: sumTotal },
-    font: F({ bold: true, size: 12 }),
-    fill: fillTotal,
-    border: allMed,
-    numFmt,
-    align: { horizontal: "right", vertical: "center" },
-  });
-  ws.getRow(45).height = 28.5;
+  m("H45:L45");
+  s("H45","Total Boletas y Facturas",
+    { font: F({bold:true,size:12}), align: aW, border: allM });
+  s("M45",
+    { formula: "+M43+M44", result: sumTotal },
+    { font: F({bold:true,size:12}), fill: ORANGE, border: allM, numFmt, align: aR });
 
-  // ── FILAS 46-47: Espacio firma superior ───────────────────────────────────────
-  ws.getRow(46).height = 48;
-  ws.getRow(47).height = 43.5;
+  // ── FILAS 46-48: Espacio + Firmas ────────────────────────────────────────────
+  m("B48:C48");
+  s("B48","Firma Responsable del Fondo o Caja",
+    { font: F({bold:true,size:12}), align:{horizontal:"center",vertical:"top",wrapText:true},
+      border:{top:thin} });
+  s("H48","Firma Aprobador",
+    { font: F({bold:true,size:12}), align:{horizontal:"center",vertical:"top",wrapText:true},
+      border:{top:thin} });
+  s("L48","Firma Control Pagos",
+    { font: F({bold:true,size:12}), align:{horizontal:"center",vertical:"top",wrapText:true},
+      border:{top:thin} });
 
-  // ── FILA 48: Firmas ──────────────────────────────────────────────────────────
-  merge("B48:C48");
-  style("B48", {
-    v: "Firma Responsable del Fondo o Caja",
-    font: F({ bold: true, size: 12 }),
-    align: { horizontal: "center", vertical: "top", wrapText: true },
-    border: { top: borderThin },
-  });
-  style("H48", {
-    v: "Firma Aprobador",
-    font: F({ bold: true, size: 12 }),
-    align: { horizontal: "center", vertical: "top", wrapText: true },
-    border: { top: borderThin },
-  });
-  style("L48", {
-    v: "Firma Control Pagos",
-    font: F({ bold: true, size: 12 }),
-    align: { horizontal: "center", vertical: "top", wrapText: true },
-    border: { top: borderThin },
-  });
-  ws.getRow(48).height = 50.85;
-
-  // ── FILA 49: Título Hoja 2 ────────────────────────────────────────────────────
-  merge("E49:M53");
-  merge("B49:D53");
-  style("E49", {
-    v: "Formulario de Rendición de Caja chica, Fondos por rendir, Reembolso de gastos 2026\n(Hoja 2)",
-    font: F({ bold: true, size: 14 }),
-    align: { horizontal: "center", vertical: "center", wrapText: true },
-  });
+  // ── FILA 49-53: Título Hoja 2 ────────────────────────────────────────────────
+  m("E49:M53");
+  s("E49",
+    "Formulario de Rendición de Caja chica, Fondos por rendir, Reembolso de gastos 2026\n(Hoja 2)",
+    { font: { name:"Calibri", size:14, bold:true, color:{argb:"FFFFFFFF"} },
+      fill: BLUE_HDR, align:{horizontal:"center",vertical:"middle",wrapText:true} });
+  m("B49:D53");
 
   // ── FILA 56: Separador ────────────────────────────────────────────────────────
-  merge("A56:M56");
-  style("A56", {
-    v: "",
-    fill: fillBlue,
-    border: allThin,
-  });
+  m("A56:M56");
+  s("A56","", { fill: BLUE_HDR, border: allT });
   ws.getRow(56).height = 17.25;
 
   // ── FILA 57: Encabezados bloque 2 ────────────────────────────────────────────
-  style("A57", { v: "Tipo de Doc.", ...hdrStyle });
-  style("B57", { v: "Fecha", ...hdrStyle });
-  style("C57", { v: "N° Doc", ...hdrStyle });
-  merge("D57:G57"); style("D57", { v: "Detalle", ...hdrStyle });
-  style("H57", { v: "Centro de Responsabilidad", ...hdrStyle });
-  style("I57", { v: "Cuenta Contable", ...hdrStyle });
-  merge("J57:K57"); style("J57", { v: "Partida", ...hdrStyle });
-  style("L57", { v: "Clasificación", ...hdrStyle });
-  style("M57", { v: "Monto ($)", ...hdrStyle });
+  s("A57","Tipo de Doc.",hdr);
+  s("B57","Fecha",hdr);
+  s("C57","N° Doc",hdr);
+  m("D57:G57"); s("D57","Detalle",hdr);
+  s("H57","Centro de Responsabilidad",hdr);
+  s("I57","Cuenta Contable",hdr);
+  m("J57:K57"); s("J57","Partida",hdr);
+  s("L57","Clasificación",hdr);
+  s("M57","Monto ($)",hdr);
   ws.getRow(57).height = 34.5;
 
-  // Escribir bloque 2 (siempre 28 filas)
-  for (let i = 0; i < BLOCK2_ROWS; i++) {
-    writeDataRow(BLOCK2_START + i, block2Items[i] ?? null);
-  }
-
+  for (let i = 0; i < B2R; i++) writeRow(B2S + i, b2[i] ?? null);
   ws.getRow(85).height = 15.75;
 
-  // ── FILAS 86-103: Resumen interno ────────────────────────────────────────────
+  // ── FILAS 86+: Resumen interno ────────────────────────────────────────────────
   ws.getRow(86).height = 17.25;
   ws.getRow(87).height = 18;
   ws.getRow(88).height = 18;
+  m("H86:M87");
+  s("H86","Resumen",
+    { font:{name:"Calibri",size:12,bold:true,color:{argb:"FFFFFFFF"}},
+      fill: BLUE_HDR, align: aC, border: allT });
+  const rh2 = { font:{name:"Calibri",size:9,bold:true,color:{argb:"FFFFFFFF"}}, fill:BLUE_COL, border:allT, align:aW };
+  s("H88","Tipo",rh2);
+  s("I88","Cuenta",rh2);
+  m("J88:K88"); s("J88","Partida",rh2);
+  s("L88","Clasificación",rh2);
+  s("M88","Monto",rh2);
 
-  merge("H86:M87");
-  style("H86", {
-    v: "Resumen",
-    font: F({ bold: true, size: 12 }),
-    fill: fillBlue,
-    align: { horizontal: "center", vertical: "center" },
-    border: allThin,
-  });
-
-  // Encabezados resumen interno
-  style("H88", { v: "Tipo", font: F({ bold: true }), fill: fillBlue, border: allThin, align: { horizontal: "center", vertical: "center" } });
-  style("I88", { v: "Cuenta", font: F({ bold: true }), fill: fillBlue, border: allThin, align: { horizontal: "center", vertical: "center" } });
-  merge("J88:K88"); style("J88", { v: "Partida", font: F({ bold: true }), fill: fillBlue, border: allThin, align: { horizontal: "center", vertical: "center" } });
-  style("L88", { v: "Clasificación", font: F({ bold: true }), fill: fillBlue, border: allThin, align: { horizontal: "center", vertical: "center" } });
-  style("M88", { v: "Monto", font: F({ bold: true }), fill: fillBlue, border: allThin, align: { horizontal: "center", vertical: "center" } });
-
-  // Agrupar gastos para resumen (igual que el original)
   const grouped = new Map();
   for (const it of sorted) {
-    const tipo   = codeName(it.crCodigo, it.crNombre) || "";
-    const cuenta = codeName(it.ctaCodigo, it.ctaNombre) || "";
-    const partida = codeName(it.partidaCodigo, it.partidaNombre) || "";
-    const clasif = codeName(it.clasificacionCodigo, it.clasificacionNombre) || "";
-    const key = `${tipo}|${cuenta}|${partida}|${clasif}`;
-    grouped.set(key, (grouped.get(key) ?? 0) + Number(it.monto ?? 0));
+    const k = [
+      codeName(it.crCodigo,it.crNombre)||"",
+      codeName(it.ctaCodigo,it.ctaNombre)||"",
+      codeName(it.partidaCodigo,it.partidaNombre)||"",
+      codeName(it.clasificacionCodigo,it.clasificacionNombre)||"",
+    ].join("|");
+    grouped.set(k, (grouped.get(k)||0) + Number(it.monto||0));
   }
-
-  let resumRow = 89;
-  for (const [key, monto] of grouped) {
-    const [tipo, cuenta, partida, clasif] = key.split("|");
-    merge(`J${resumRow}:K${resumRow}`);
-    style(`H${resumRow}`, { v: tipo,    font: F(), border: allThin, align: { vertical: "center" } });
-    style(`I${resumRow}`, { v: cuenta,  font: F(), border: allThin, align: { vertical: "center" } });
-    style(`J${resumRow}`, { v: partida, font: F(), border: allThin, align: { vertical: "center" } });
-    style(`L${resumRow}`, { v: clasif,  font: F(), border: allThin, align: { vertical: "center" } });
-    style(`M${resumRow}`, { v: monto,   font: F(), border: allThin, numFmt, align: { horizontal: "right", vertical: "center" } });
-    ws.getRow(resumRow).height = 17.25;
-    resumRow++;
+  let rr = 89;
+  for (const [k, monto] of grouped) {
+    const [tipo,cuenta,partida,clasif] = k.split("|");
+    m(`J${rr}:K${rr}`);
+    s(`H${rr}`,tipo,   {font:F(),border:allT,align:aL});
+    s(`I${rr}`,cuenta, {font:F(),border:allT,align:aL});
+    s(`J${rr}`,partida,{font:F(),border:allT,align:aL});
+    s(`L${rr}`,clasif, {font:F(),border:allT,align:aL});
+    s(`M${rr}`,monto,  {font:F(),border:allT,numFmt,align:aR});
+    ws.getRow(rr).height = 17.25;
+    rr++;
   }
+  m(`H${rr}:L${rr}`);
+  s(`H${rr}`,"Total",
+    {font:F({bold:true,size:11}),fill:ORANGE,border:allT,align:aC});
+  s(`M${rr}`,
+    {formula:`SUM(M89:M${rr-1})`,result:sumTotal},
+    {font:F({bold:true,size:11}),fill:ORANGE,border:allT,numFmt,align:aR});
+  ws.getRow(rr).height = 18;
 
-  // Total resumen
-  merge(`H${resumRow}:L${resumRow}`);
-  style(`H${resumRow}`, {
-    v: "Total",
-    font: F({ bold: true, size: 11 }),
-    fill: fillTotal,
-    border: allThin,
-    align: { horizontal: "center", vertical: "center" },
-  });
-  style(`M${resumRow}`, {
-    v: { formula: `SUM(M89:M${resumRow - 1})`, result: sumTotal },
-    font: F({ bold: true, size: 11 }),
-    fill: fillTotal,
-    border: allThin,
-    numFmt,
-    align: { horizontal: "right", vertical: "center" },
-  });
-  ws.getRow(resumRow).height = 18;
-
-  // ── Hoja 2 Resumen externo ────────────────────────────────────────────────────
+  // ── Hoja 2: Resumen externo ───────────────────────────────────────────────────
   buildResumenSheet(wb, sorted, correlativo);
 
   const buffer = await wb.xlsx.writeBuffer();

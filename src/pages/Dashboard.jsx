@@ -328,7 +328,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: 15 }}>{r.total ? fmt(r.total) : "$0"}</span>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{fmt(r.total ?? 0)}</span>
                       <StatePill estado={r.estado} />
                     </div>
                   </div>
