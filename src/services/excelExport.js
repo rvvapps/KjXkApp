@@ -331,12 +331,18 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   buildResumenSheet(wb, sorted, correlativo);
 
   // Limpiar imágenes antes de exportar — ExcelJS tiene un bug con anchors
-  // en Safari/iOS que hace fallar el writeBuffer. Se pierde el logo pero
+  // que hace fallar writeBuffer en Chrome y Safari. Se pierde el logo pero
   // todos los datos, fórmulas y formato quedan intactos.
-  wb.worksheets.forEach((sheet) => {
-    try { sheet._drawings = []; } catch {}
-    try { if (sheet.model) sheet.model.drawings = []; } catch {}
-  });
+  try {
+    wb.worksheets.forEach((sheet) => {
+      sheet._drawings = [];
+      if (sheet.model) sheet.model.drawings = [];
+      if (sheet._media) sheet._media = sheet._media.filter(m => m.type !== "image");
+    });
+    // Limpiar también el pool de imágenes del workbook
+    if (wb._media) wb._media = [];
+    if (wb.model && wb.model.media) wb.model.media = [];
+  } catch {}
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Blob([buffer], {

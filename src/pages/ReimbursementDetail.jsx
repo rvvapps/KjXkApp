@@ -358,11 +358,11 @@ export default function ReimbursementDetail() {
   // ── Visor PDF ─────────────────────────────────────────────────────────────
   if (pdfViewer) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "#0f1117" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100dvh", background: "var(--bg)" }}>
         {/* Barra superior */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 16px", background: "#1a1d2e",
+          padding: "10px 16px", background: "var(--bg2)",
           borderBottom: "1px solid var(--sep)", flexShrink: 0,
         }}>
           <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text)" }}>
@@ -373,8 +373,8 @@ export default function ReimbursementDetail() {
               href={pdfViewer.url}
               download={pdfViewer.filename}
               style={{
-                padding: "6px 14px", borderRadius: 8, background: "#0ea5e9",
-                color: "#001018", fontWeight: 700, fontSize: 13,
+                padding: "6px 14px", borderRadius: 8, background: "var(--accent)",
+                color: "#fff", fontWeight: 700, fontSize: 13,
                 textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6,
               }}
             >⬇ Descargar</a>
@@ -383,7 +383,7 @@ export default function ReimbursementDetail() {
               style={{
                 padding: "6px 14px", borderRadius: 8,
                 border: "1px solid var(--sep)",
-                background: "transparent", color: "var(--text)",
+                background: "var(--bg3)", color: "var(--text)",
                 fontWeight: 700, fontSize: 13, cursor: "pointer",
               }}
             >✕ Cerrar</button>

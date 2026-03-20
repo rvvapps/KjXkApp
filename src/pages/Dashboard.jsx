@@ -255,7 +255,7 @@ export default function Dashboard() {
         {/* ── PENDIENTE ── */}
         <div className="card">
           <div style={{ marginBottom: 10 }}>
-            <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8 }}>Pendiente</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text3)" }}>Gastos Pendientes</span>
           </div>
           <div className="row" style={{ gap: 0, flexWrap: "wrap", marginBottom: 10 }}>
             <KpiCard label="Listos" value={complete.length} sub={complete.length > 0 ? fmt(totalPending) : "sin gastos"} color={complete.length > 0 ? "#e5e7eb" : undefined} />
@@ -313,22 +313,24 @@ export default function Dashboard() {
         {/* ── ÚLTIMAS RENDICIONES ── */}
         {lastReims.length > 0 && (
           <div className="card">
-            <span style={{ fontWeight: 700, fontSize: 14, opacity: 0.8, display: "block", marginBottom: 8 }}>Recientes</span>
+            <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text3)", display: "block", marginBottom: 8 }}>Recientes</span>
             <div style={{ display: "flex", flexDirection: "column" }}>
               {lastReims.map((r) => (
                 <Link key={r.rendicionId} to={`/rendiciones/${r.rendicionId}`} style={{ textDecoration: "none", color: "inherit" }}>
                   <div style={{
                     display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "8px 0", borderTop: "1px solid var(--sep)",
+                    padding: "10px 0", borderTop: "1px solid var(--sep)",
                   }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{r.correlativo}</div>
-                      <div className="small" style={{ color: "var(--text3)" }}>
+                      <div className="small" style={{ color: "var(--text3)", marginTop: 2 }}>
                         {new Date(r.fechaCreacion).toLocaleDateString("es-CL")}
-                        {r.total ? ` · ${fmt(r.total)}` : ""}
                       </div>
                     </div>
-                    <StatePill estado={r.estado} />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{r.total ? fmt(r.total) : "$0"}</span>
+                      <StatePill estado={r.estado} />
+                    </div>
                   </div>
                 </Link>
               ))}
