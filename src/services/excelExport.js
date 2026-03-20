@@ -510,8 +510,18 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     {font:F({bold:true,size:11}),fill:ORANGE,border:allT,numFmt,align:aR});
   ws.getRow(rr).height = 18;
 
-  // ── Page break entre fila 48 y 49 ─────────────────────────────────────────
-  try { ws.addPageBreak(48); } catch {}
+  // ── Configuración de página: horizontal, 1 ancho × 2 alto, quiebre fila 48 ──
+  ws.pageSetup = {
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 2,
+    horizontalCentered: false,
+    paperSize: 9,           // A4
+    margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
+  };
+  // Page break manual entre fila 48 y 49
+  ws.rowBreaks = [{ id: 48, max: 16383, min: 1 }];
 
   // ── Hoja 2: Resumen externo ───────────────────────────────────────────────────
   buildResumenSheet(wb, sorted, correlativo);
