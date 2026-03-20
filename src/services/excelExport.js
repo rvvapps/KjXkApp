@@ -520,16 +520,56 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     paperSize: 5,           // Carta (Letter)
     margins: { left: 0.5, right: 0.5, top: 0.75, bottom: 0.75, header: 0.3, footer: 0.3 },
   };
-  // Quiebre de página MANUAL entre fila 48 y 49
-  ws.rowBreaks = [{ id: 31, max: 16383, min: 1 }];
-
   // ── Hoja 2: Resumen externo ───────────────────────────────────────────────────
   buildResumenSheet(wb, sorted, correlativo);
 
-  const buffer = await wb.xlsx.writeBuffer();
-  return new Blob([buffer], {
+  const rawBuffer = await wb.xlsx.writeBuffer();
+
+  // Post-proceso: corregir alturas de filas y poner rowBreak en fila 48 directamente en el XML
+  const fixedBuffer = await fixRowHeightsAndBreak(rawBuffer, 48);
+
+  return new Blob([fixedBuffer], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+}
+
+async function fixRowHeightsAndBreak(buffer, breakRow) {
+  // Usar fflate que viene incluido como dependencia transitiva de ExcelJS
+  // Si no está disponible como import, lo accedemos desde el bundle de ExcelJS
+  const JSZip = (await import("jszip")).default;
+  const zip = await JSZip.loadAsync(buffer);
+  const key = "xl/worksheets/sheet1.xml";
+  let xml = await zip.file(key).async("string");
+
+  // Alturas correctas por fila
+  const H = {
+    1:15, 2:6.75, 3:15, 4:9, 5:15, 6:3.75, 7:21, 8:4.5,
+    9:18.75, 10:18.75, 11:15, 12:6, 13:21, 14:7.5, 15:15,
+    16:6, 17:15, 18:5.25, 19:15, 20:6.75, 21:6, 22:15,
+    23:17.25, 24:21, 25:15, 26:21.75, 27:32.25,
+    42:18, 43:17.25, 44:18, 45:28.5, 46:48, 47:43.5, 48:50.85,
+  };
+  for (let r = 28; r <= 41; r++) H[r] = 15;
+  for (let r = 49; r <= 85; r++) H[r] = 15;
+
+  // Corregir alturas en cada <row r="N" ...>
+  xml = xml.replace(/<row r="(\d+)"([^>]*?)(\/?>)/g, (match, rNum, attrs, close) => {
+    const h = H[parseInt(rNum)];
+    if (!h) return match;
+    attrs = attrs.replace(/\s*ht="[^"]*"/, "").replace(/\s*customHeight="[^"]*"/, "");
+    return `<row r="${rNum}" ht="${h}" customHeight="1"${attrs}${close}`;
+  });
+
+  // Reemplazar rowBreaks con id correcto
+  const brk = `<rowBreaks count="1" manualBreakCount="1"><brk id="${breakRow}" max="16383" min="1"/></rowBreaks>`;
+  if (xml.includes("<rowBreaks")) {
+    xml = xml.replace(/<rowBreaks[\s\S]*?<\/rowBreaks>/, brk);
+  } else {
+    xml = xml.replace("</sheetData>", `</sheetData>${brk}`);
+  }
+
+  zip.file(key, xml);
+  return await zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });
 }
 
 
