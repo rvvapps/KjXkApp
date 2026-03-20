@@ -1,202 +1,178 @@
-import { getValidAccessToken, startOneDriveLogin, buildScopes } from "./onedriveAuth.js";
-import { getSyncState, saveSyncState } from "../db.js";
+# Caja Chica PWA
 
-const GRAPH = "https://graph.microsoft.com/v1.0";
+> **Versión actual: 0.15.81**
 
-async function graphFetch(path, { method = "GET", accessToken, headers = {}, body } = {}) {
-  const resp = await fetch(`${GRAPH}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...headers,
-    },
-    body,
-  });
-  const text = await resp.text();
-  let json;
-  try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-  return { ok: resp.ok, status: resp.status, json };
-}
+Aplicación web progresiva (PWA) para gestión de caja chica personal. Permite registrar gastos, agruparlos en rendiciones y exportar el formulario corporativo en Excel, todo desde el navegador sin necesidad de instalación ni backend.
 
-export async function ensureOneDriveRoot({ preferAppFolder = true } = {}) {
-  // Attempts AppFolder first; if not allowed, requests broader scope and uses a dedicated folder.
-  const st = await getSyncState();
-  const auth = st?.auth;
-  if (!auth?.tenantId || !auth?.clientId || !auth?.redirectUri) {
-    return { ok: false, error: "not_configured" };
-  }
+**Deploy:** `https://rvvapps.github.io/KjXkApp/`
 
-  // 1) Try current mode if already set.
-  if (st?.rootMode && st?.driveId && st?.rootFolderItemId) {
-    return { ok: true, rootMode: st.rootMode, driveId: st.driveId, rootFolderItemId: st.rootFolderItemId };
-  }
+---
 
-  // Helper: set root from a DriveItem
-  const setRootFromItem = async (rootMode, item) => {
-    const driveId = item?.parentReference?.driveId || item?.driveId || null;
-    const rootFolderItemId = item?.id || null;
-    await saveSyncState({ rootMode, driveId, rootFolderItemId });
-    return { ok: true, rootMode, driveId, rootFolderItemId };
-  };
+## Características principales
 
-  // 2) Prefer AppFolder
-  if (preferAppFolder) {
-    // Ensure auth mode is approot
-    if (auth.mode !== "approot") {
-      await saveSyncState({ auth: { ...auth, mode: "approot" } });
-    }
-    const tok = await getValidAccessToken({ allowInteractive: true });
-    if (!tok.ok) return tok;
-    // AppFolder root is special/approot
-    const r = await graphFetch(`/me/drive/special/approot`, { accessToken: tok.accessToken });
-    if (r.ok) {
-      return setRootFromItem("approot", r.json);
-    }
-    // If forbidden/insufficient privileges, fall through to folder mode.
-  }
+### Registro de gastos
+- Ingreso de gastos con concepto, fecha, monto, tipo de documento y número
+- Clasificación por Centro de Responsabilidad (CR), Cuenta Contable, Partida y Clasificación
+- Adjuntar foto de boleta o voucher (compresión automática de imagen)
+- Detección de gastos incompletos (campos obligatorios faltantes)
 
-  // 3) Fallback: dedicated folder under root (requires Files.ReadWrite scope)
-  // This needs broader consent; force interactive login with folder scopes.
-  const st2 = await getSyncState();
-  const auth2 = st2?.auth || auth;
-  if (auth2.mode !== "folder") {
-    await saveSyncState({ auth: { ...auth2, mode: "folder" } });
-  }
-  // Trigger interactive if needed
-  const tok2 = await getValidAccessToken({ allowInteractive: true });
-  if (!tok2.ok) return tok2;
+### Trayectos y combustible
+- Registro de recorridos con origen, destino, tipo de vehículo y CR
+- Destinos favoritos con monto estimado pre-configurado
+- Liquidación de combustible: agrupa N trayectos en un único gasto con el monto real cargado en la bomba
 
-  // Create or find /CajaChica/workspaces/personal
-  //  - Create /CajaChica
-  //  - Create workspaces
-  //  - Create personal
-  const ensureChildFolder = async (parentItemId, name) => {
-    const list = await graphFetch(`/me/drive/items/${parentItemId}/children?$select=id,name,folder`, { accessToken: tok2.accessToken });
-    if (!list.ok) return { ok: false, error: "list_children_failed", detail: list };
-    const found = (list.json.value || []).find((x) => x.name === name && x.folder);
-    if (found) return { ok: true, item: found };
-    const create = await graphFetch(`/me/drive/items/${parentItemId}/children`, {
-      method: "POST",
-      accessToken: tok2.accessToken,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, folder: {}, "@microsoft.graph.conflictBehavior": "fail" }),
-    });
-    if (!create.ok) return { ok: false, error: "create_folder_failed", detail: create };
-    return { ok: true, item: create.json };
-  };
+### Rendiciones
+- Creación de rendiciones seleccionando gastos pendientes
+- Numeración correlativa configurable (ej: RC-001)
+- Ciclo de estados: Borrador → Enviada → Aprobada / Devuelta → Pagada
+- Posibilidad de corregir rendiciones devueltas (agregar/quitar gastos)
+- Exportación del formulario Excel corporativo y PDF con las fotos de los documentos rendidos
 
-  const root = await graphFetch(`/me/drive/root?$select=id,parentReference,driveId`, { accessToken: tok2.accessToken });
-  if (!root.ok) return { ok: false, error: "drive_root_failed", detail: root };
-  const rootId = root.json.id;
+### Exportación
+- **Excel corporativo**: genera el `Formulario_Rendicion_Template.xlsx` con datos del responsable, lista de gastos y fórmulas de totales. Checkbox "Caja Chica" pre-marcado. Incluye hoja de resumen agrupado por CR → Cuenta → Partida
+- **PDF de respaldos**: una página por imagen adjunta, en orden de los gastos
 
-  const a = await ensureChildFolder(rootId, "CajaChica");
-  if (!a.ok) return a;
-  const b = await ensureChildFolder(a.item.id, "workspaces");
-  if (!b.ok) return b;
-  const c = await ensureChildFolder(b.item.id, "personal");
-  if (!c.ok) return c;
+### Sincronización multi-dispositivo
+- Sincronización automática entre dispositivos vía OneDrive (Microsoft Graph API)
+- Arquitectura outbox/eventos: cada cambio genera un evento que se sube a OneDrive y se descarga en otros dispositivos
+- Resolución de conflictos por `updatedAt` (last-write-wins)
+- Botón "Re-sincronizar todo" para re-enviar todos los datos desde un dispositivo nuevo o tras un restore
 
-  // Set root to /CajaChica/workspaces/personal
-  return setRootFromItem("folder", c.item);
-}
+### Backup y restore
+- Backup cifrado en formato `.cczip` (ZIP + contraseña mínimo 6 caracteres)
+- Descarga local o subida directa a OneDrive
+- Restore desde archivo local o desde el último backup en OneDrive
 
-export async function listFilesUnderRoot({ rootMode, rootFolderItemId, relPath }) {
-  const tok = await getValidAccessToken({ allowInteractive: false });
-  if (!tok.ok) return { ok: false, error: tok.error };
-  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
-  const base = rootMode === "approot"
-    ? `/me/drive/special/approot:/${safe}:/children`
-    : `/me/drive/items/${rootFolderItemId}:/${safe}:/children`;
-  const r = await graphFetch(`${base}?$select=id,name,size,lastModifiedDateTime`, { accessToken: tok.accessToken });
-  if (!r.ok) return { ok: false, error: "list_failed", detail: r };
-  return { ok: true, files: r.json?.value || [] };
-}
+### Catálogos y configuración
+- Administración de CR, Cuentas Contables, Partidas y Clasificaciones
+- Conceptos de gasto con valores por defecto (cuenta, partida, clasificación)
+- Datos personales y bancarios del responsable (se usan en el encabezado del Excel)
+- Ayuda contextual integrada en cada sección de la app
 
-export async function getFileUnderRoot({ rootMode, rootFolderItemId, relPath }) {
-  const tok = await getValidAccessToken({ allowInteractive: true });
-  if (!tok.ok) return { ok: false, error: tok.error };
-  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
+---
 
-  // Paso 1: obtener el itemId via metadata
-  const metaPath = rootMode === "approot"
-    ? `/me/drive/special/approot:/${safe}`
-    : `/me/drive/items/${rootFolderItemId}:/${safe}`;
-  const meta = await graphFetch(metaPath, { accessToken: tok.accessToken });
-  if (!meta.ok) return { ok: false, error: "get_meta_failed", status: meta.status };
+## Stack técnico
 
-  const itemId = meta.json?.id;
-  const fileName = meta.json?.name;
-  const fileSize = meta.json?.size;
-  if (!itemId) return { ok: false, error: "no_item_id" };
+| Capa | Tecnología |
+|------|-----------|
+| Framework UI | React 18 + React Router 6 |
+| Build | Vite 5 |
+| Persistencia local | IndexedDB via `idb` |
+| Sincronización | OneDrive / Microsoft Graph (MSAL) |
+| Excel | ExcelJS 4 |
+| PDF | pdf-lib |
+| Backup | JSZip + cifrado AES (Web Crypto API) |
+| Deploy | GitHub Pages via GitHub Actions |
 
-  // Paso 2: descargar via XMLHttpRequest
-  const blob = await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    const url = `${GRAPH}/me/drive/items/${itemId}/content`;
-    xhr.open("GET", url, true);
-    xhr.setRequestHeader("Authorization", `Bearer ${tok.accessToken}`);
-    xhr.responseType = "blob";
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(xhr.response);
-      } else {
-        reject(new Error(`XHR failed: ${xhr.status}`));
-      }
-    };
-    xhr.onerror = () => reject(new Error("XHR network error"));
-    xhr.ontimeout = () => reject(new Error("XHR timeout"));
-    xhr.timeout = 120000; // 2 minutos para archivos grandes
-    xhr.send();
-  });
+**Sin backend.** IndexedDB es la fuente de verdad. OneDrive actúa como canal de sincronización, no como base de datos.
 
-  return { ok: true, blob };
-}
+---
 
-export async function putFileByPath({ path, contentType, data }) {
-  const tok = await getValidAccessToken({ allowInteractive: true });
-  if (!tok.ok) return tok;
-  // Encode path segments safely, but keep slashes
-  const safePath = path.split("/").map((s) => encodeURIComponent(s)).join("/");
-  const r = await graphFetch(`/me/drive/special/approot:/${safePath}:/content`, {
-    method: "PUT",
-    accessToken: tok.accessToken,
-    headers: { "Content-Type": contentType },
-    body: data,
-  });
-  return r.ok ? { ok: true, item: r.json } : { ok: false, error: "put_failed", detail: r };
-}
+## Estructura del proyecto
 
-export async function putFileUnderRoot({ rootMode, rootFolderItemId, relPath, contentType, data }) {
-  const tok = await getValidAccessToken({ allowInteractive: true });
-  if (!tok.ok) return tok;
-  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
-  if (rootMode === "approot") {
-    const r = await graphFetch(`/me/drive/special/approot:/${safe}:/content`, {
-      method: "PUT",
-      accessToken: tok.accessToken,
-      headers: { "Content-Type": contentType },
-      body: data,
-    });
-    return r.ok ? { ok: true, item: r.json } : { ok: false, error: "put_failed", detail: r };
-  }
-  // folder mode: upload to specific folder by path relative to that folder
-  // Use /items/{rootId}:/{path}:/content
-  const r = await graphFetch(`/me/drive/items/${rootFolderItemId}:/${safe}:/content`, {
-    method: "PUT",
-    accessToken: tok.accessToken,
-    headers: { "Content-Type": contentType },
-    body: data,
-  });
-  return r.ok ? { ok: true, item: r.json } : { ok: false, error: "put_failed", detail: r };
-}
+```
+src/
+├── App.jsx                    # Router, nav, sync triggers
+├── db.js                      # IndexedDB schema (v6) y todas las operaciones de datos
+├── pages/
+│   ├── Dashboard.jsx          # Inicio: KPIs y resumen de estado
+│   ├── Expenses.jsx           # Lista de gastos con filtros y acciones
+│   ├── NewExpense.jsx         # Formulario nuevo gasto
+│   ├── EditExpense.jsx        # Edición de gasto existente
+│   ├── Transfers.jsx          # Trayectos y liquidación de combustible
+│   ├── Reimbursements.jsx     # Lista de rendiciones
+│   ├── ReimbursementDetail.jsx# Detalle, acciones y exportación
+│   ├── Catalogs.jsx           # Catálogos (CR, cuentas, partidas, clasificaciones)
+│   ├── Concepts.jsx           # Conceptos de gasto
+│   └── Settings.jsx           # Ajustes: perfil, app, datos y sync
+├── components/
+│   ├── HelpButton.jsx         # Ayuda contextual (sheet desde abajo)
+│   ├── helpContent.js         # Textos de ayuda por página
+│   ├── AttachmentGallery.jsx  # Visor de adjuntos
+│   ├── ErrorBanner.jsx        # Banner de errores globales
+│   ├── FileCapture.jsx        # Captura y compresión de imágenes
+│   ├── SelectField.jsx        # Select estilizado
+│   └── TextField.jsx          # Input estilizado
+└── services/
+    ├── syncEngine.js          # Sync outbox/inbox con OneDrive
+    ├── onedriveApi.js         # Microsoft Graph API
+    ├── onedriveAuth.js        # MSAL autenticación
+    ├── excelExport.js         # Generación Excel (ExcelJS + template)
+    ├── excelTemplate.js       # Template .xlsx embebido en base64
+    ├── pdfExport.js           # Generación PDF (pdf-lib)
+    ├── backupEngine.js        # Backup/restore .cczip
+    ├── backupCrypto.js        # Cifrado AES (Web Crypto)
+    ├── image.js               # Compresión de imágenes
+    └── saveAs.js              # Descarga de archivos / Web Share API
+public/
+├── sw.js                      # Service Worker (cache + offline)
+├── manifest.json              # PWA manifest
+└── templates/
+    └── Formulario_Rendicion_Template.xlsx
+```
 
-export async function deleteFileUnderRoot({ rootMode, rootFolderItemId, relPath }) {
-  const tok = await getValidToken();
-  if (!tok) return { ok: false, error: "no_token" };
-  const safe = relPath.split("/").map((s) => encodeURIComponent(s)).join("/");
-  const url = rootMode === "approot"
-    ? `/me/drive/special/approot:/${safe}`
-    : `/me/drive/items/${rootFolderItemId}:/${safe}`;
-  const r = await graphFetch(url, { method: "DELETE", accessToken: tok.accessToken });
-  return r.status === 204 || r.ok ? { ok: true } : { ok: false, error: "delete_failed" };
-}
+### Schema IndexedDB (DB_VERSION 6)
+
+| Store | Key |
+|-------|-----|
+| `expenses` | `gastoId` |
+| `attachments` | `adjuntoId` |
+| `reimbursements` | `rendicionId` |
+| `reimbursement_items` | `itemId` |
+| `transfers` | `transferId` |
+| `concepts` | `conceptId` |
+| `catalog_cr` | `crCodigo` |
+| `catalog_accounts` | `ctaCodigo` |
+| `catalog_partidas` | `partidaCodigo` |
+| `catalog_clasificaciones` | `clasificacionCodigo` |
+| `catalog_destinations` | `destinationId` |
+| `settings` | `key` |
+| `sync_outbox` | `eventId` |
+| `sync_inbox` | `eventId` |
+| `sync_state` | `key` |
+| `sync_objects` | `contentHash` |
+
+---
+
+## Deploy en GitHub Pages
+
+> No se requiere Node.js local. El build corre íntegramente en GitHub Actions.
+
+### 1. Subir al repo
+
+Sube el contenido de este directorio a la rama `main` del repositorio `KjXkApp`.
+
+### 2. Activar GitHub Pages
+
+En GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**
+
+### 3. Deploy automático
+
+Cada `push` a `main` ejecuta el workflow `.github/workflows/deploy.yml`:
+- Instala dependencias con `npm install` (sin lockfile)
+- Ejecuta `vite build`
+- Publica el directorio `dist/` en GitHub Pages
+
+URL resultante: `https://<usuario>.github.io/KjXkApp/`
+
+---
+
+## Configurar sincronización OneDrive
+
+La sincronización requiere una **Azure App Registration** con permisos `Files.ReadWrite` (delegado).
+
+1. Crear app en [portal.azure.com](https://portal.azure.com) → Azure Active Directory → App registrations
+2. Agregar redirect URI: `https://<usuario>.github.io/KjXkApp/`
+3. En la app: **Ajustes → Datos → Sync — OneDrive**, ingresar Tenant ID y Client ID
+4. Tocar **Conectar**
+
+Para sincronizar entre dispositivos, repetir la configuración en cada uno. Si un dispositivo nuevo no recibe los datos existentes, usar **Re-sincronizar todo** desde el dispositivo que los tiene.
+
+---
+
+## Notas operativas
+
+- **Capacidad por rendición:** 42 ítems. Si hay más, el Excel se genera con las primeras 42 filas usando formato extendido.
+- **iOS Safari:** las imágenes se convierten a ArrayBuffer antes de guardar en IndexedDB para evitar que la transacción expire.
+- **Offline:** la app funciona sin conexión. El sync se ejecuta al abrir, al guardar datos (debounce 1s) y al volver al foco (debounce 2s).
+- **Backup recomendado** antes de hacer restore o limpiar datos del sitio.

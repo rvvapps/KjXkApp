@@ -693,7 +693,13 @@ export async function listReimbursements() {
   const db = await getDB();
   const all = await db.getAll("reimbursements");
   all.sort((a, b) => (b.fechaCreacion || "").localeCompare(a.fechaCreacion || ""));
-  return all;
+  // Calcular total real desde items para cada rendicion
+  const allItems = await db.getAll("reimbursement_items");
+  const totalByReim = {};
+  for (const it of allItems) {
+    if (it.rendicionId) totalByReim[it.rendicionId] = (totalByReim[it.rendicionId] || 0) + Number(it.monto || 0);
+  }
+  return all.map(r => ({ ...r, total: totalByReim[r.rendicionId] ?? r.total ?? 0 }));
 }
 
 export async function getReimbursement(rendicionId) {
