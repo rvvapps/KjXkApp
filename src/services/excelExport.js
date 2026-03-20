@@ -283,32 +283,28 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     { font: WHITE, fill: BLUE_HDR, align: aC,
       border: { bottom: thin, left: thin, right: thin } });
 
-  // ── FILA 10: Labels checkboxes (los checkboxes reales son Form Controls) ──────
-  // En el template los labels "Caja Chica", etc. son parte del Form Control drawing
-  // Los valores linked están en A11, D11, H11. Simulamos con texto en fila 10.
+  // ── FILA 9: Checkboxes tipo rendición ────────────────────────────────────────
   const tipoNorm = String(tipoRendicion ?? "").trim().toLowerCase();
   const checkMap = [
-    { col:"A", key:"caja chica",          label:"Caja Chica" },
-    { col:"D", key:"fondos por rendir",   label:"Reembolso de Fondos" },
-    { col:"H", key:"reembolso de gastos", label:"Reembolso de gastos" },
-    { col:"J", key:"gastos operacionales",label:"Rendición de Gastos" },
+    { start:"A9", end:"C9",  key:"caja chica",           label:"Caja Chica" },
+    { start:"D9", end:"G9",  key:"fondos por rendir",    label:"Reembolso de Fondos" },
+    { start:"H9", end:"I9",  key:"reembolso de gastos",  label:"Reembolso de gastos" },
+    { start:"J9", end:"M9",  key:"gastos operacionales", label:"Rendición de Gastos" },
   ];
-  // Labels en fila 10 (visible), valores boolean en fila 11
-  const endCols = { A:"C", D:"G", H:"I", J:"M" };
-  checkMap.forEach(({ col, key, label }) => {
+  checkMap.forEach(({ start, end, key, label }) => {
     const isActive = tipoNorm === key || tipoNorm === key.replace(/\s+/g,"");
-    m(`${col}10:${endCols[col]}10`);
-    s(`${col}10`, (isActive ? "☑ " : "☐ ") + label, {
+    m(`${start}:${end}`);
+    s(start, (isActive ? "☑ " : "☐ ") + label, {
       font: F({ bold: isActive, size: 11 }),
       align: { horizontal:"left", vertical:"middle" },
     });
-    ws.getRow(10).height = 18.75;
   });
-  // Número de Fondo por rendir
+  ws.getRow(9).height = 18.75;
+  // ── FILA 11: Número de Fondo por rendir ───────────────────────────────────────
   m("J11:K11");
-  s("J11", "Número de Fondo por rendir", { font: F({bold:true,size:11}), align: aL });
-  s("L11", "", { border: allT });
+  s("J11", "Número de Fondo por rendir", { font: F({bold:true,size:11}), align: aR });
   m("L11:M11");
+  s("L11", "", { border: allT });
 
   // ── FILA 13: Información del responsable ─────────────────────────────────────
   m("A13:M13");
@@ -321,17 +317,20 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
 
   s("A15","Nombre Responsable",lbl); m("A15:C15");
   m("D15:H15"); s("D15", h.responsableNombre ?? "", val);
-  s("I15","Rut",lbl);
+  s("I15","", { border: allT });
+  s("J15","Rut",lbl);
   m("L15:M15"); s("L15", h.responsableRut ?? "", val);
 
   s("A17","Cargo",lbl); m("A17:C17");
   m("D17:H17"); s("D17", h.cargo ?? "", val);
-  s("I17","Teléfono / Cel",lbl);
+  s("I17","", { border: allT });
+  s("J17","Teléfono / Cel",lbl);
   m("L17:M17"); s("L17", h.telefono ?? "", val);
 
   s("A19","Empresa",lbl); m("A19:C19");
   m("D19:H19"); s("D19", h.empresa ?? "", val);
-  s("I19","Fecha",lbl);
+  s("I19","", { border: allT });
+  s("J19","Fecha",lbl);
   m("L19:M19"); s("L19", fmtDateDDMMYYYY(new Date()), val);
 
   // ── FILA 22: Datos bancarios ──────────────────────────────────────────────────
