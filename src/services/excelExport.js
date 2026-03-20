@@ -212,7 +212,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   } catch {}
 
   // ── Colores exactos del template corporativo ─────────────────────────────────
-  const BLUE_HDR  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF203864" } }; // azul oscuro secciones
+  const BLUE_HDR  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } }; // azul secciones
   const BLUE_COL  = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4472C4" } }; // azul encabezados col
   const ORANGE    = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE4D6" } }; // total neto
   const numFmt    = "#,##0";
@@ -351,8 +351,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   s("A26", correlativo || "", { font: F({bold:true,size:12}), align: aC });
 
   // ── FILA 27: Encabezados columnas ────────────────────────────────────────────
-  const hdr = { font: { name:"Calibri", size:11, bold:true, color:{argb:"FFFFFFFF"} },
-                fill: BLUE_COL, border: allT, align: aW };
+  const hdr = { font: F({size:11, bold:true}), border: allT, align: aW };
   s("A27","Tipo de Doc.",hdr);
   s("B27","Fecha",hdr);
   s("C27","N° Doc",hdr);
