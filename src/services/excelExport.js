@@ -510,19 +510,35 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
     {font:F({bold:true,size:11}),fill:ORANGE,border:allT,numFmt,align:aR});
   ws.getRow(rr).height = 18;
 
-  // ── Forzar alturas en filas vacías para que ExcelJS las escriba en el XML ────
-  // Sin esto, ExcelJS omite las filas vacías y Excel ignora el rowBreak id
-  const FORCED_HEIGHTS = {
-    2:6.75, 4:9, 6:3.75, 8:4.5, 10:18.75, 11:15, 12:6, 14:7.5,
-    16:6, 18:5.25, 20:6.75, 21:6, 23:17.25, 25:15,
+  // ── Forzar alturas en todas las filas del formulario ────────────────────────
+  // ExcelJS solo escribe customHeight en el XML si la fila tiene contenido.
+  // Solución: escribir directamente en ws._rows (modelo interno de ExcelJS)
+  const ALL_HEIGHTS = {
+    1:15, 2:6.75, 3:15, 4:9, 5:15, 6:3.75, 7:21, 8:4.5,
+    9:18.75, 10:18.75, 11:15, 12:6, 13:21, 14:7.5, 15:15,
+    16:6, 17:15, 18:5.25, 19:15, 20:6.75, 21:6, 22:15,
+    23:17.25, 24:21, 25:15, 26:21.75, 27:32.25,
+    42:18, 43:17.25, 44:18, 45:28.5, 46:48, 47:43.5, 48:50.85,
   };
-  for (const [r, h] of Object.entries(FORCED_HEIGHTS)) {
+  for (let r = 28; r <= 41; r++) ALL_HEIGHTS[r] = 15;
+  for (let r = 49; r <= 85; r++) ALL_HEIGHTS[r] = 15;
+
+  for (const [r, h] of Object.entries(ALL_HEIGHTS)) {
     const row = ws.getRow(Number(r));
     row.height = h;
-    // Forzar escritura poniendo una celda con string vacío
-    const cell = row.getCell(14); // col N (fuera del área visible A-M)
-    cell.value = "";
+    // Acceder al modelo interno para marcar customHeight=true
+    if (row._row) {
+      row._row.customHeight = true;
+      if (row._row.height === undefined || row._row.height === null) {
+        row._row.height = h;
+      }
+    }
+    // Si no hay _row, crear una celda marcadora en col O (oculta después)
+    if (!ws.getRow(Number(r)).hasValues) {
+      ws.getRow(Number(r)).getCell(15).value = "";
+    }
   }
+  ws.getColumn(15).hidden = true;
 
   // ── Configuración de página: Carta horizontal, quiebre manual fila 48 ────────
   ws.pageSetup = {
