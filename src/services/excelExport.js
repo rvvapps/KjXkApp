@@ -208,7 +208,7 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   // ── Logo ─────────────────────────────────────────────────────────────────────
   try {
     const logoId = wb.addImage({ base64: LOGO_B64, extension: "png" });
-    ws.addImage(logoId, { tl: { col: 0.15, row: 0.08 }, br: { col: 1.0, row: 4.9 } });
+    ws.addImage(logoId, { tl: { col: 0.176, row: 0.450 }, br: { col: 0.889, row: 4.605 } });
   } catch {}
 
   // ── Colores exactos del template corporativo ─────────────────────────────────
