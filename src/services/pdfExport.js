@@ -299,7 +299,6 @@ export async function generateReceiptsPdfBlob({ correlativo, orderedGastoIds }) 
     }
   }
 
-  const perPage = 4;
   const marginX = 36;
   const marginTop = 64;
   const marginBottom = 36;
@@ -307,34 +306,72 @@ export async function generateReceiptsPdfBlob({ correlativo, orderedGastoIds }) 
 
   const gridW = LETTER_W - marginX * 2;
   const gridH = LETTER_H - marginTop - marginBottom;
+  const colW  = (gridW - gap) / 2;
+  const rowH  = (gridH - gap) / 2;
 
-  const cellW = (gridW - gap) / 2;
-  const cellH = (gridH - gap) / 2;
+  // Pre-embed todas las imágenes para poder medir aspect ratio
+  for (const t of tiles) {
+    if (t.kind === "image") t.img = await embedImage(pdf, t.blob);
+  }
 
-  for (let i = 0; i < tiles.length; i += perPage) {
+  // Determinar si un tile es "largo" (altura > 1.5x el ancho → ticket de rollo)
+  const isLong = (t) => t.kind === "image" && t.img && (t.img.height / t.img.width) > 1.5;
+
+  // Layout inteligente:
+  // Procesar tiles secuencialmente, empaquetando en páginas con slots:
+  //   slot "full-col" = columna completa (ancho=colW, alto=gridH)  → para boletas largas
+  //   slot "half-col" = media columna   (ancho=colW, alto=rowH)    → para boletas normales
+  // Una página tiene 2 columnas. Cada columna puede ser:
+  //   A) 1 full-col  (1 boleta larga)
+  //   B) 2 half-col  (2 boletas normales)
+  // Combinaciones posibles por página:
+  //   [full, full]   = 2 largas
+  //   [full, half+half] = 1 larga + 2 normales
+  //   [half+half, full] = 2 normales + 1 larga
+  //   [half+half, half+half] = 4 normales (layout original)
+
+  let i = 0;
+  while (i < tiles.length) {
     const page = pdf.addPage([LETTER_W, LETTER_H]);
     drawHeader(page, font, `Documentos (No Factura) — Rendición ${correlativo ?? ""}`);
 
-    const chunk = tiles.slice(i, i + perPage);
-
-    // Pre-embed images for this page
-    for (const t of chunk) {
-      if (t.kind === "image") {
-        t.img = await embedImage(pdf, t.blob);
-      }
-    }
-
-    const baseY = marginBottom;
     const baseX = marginX;
+    const baseY = marginBottom;
 
-    const positions = [
-      { x: baseX, y: baseY + cellH + gap, w: cellW, h: cellH }, // top-left
-      { x: baseX + cellW + gap, y: baseY + cellH + gap, w: cellW, h: cellH }, // top-right
-      { x: baseX, y: baseY, w: cellW, h: cellH }, // bottom-left
-      { x: baseX + cellW + gap, y: baseY, w: cellW, h: cellH }, // bottom-right
-    ];
+    // Llenar columna izquierda
+    const fillCol = async (colX, remaining) => {
+      if (remaining.length === 0) return 0;
+      const t0 = remaining[0];
+      if (isLong(t0)) {
+        // Columna completa para boleta larga
+        drawTile(page, font, t0, { x: colX, y: baseY, w: colW, h: gridH });
+        return 1;
+      } else {
+        // Hasta 2 boletas normales en esta columna
+        const t1 = remaining[0];
+        const t2 = remaining[1];
+        // Verificar si la segunda también es normal o no existe
+        if (!t2 || isLong(t2)) {
+          // Solo 1 normal en columna completa
+          drawTile(page, font, t1, { x: colX, y: baseY, w: colW, h: gridH });
+          return 1;
+        }
+        // 2 normales en media columna cada una
+        drawTile(page, font, t1, { x: colX, y: baseY + rowH + gap, w: colW, h: rowH }); // top
+        drawTile(page, font, t2, { x: colX, y: baseY,              w: colW, h: rowH }); // bottom
+        return 2;
+      }
+    };
 
-    chunk.forEach((t, idx) => drawTile(page, font, t, positions[idx]));
+    // Columna izquierda
+    const usedLeft = await fillCol(baseX, tiles.slice(i));
+    i += usedLeft;
+
+    // Columna derecha
+    if (i < tiles.length) {
+      const usedRight = await fillCol(baseX + colW + gap, tiles.slice(i));
+      i += usedRight;
+    }
   }
 
   // ---- Facturas full page
