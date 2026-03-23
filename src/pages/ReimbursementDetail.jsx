@@ -537,14 +537,18 @@ export default function ReimbursementDetail() {
                 <div key={e.gastoId} style={{ padding: "10px 0", borderTop: "1px solid var(--sep)" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: frozen ? "default" : "pointer" }}
-                        onClick={() => !frozen && nav(`/gastos/${e.gastoId}`)}
-                        title={frozen ? undefined : "Editar gasto"}
-                      >
-                        <AttachmentGallery atts={atts} locked={frozen} />
-                        {e.docTipo || "Doc"} {e.docNumero || "S/n"} · ${Number(e.monto || 0).toLocaleString("es-CL")}
-                        {!frozen && <span style={{ opacity: 0.35, fontSize: 12 }}>›</span>}
+                      <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <AttachmentGallery atts={atts} locked={frozen} />
+                        </span>
+                        <span
+                          style={{ cursor: frozen ? "default" : "pointer", display: "flex", alignItems: "center", gap: 4 }}
+                          onClick={() => !frozen && nav(`/gastos/${e.gastoId}`)}
+                          title={frozen ? undefined : "Editar gasto"}
+                        >
+                          {e.docTipo || "Doc"} {e.docNumero || "S/n"} · ${Number(e.monto || 0).toLocaleString("es-CL")}
+                          {!frozen && <span style={{ opacity: 0.35, fontSize: 12 }}>›</span>}
+                        </span>
                       </div>
                       <div className="small" style={{ marginTop: 2 }}>
                         {e.detalle?.split("\n")[0]?.slice(0, 55) || "—"} · {new Date(e.fecha).toLocaleDateString("es-CL")}
