@@ -240,8 +240,8 @@ export default function Transfers() {
   }
 
   const listSorted = useMemo(() => {
-    const sorted = items.slice().sort((a, b) => (a.fecha || "").localeCompare(b.fecha || ""));
-    return view === "usado" ? sorted.reverse() : sorted;
+    const sorted = items.slice().sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+    return sorted;
   }, [items, view]);
 
   const listToRender = useMemo(() => {

@@ -483,7 +483,9 @@ export async function addExpense(expense) {
 
 export async function listPendingExpenses() {
   const db = await getDB();
-  return db.getAllFromIndex("expenses", "estado", "pendiente");
+  const list = await db.getAllFromIndex("expenses", "estado", "pendiente");
+  list.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  return list;
 }
 
 // Retorna gastos en rendiciones devueltas — se muestran bloqueados en la lista de gastos
@@ -496,6 +498,7 @@ export async function listExpensesInReturnedReimbursements() {
     const reim = await db.get("reimbursements", e.rendicionId);
     if (reim?.estado === "devuelta") result.push({ ...e, _rendicionCorrelativo: reim.correlativo });
   }
+  result.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
   return result;
 }
 export async function countExpensesByConceptId(conceptId) {
@@ -1158,7 +1161,9 @@ export async function addTransfer(transfer) {
 export async function listPendingTransfers() {
   const db = await getDB();
   // estado es string (válido como key), así que esto es seguro
-  return db.getAllFromIndex("transfers", "estado", "pendiente");
+  const list = await db.getAllFromIndex("transfers", "estado", "pendiente");
+  list.sort((a, b) => (b.fecha || "").localeCompare(a.fecha || ""));
+  return list;
 }
 
 export async function listTransfersByEstado(estado) {
