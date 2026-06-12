@@ -1,32 +1,2365 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <title>Rendicion</title>
-    <meta name="theme-color" content="#0ea5e9" />
-    <meta name="description" content="Gestión de gastos y rendiciones" />
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Alertas Obra">
+<title>Alertas Obra RVC</title>
+<meta name="theme-color" content="#CC2929">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --red:#CC2929; --red-d:#A82020; --red-l:#FDEAEA;
+  --cream:#F5F3EE; --surface:#EEEAE3; --surface2:#E6E1D9;
+  --border:#D9D4CB; --text:#1A1916; --text2:#5A5750; --text3:#9A948C;
+  --white:#FFFFFF; --blue:#185FA5; --blue-l:#E6F1FB;
+  --crit-baja-bg:#EAF3DE;   --crit-baja-fg:#3B6D11;   --crit-baja-bd:#C0DD97;
+  --crit-media-bg:#FEF3DC;  --crit-media-fg:#854F0B;  --crit-media-bd:#FAC775;
+  --crit-alta-bg:#FAECE7;   --crit-alta-fg:#993C1D;   --crit-alta-bd:#F0997B;
+  --crit-critica-bg:#FCEBEB;--crit-critica-fg:#A32D2D;--crit-critica-bd:#F7C1C1;
+  --est-activa-bg:#FCEBEB;    --est-activa-fg:#A32D2D;
+  --est-gestion-bg:#E6F1FB;   --est-gestion-fg:#185FA5;
+  --est-resuelta-bg:#EAF3DE;  --est-resuelta-fg:#3B6D11;
+  --est-descartada-bg:#EEECEA;--est-descartada-fg:#6B6963;
 
-    <!-- PWA manifest -->
-    <link rel="manifest" href="/KjXkApp/manifest.json" />
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);font-size:14px;}
 
-    <!-- iOS PWA -->
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Rendicion" />
-    <link rel="apple-touch-icon" href="/KjXkApp/icons/icon-152x152.png" />
-    <link rel="apple-touch-icon" sizes="192x192" href="/KjXkApp/icons/icon-192x192.png" />
+/* LOGIN */
+.login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:var(--cream);padding:24px;}
+.login-title{font-size:22px;font-weight:600;margin-bottom:6px;}
+.login-sub{font-size:13px;color:var(--text3);text-align:center;margin-bottom:28px;line-height:1.5;}
+.login-btn{display:flex;align-items:center;gap:10px;padding:12px 24px;background:var(--red);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background .15s;}
+.login-btn:hover{background:var(--red-d);}
+.login-err{margin-top:14px;font-size:12px;color:var(--red);text-align:center;}
+.acceso-denegado{background:var(--red-l);border:1px solid var(--crit-critica-bd);border-radius:6px;padding:10px 14px;}
 
-    <!-- Windows tiles -->
-    <meta name="msapplication-TileImage" content="/KjXkApp/icons/icon-144x144.png" />
-    <meta name="msapplication-TileColor" content="#0f172a" />
-  </head>
-  <body>
-    <div id="root"></div>
-    <!-- IMPORTANTÍSIMO: no poner /KjXkApp/ acá -->
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+/* LOADING */
+.loading-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:14px;}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-size:13px;color:var(--text3);}
+
+/* APP */
+.app{display:none;flex-direction:column;height:100vh;overflow:hidden;}
+
+/* HEADER */
+.hdr{background:var(--red);color:#fff;padding:0 16px;display:flex;align-items:center;justify-content:space-between;height:52px;flex-shrink:0;z-index:20;}
+.hdr-left{display:flex;flex-direction:column;justify-content:center;}
+.hdr-left h1{font-size:15px;font-weight:600;line-height:1.2;}
+.hdr-left p{font-size:10px;opacity:.65;}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.hbtn{background:rgba(255,255,255,.15);border:1px solid transparent;color:#fff;border-radius:6px;padding:0 12px;height:32px;font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;transition:background .15s;}
+.hbtn:hover{background:rgba(255,255,255,.25);}
+.hbtn.primary{background:#fff;color:var(--red);font-weight:600;display:flex;align-items:center;gap:4px;}
+.hbtn.primary:hover{background:#f5f5f5;}
+.hbtn svg{flex-shrink:0;}
+.hbtn.tab-active{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.6);}
+/* ── DASHBOARD ── */
+.db-view{display:none;flex:1;overflow-y:auto;flex-direction:column;background:var(--cream);}
+.db-view.open{display:flex;}
+.db-filter-bar{display:flex;align-items:center;gap:8px;padding:9px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;flex-shrink:0;}
+.db-filter-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);margin-right:2px;}
+.db-fsel{border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--text2);background:var(--cream);font-family:'DM Sans',sans-serif;cursor:pointer;outline:none;}
+.db-fsel:focus{border-color:var(--red);}
+.db-fsel.active{border-color:var(--red);color:var(--red);background:var(--red-l);}
+.db-fsep{width:1px;height:18px;background:var(--border);margin:0 2px;}
+.db-clear{font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:3px 6px;border-radius:4px;}
+.db-clear:hover{color:var(--red);}
+.db-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;}
+.db-row{display:grid;gap:10px;}
+.db-r4{grid-template-columns:repeat(4,minmax(0,1fr));}
+.db-r3{grid-template-columns:1.3fr 1fr 1fr;}
+.db-r2{grid-template-columns:1fr 1fr;}
+.db-card{background:var(--white);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.db-kpi-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.db-kpi-num{font-size:26px;font-weight:600;line-height:1;color:var(--text);}
+.db-kpi-sub{font-size:11px;color:var(--text3);margin-top:3px;}
+.db-card-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.db-bar-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;cursor:pointer;border-radius:4px;padding:2px 4px;transition:background .1s;}
+.db-bar-row:hover{background:var(--surface);}
+.db-bar-lbl{font-size:11px;color:var(--text2);width:118px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-bar-wrap{flex:1;background:var(--surface2);border-radius:3px;height:7px;overflow:hidden;}
+.db-bar-fill{height:100%;border-radius:3px;transition:width .3s;}
+.db-bar-num{font-size:11px;color:var(--text3);width:16px;text-align:right;flex-shrink:0;}
+.db-st-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);}
+.db-st-row:last-child{border-bottom:none;}
+.db-st-name{font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;}
+.db-st-bar{width:65px;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden;margin:0 8px;}
+.db-st-fill{height:100%;border-radius:3px;}
+.db-st-num{font-size:11px;color:var(--text3);width:16px;text-align:right;}
+.db-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.db-leg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.db-leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);}
+.db-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid var(--border);background:var(--surface);color:var(--text2);margin:0 3px 3px 0;}
+.db-chip strong{color:var(--text);}
+.db-alerta-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);}
+.db-alerta-row:last-child{border-bottom:none;}
+.db-alerta-bar{width:3px;min-height:30px;border-radius:2px;flex-shrink:0;margin-top:3px;}
+.db-alerta-desc{font-size:12px;font-weight:500;color:var(--text);line-height:1.4;margin-bottom:2px;}
+.db-alerta-meta{font-size:11px;color:var(--text3);}
+.hdr-avatar{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;cursor:pointer;color:#fff;}
+.sync-bar{display:flex;align-items:center;gap:5px;font-size:11px;opacity:.85;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:rgba(150,255,180,.85);}
+
+/* LAYOUT */
+.layout{display:flex;flex:1;overflow:hidden;}
+
+/* SIDEBAR */
+.sidebar{width:210px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:0;display:flex;flex-direction:column;}
+/* Tarjetas resumen */
+.sb-summary{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 10px 8px;border-bottom:1px solid var(--border);}
+.sb-summary-title{grid-column:1/-1;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);padding-bottom:2px;}
+.sum-card{background:var(--white);border-radius:7px;padding:8px 10px;border:1px solid var(--border);cursor:pointer;transition:all .15s;text-align:center;}
+.sum-card:hover{border-color:var(--text3);transform:translateY(-1px);}
+.sum-card.active-card{border-color:currentColor;}
+.sum-card-num{font-size:22px;font-weight:700;line-height:1;margin-bottom:2px;}
+.sum-card-lbl{font-size:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;opacity:.75;}
+.sum-critica .sum-card-num{color:var(--crit-critica-fg);}
+.sum-critica{border-color:var(--crit-critica-bd)!important;}
+.sum-alta .sum-card-num{color:var(--crit-alta-fg);}
+.sum-alta{border-color:var(--crit-alta-bd)!important;}
+.sum-media .sum-card-num{color:var(--crit-media-fg);}
+.sum-media{border-color:var(--crit-media-bd)!important;}
+.sum-baja .sum-card-num{color:var(--crit-baja-fg);}
+.sum-baja{border-color:var(--crit-baja-bd)!important;}
+/* sb-section reemplazado por fblock-btn */
+.fblock{border-bottom:1px solid var(--border);}
+.fblock-btn{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;cursor:pointer;user-select:none;
+  font-size:12px;font-weight:500;color:var(--text2);
+  background:none;border:none;width:100%;text-align:left;
+  font-family:'DM Sans',sans-serif;transition:background .1s;
+}
+.fblock-btn:hover{background:var(--surface2);color:var(--text);}
+.fblock-btn.has-filter{color:var(--red);font-weight:600;}
+.fblock-arrow{font-size:10px;transition:transform .2s;color:var(--text3);}
+.fblock-arrow.open{transform:rotate(180deg);}
+.fblock-cnt{font-size:10px;font-family:'DM Mono',monospace;color:var(--text3);margin-right:4px;}
+.fblock-btn.has-filter .fblock-cnt{color:var(--red);}
+.fblock-body{padding:0 8px 6px;display:none;}
+.fblock-body.open{display:block;}
+.fopt{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;border-radius:5px;cursor:pointer;font-size:12px;color:var(--text2);transition:background .1s;}
+.fopt:hover{background:var(--surface2);color:var(--text);}
+.fopt.active{background:var(--red-l);color:var(--red);font-weight:500;}
+.fcnt{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);}
+.fopt.active .fcnt{color:var(--red);}
+.clear-filters-btn{margin:6px 10px;padding:6px;background:none;border:1px solid var(--border);border-radius:5px;font-size:11px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;width:calc(100% - 20px);}
+.clear-filters-btn:hover{background:var(--red-l);color:var(--red);border-color:var(--red);}
+.date-filter-body{padding:8px 12px 10px;display:none;}
+.date-filter-body.open{display:block;}
+.date-row{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+.date-row label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.date-input{border:1px solid var(--border);border-radius:5px;padding:5px 8px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--text);background:var(--cream);outline:none;width:100%;cursor:pointer;}
+.date-input:focus{border-color:var(--red);}
+.date-clear{font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;padding:0;text-align:left;}
+.date-clear:hover{color:var(--red);}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
+
+/* SEARCH BAR */
+.search-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--cream);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-shrink:0;}
+.search-icon{font-size:14px;color:var(--text3);}
+.search{flex:1;border:none;background:none;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);outline:none;}
+.search::placeholder{color:var(--text3);}
+
+/* TABLA */
+/* ── TABLA ── */
+.alert-table{width:100%;border-collapse:collapse;table-layout:auto;}
+.alert-table thead{position:sticky;top:41px;z-index:9;}
+.alert-table thead tr{background:#EAE6DF;}
+.alert-table th{
+  padding:6px 8px;
+  font-size:10px;font-weight:600;color:var(--text2);
+  text-transform:uppercase;letter-spacing:.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-bottom:1px solid var(--border);
+  text-align:left;
+}
+.alert-table th:hover{color:var(--text);}
+.alert-table td{
+  padding:0 8px;
+  border-bottom:1px solid var(--border);
+  height:38px;
+  vertical-align:middle;
+  overflow:hidden;
+  white-space:nowrap;
+  text-overflow:ellipsis;
+}
+.alert-table tbody tr{cursor:pointer;transition:background .1s;}
+.alert-table tbody tr:hover{background:var(--surface);}
+.alert-table tbody tr.sel{background:var(--red-l);}
+.td-desc{font-size:13px;font-weight:500;color:var(--text);}
+.td-txt {font-size:12px;color:var(--text2);}
+.td-mono{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace;}
+.td-cat {font-size:11px;color:var(--text2);}
+
+/* BADGES */
+.badge{display:inline-flex;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap;border:1px solid transparent;}
+.badge-baja    {background:var(--crit-baja-bg);   color:var(--crit-baja-fg);  border-color:var(--crit-baja-bd);}
+.badge-media   {background:var(--crit-media-bg);  color:var(--crit-media-fg); border-color:var(--crit-media-bd);}
+.badge-alta    {background:var(--crit-alta-bg);   color:var(--crit-alta-fg);  border-color:var(--crit-alta-bd);}
+.badge-critica {background:var(--crit-critica-bg);color:var(--crit-critica-fg);border-color:var(--crit-critica-bd);}
+.badge-activa    {background:var(--est-activa-bg);   color:var(--est-activa-fg);}
+.badge-gestion   {background:var(--est-gestion-bg);  color:var(--est-gestion-fg);}
+.badge-resuelta  {background:var(--est-resuelta-bg); color:var(--est-resuelta-fg);}
+.badge-descartada{background:var(--est-descartada-bg);color:var(--est-descartada-fg);}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3);}
+.empty-state p{margin-top:8px;font-size:13px;}
+
+/* FAB */
+.fab{display:none;position:fixed;bottom:24px;right:20px;width:52px;height:52px;background:var(--red);color:#fff;border:none;border-radius:50%;font-size:26px;cursor:pointer;box-shadow:0 4px 16px rgba(204,41,41,.4);z-index:50;align-items:center;justify-content:center;}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;align-items:center;justify-content:center;padding:16px;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--white);border-radius:12px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.18);}
+.modal-inner{padding:20px;display:flex;flex-direction:column;gap:14px;}
+.modal-title{font-size:16px;font-weight:600;color:var(--text);padding-bottom:4px;border-bottom:1px solid var(--border);}
+.fg{display:flex;flex-direction:column;gap:5px;}
+.fl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.fi,.fsel,.fta{border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--cream);outline:none;transition:border-color .15s;}
+.fi:focus,.fsel:focus,.fta:focus{border-color:var(--red);}
+.fta{resize:vertical;min-height:64px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;padding-top:4px;}
+.mbtn{padding:8px 18px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;border:1px solid transparent;}
+.mbtn-cancel{background:var(--surface);color:var(--text2);border-color:var(--border);}
+.mbtn-cancel:hover{background:var(--surface2);}
+.mbtn-save{background:var(--red);color:#fff;}
+.mbtn-save:hover{background:var(--red-d);}
+
+/* ADJUNTOS en formulario */
+.adjunto-area{border:1.5px dashed var(--border);border-radius:7px;background:var(--surface);overflow:hidden;}
+.adjunto-btns{display:flex;gap:0;border-bottom:1px solid var(--border);}
+.adj-btn{flex:1;padding:9px 6px;background:none;border:none;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:5px;transition:background .1s;}
+.adj-btn:hover{background:var(--surface2);}
+.adj-btn+.adj-btn{border-left:1px solid var(--border);}
+.adjunto-preview{padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+.adj-item{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--cream);border-radius:5px;border:1px solid var(--border);}
+.adj-item-icon{font-size:16px;flex-shrink:0;}
+.adj-item-name{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.adj-item-size{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0;}
+.adj-item-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 2px;flex-shrink:0;}
+.adj-item-del:hover{color:var(--red);}
+.adj-hint{padding:12px;text-align:center;font-size:12px;color:var(--text3);}
+.adj-progress{height:3px;background:var(--red-l);border-radius:2px;overflow:hidden;margin-top:2px;}
+.adj-progress-bar{height:100%;background:var(--red);width:0%;transition:width .2s;}
+
+/* DETAIL PANEL */
+.detail-panel{width:300px;flex-shrink:0;border-left:1px solid var(--border);background:var(--white);overflow-y:auto;display:none;flex-direction:column;}
+.detail-panel.open{display:flex;}
+.dp-hdr{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.dp-hdr-title{font-size:13px;font-weight:600;}
+.dp-close{background:none;border:none;font-size:18px;cursor:pointer;color:var(--text3);padding:0 4px;}
+.dp-body{padding:16px;display:flex;flex-direction:column;gap:14px;flex:1;}
+.dp-field label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);display:block;margin-bottom:3px;}
+.dp-field p{font-size:13px;color:var(--text);line-height:1.5;}
+.dp-desc{font-size:13px;color:var(--text);line-height:1.6;background:var(--cream);border-radius:6px;padding:10px;}
+.dp-actions{padding:12px 16px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.dp-actions label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.estado-btns{display:flex;flex-wrap:wrap;gap:6px;}
+.estado-btn{padding:5px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--cream);color:var(--text2);font-family:'DM Sans',sans-serif;transition:all .15s;}
+.estado-btn:hover{border-color:var(--text2);}
+.estado-btn.active-btn{background:var(--red);color:#fff;border-color:var(--red);}
+.dp-edit-btn{width:100%;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:7px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;font-family:'DM Sans',sans-serif;}
+.dp-edit-btn:hover{background:var(--surface2);}
+.dp-del-btn{width:100%;padding:8px;background:none;border:1px solid var(--crit-critica-bd);border-radius:7px;font-size:12px;font-weight:500;color:var(--crit-critica-fg);cursor:pointer;font-family:'DM Sans',sans-serif;}
+.dp-del-btn:hover{background:var(--red-l);}
+
+/* ADJUNTOS en detalle */
+.dp-adj-list{display:flex;flex-direction:column;gap:6px;}
+.dp-adj-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--cream);border-radius:6px;border:1px solid var(--border);cursor:pointer;text-decoration:none;}
+.dp-adj-item:hover{background:var(--surface2);}
+.dp-adj-icon{font-size:18px;flex-shrink:0;}
+.dp-adj-name{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dp-adj-open{font-size:11px;color:var(--blue);flex-shrink:0;}
+
+/* MOBILE */
+.mob-row{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;gap:10px;align-items:flex-start;}
+.mob-row:hover{background:var(--surface);}
+.mob-crit-bar{width:4px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px;}
+.mob-body{flex:1;min-width:0;}
+.mob-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.mob-meta{font-size:11px;color:var(--text3);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.mob-badges{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;opacity:0;transition:all .25s;z-index:200;pointer-events:none;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* Modal expandido */
+.modal-xl .modal{max-width:780px;max-height:95vh;}
+.expand-btn{background:none;border:1px solid var(--border);border-radius:5px;padding:3px 8px;font-size:11px;color:var(--text3);cursor:pointer;font-family:'DM Sans',sans-serif;display:flex;align-items:center;gap:3px;}
+.expand-btn:hover{background:var(--surface2);color:var(--text);}
+/* Detalle expandido */
+.detail-xl{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:150;align-items:center;justify-content:center;padding:16px;}
+.detail-xl.open{display:flex;}
+.detail-xl-inner{background:var(--white);border-radius:14px;width:100%;max-width:900px;max-height:95vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,.25);display:flex;flex-direction:column;}
+.detail-xl-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-shrink:0;}
+.detail-xl-title{font-size:15px;font-weight:600;color:var(--text);line-height:1.4;flex:1;}
+.detail-xl-body{padding:20px;display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;}
+.detail-xl-full{grid-column:1/-1;}
+.detail-xl-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);flex-shrink:0;padding:0 4px;}
+.dxf{display:flex;flex-direction:column;gap:4px;}
+.dxf label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);}
+.dxf p{font-size:13px;color:var(--text);line-height:1.5;}
+.dxf .id-val{font-size:11px;font-family:'DM Mono',monospace;color:var(--text3);background:var(--surface);padding:3px 8px;border-radius:4px;display:inline-block;}
+/* Indicador incompleto */
+.inc-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#e0c050;margin-right:4px;flex-shrink:0;vertical-align:middle;title:'Registro incompleto';}
+/* Historial */
+.hist-list{display:flex;flex-direction:column;gap:0;}
+.hist-row{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);}
+.hist-row:last-child{border-bottom:none;}
+.hist-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.hist-body{flex:1;min-width:0;}
+.hist-accion{font-size:12px;font-weight:500;color:var(--text);}
+.hist-meta{font-size:11px;color:var(--text3);}
+.hist-nota{font-size:12px;color:var(--text2);font-style:italic;margin-top:2px;}
+/* Responsable badge */
+.resp-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:var(--blue-l);color:var(--blue);font-size:12px;font-weight:500;}
+/* Estado buttons en detalle xl */
+.estado-btns-xl{display:flex;flex-wrap:wrap;gap:6px;}
+/* Modal de cambio de estado con nota */
+.estado-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;align-items:center;justify-content:center;padding:16px;}
+.estado-modal.open{display:flex;}
+.estado-modal-inner{background:var(--white);border-radius:12px;width:100%;max-width:400px;padding:20px;display:flex;flex-direction:column;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.18);}
+.estado-modal-title{font-size:15px;font-weight:600;color:var(--text);}
+
+/* RESPONSIVE */
+.desk-only{display:flex;}
+.mob-only{display:none;}
+@media(max-width:768px){
+  .desk-only{display:none!important;}
+  .mob-only{display:flex!important;}
+  .fab{display:flex;}
+  .app{height:100dvh;}
+  .hdr{height:48px;}
+  .layout{overflow-y:auto;}
+  .content{overflow-y:unset;}
+  .detail-panel{display:none!important;}
+  .modal-bg{align-items:flex-end;padding:0;}
+  .modal{border-radius:16px 16px 0 0;max-width:100%;max-height:92dvh;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="login-screen">
+  <svg width="64" height="64" viewBox="0 0 64 64" style="margin-bottom:20px">
+    <rect width="64" height="64" rx="12" fill="#CC2929"/>
+    <text x="10" y="44" font-family="DM Sans" font-weight="700" font-size="28" fill="white">rvc</text>
+  </svg>
+  <div class="login-title">Alertas Obra</div>
+  <div class="login-sub">Inicia sesión con tu cuenta<br>Google para continuar</div>
+  <button class="login-btn" onclick="signIn()">
+    <svg width="18" height="18" viewBox="0 0 48 48">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/>
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+    </svg>
+    Iniciar sesión con Google
+  </button>
+  <div class="login-err" id="login-err"></div>
+</div>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando...</div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <div class="hdr">
+    <div class="hdr-left">
+      <h1>Alertas Obra <span style="font-size:9px;font-weight:400;opacity:.5">v1.4</span></h1>
+      <!-- fecha removida -->
+    </div>
+    <div class="hdr-right">
+      <div class="sync-bar desk-only">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-text">Conectando...</span>
+      </div>
+      <div class="desk-only" style="display:flex;gap:4px;align-items:center">
+        <button class="hbtn tab-btn" id="tab-alertas" onclick="switchTab('alertas')">Alertas</button>
+        <button class="hbtn tab-btn" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</button>
+      </div>
+      <div class="desk-only" style="display:flex;gap:4px;align-items:center">
+        <button class="hbtn" id="btn-excel" onclick="exportExcel()" style="display:none;gap:5px;align-items:center" title="Descargar Excel con alertas visibles">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zM5.5 11H4l2-3-2-3h1.5l1.25 2L8 5h1.5l-2 3 2 3H8l-1.25-2L5.5 11zm5 0H9V5h1v5h1v1z"/></svg>
+          Excel
+        </button>
+        <button class="hbtn" id="btn-informe" onclick="exportInforme()" style="display:none;gap:5px;align-items:center" title="Descargar informe del dashboard">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 10H3V4h10v8zM5 7h6v1H5zm0 2h6v1H5zm0-4h3v1H5z"/></svg>
+          Informe
+        </button>
+      </div>
+      <button class="hbtn primary" onclick="openModal()" id="btn-nueva" style="display:flex;align-items:center;gap:5px">+ Nueva alerta</button>
+      <div class="hdr-avatar" id="hdr-avatar" onclick="signOut()" title="Cerrar sesión">?</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <div class="sidebar desk-only">
+      <!-- Resumen alertas vigentes por criticidad -->
+      <div class="sb-summary">
+        <div class="sb-summary-title">Alertas Activas</div>
+        <div style="grid-column:1/-1;font-size:10px;color:var(--text3);padding:0 2px 4px;letter-spacing:.3px">Ingresadas + En Progreso</div>
+        <div class="sum-card sum-critica" id="sum-critica" onclick="sbFilter('criticidad','Crítica',null)" title="Filtrar por Crítica">
+          <div class="sum-card-num" id="sum-n-critica">0</div>
+          <div class="sum-card-lbl">Crítica</div>
+        </div>
+        <div class="sum-card sum-alta" id="sum-alta" onclick="sbFilter('criticidad','Alta',null)" title="Filtrar por Alta">
+          <div class="sum-card-num" id="sum-n-alta">0</div>
+          <div class="sum-card-lbl">Alta</div>
+        </div>
+        <div class="sum-card sum-media" id="sum-media" onclick="sbFilter('criticidad','Media',null)" title="Filtrar por Media">
+          <div class="sum-card-num" id="sum-n-media">0</div>
+          <div class="sum-card-lbl">Media</div>
+        </div>
+        <div class="sum-card sum-baja" id="sum-baja" onclick="sbFilter('criticidad','Baja',null)" title="Filtrar por Baja">
+          <div class="sum-card-num" id="sum-n-baja">0</div>
+          <div class="sum-card-lbl">Baja</div>
+        </div>
+      </div>
+      <!-- 1. Criticidad -->
+      <div class="fblock" id="fb-criticidad">
+        <button class="fblock-btn" onclick="toggleFblock('fb-criticidad')">
+          <span>Criticidad</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-criticidad"></span>
+            <span class="fblock-arrow open">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body open">
+          <div class="fopt" onclick="sbFilter('criticidad','Crítica',this)"><span>🔴 Crítica</span><span class="fcnt" id="cnt-critica">0</span></div>
+          <div class="fopt" onclick="sbFilter('criticidad','Alta',this)"><span>🟠 Alta</span><span class="fcnt" id="cnt-alta">0</span></div>
+          <div class="fopt" onclick="sbFilter('criticidad','Media',this)"><span>🟡 Media</span><span class="fcnt" id="cnt-media">0</span></div>
+          <div class="fopt" onclick="sbFilter('criticidad','Baja',this)"><span>🟢 Baja</span><span class="fcnt" id="cnt-baja">0</span></div>
+        </div>
+      </div>
+      <!-- 2. Estado -->
+      <div class="fblock" id="fb-estado">
+        <button class="fblock-btn" onclick="toggleFblock('fb-estado')">
+          <span>Estado</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-estado"></span>
+            <span class="fblock-arrow open">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body open">
+          <div class="fopt active" onclick="sbFilter('estado','',this)"><span>Todas</span><span class="fcnt" id="cnt-all">0</span></div>
+          <div class="fopt" onclick="sbFilter('estado','Activa',this)"><span>🔴 Ingresada</span><span class="fcnt" id="cnt-activa">0</span></div>
+          <div class="fopt" onclick="sbFilter('estado','En gestión',this)"><span>🔵 En Progreso</span><span class="fcnt" id="cnt-gestion">0</span></div>
+          <div class="fopt" onclick="sbFilter('estado','Resuelta',this)"><span>🟢 Completada</span><span class="fcnt" id="cnt-resuelta">0</span></div>
+          <div class="fopt" onclick="sbFilter('estado','Descartada',this)"><span>⚪ Descartada</span><span class="fcnt" id="cnt-descartada">0</span></div>
+        </div>
+      </div>
+      <!-- 3. Categoría -->
+      <div class="fblock" id="fb-tipo">
+        <button class="fblock-btn" onclick="toggleFblock('fb-tipo')">
+          <span>Categoría</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-tipo"></span>
+            <span class="fblock-arrow">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body" id="tipo-filters"></div>
+      </div>
+      <!-- 4. Creado por -->
+      <div class="fblock" id="fb-usuario">
+        <button class="fblock-btn" onclick="toggleFblock('fb-usuario')">
+          <span>Creado por</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-usuario"></span>
+            <span class="fblock-arrow">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body" id="user-filters"></div>
+      </div>
+      <!-- 5. Fecha -->
+      <div class="fblock" id="fb-fecha">
+        <button class="fblock-btn" onclick="toggleFblock('fb-fecha')">
+          <span>Fecha</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-fecha"></span>
+            <span class="fblock-arrow">▾</span>
+          </span>
+        </button>
+        <div class="date-filter-body" id="fb-fecha-body">
+          <div class="date-row">
+            <label>Desde</label>
+            <input type="date" class="date-input" id="filter-fecha-desde" onchange="onFechaChange()">
+          </div>
+          <div class="date-row">
+            <label>Hasta</label>
+            <input type="date" class="date-input" id="filter-fecha-hasta" onchange="onFechaChange()">
+          </div>
+          <button class="date-clear" onclick="clearFecha()">✕ Limpiar fechas</button>
+        </div>
+      </div>
+      <!-- 6. Obra -->
+      <div class="fblock" id="fb-obra">
+        <button class="fblock-btn" onclick="toggleFblock('fb-obra')">
+          <span>Obra</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-obra"></span>
+            <span class="fblock-arrow">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body" id="obra-filters"></div>
+      </div>
+      <!-- 7. Situación -->
+      <div class="fblock" id="fb-situacion">
+        <button class="fblock-btn" onclick="toggleFblock('fb-situacion')">
+          <span>Situación</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="fblock-cnt" id="fb-cnt-situacion"></span>
+            <span class="fblock-arrow">▾</span>
+          </span>
+        </button>
+        <div class="fblock-body" id="situacion-filters"></div>
+      </div>
+      <div style="padding:8px 10px 4px">
+        <button class="clear-filters-btn" onclick="clearFilters()">✕ Limpiar filtros</button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content">
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input class="search" id="search" placeholder="Buscar alerta..." autocomplete="off" oninput="render()">
+        <select class="fi mob-only" id="mob-crit-filter" style="padding:4px 8px;font-size:12px;height:28px" onchange="render()">
+          <option value="">Todas</option>
+          <option value="Crítica">🔴 Crítica</option>
+          <option value="Alta">🟠 Alta</option>
+          <option value="Media">🟡 Media</option>
+          <option value="Baja">🟢 Baja</option>
+        </select>
+      </div>
+
+      <div id="alert-list"></div>
+    </div>
+
+    <!-- DETAIL PANEL -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="dp-hdr">
+        <span class="dp-hdr-title">Detalle</span>
+        <button class="dp-close" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="dp-body" id="dp-body"></div>
+      <div class="dp-actions" id="dp-actions"></div>
+    </div>
+  </div>
+
+<!-- DASHBOARD VIEW -->
+<div class="db-view" id="db-view">
+  <div class="db-filter-bar">
+    <span class="db-filter-lbl">Filtrar</span>
+    <select class="db-fsel" id="db-obra" onchange="renderDashboard()">
+      <option value="">Todas las obras</option>
+    </select>
+    <select class="db-fsel" id="db-tipo" onchange="renderDashboard()">
+      <option value="">Todas las categorías</option>
+      <option value="C1 - Personas">C1 · Personas</option>
+      <option value="C2 - Ejecución">C2 · Ejecución</option>
+      <option value="C3 - Abastecimiento">C3 · Abastecimiento</option>
+      <option value="C4 - Proyecto">C4 · Proyecto</option>
+      <option value="C5 - Inmobiliaria">C5 · Inmobiliaria</option>
+      <option value="C6 - Seguridad">C6 · Seguridad</option>
+      <option value="C7 - Entorno y comunidad">C7 · Entorno y comunidad</option>
+      <option value="C8 - Gestión">C8 · Gestión</option>
+      <option value="C9 - Equipo Crítico">C9 · Equipo Crítico</option>
+      <option value="C10 - Otros">C10 · Otros</option>
+    </select>
+    <select class="db-fsel" id="db-crit" onchange="renderDashboard()">
+      <option value="">Toda la criticidad</option>
+      <option value="Crítica">Crítica</option>
+      <option value="Alta">Alta</option>
+      <option value="Media">Media</option>
+      <option value="Baja">Baja</option>
+    </select>
+    <select class="db-fsel" id="db-periodo" onchange="renderDashboard()">
+      <option value="">Todo el período</option>
+      <option value="30">Últimos 30 días</option>
+      <option value="90">Últimos 90 días</option>
+      <option value="180">Últimos 6 meses</option>
+    </select>
+    <div class="db-fsep"></div>
+    <button class="db-clear" onclick="clearDbFilters()">✕ Limpiar</button>
+  </div>
+  <div class="db-body" id="db-body"></div>
+</div>
+
+</div><!-- /.app -->
+
+<!-- FAB -->
+<button class="fab mob-only" onclick="openModal()">+</button>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal"><div class="modal-inner" id="modal-inner"></div></div>
+</div>
+
+
+<!-- INPUTS FILE ADJUNTOS -->
+<input type="file" id="file-input" accept="image/*,.pdf,application/pdf" multiple style="display:none" onchange="onFileSelected(event)">
+<input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="onFileSelected(event)">
+
+<!-- MODAL EXPANDIDO DETALLE -->
+<div class="detail-xl" id="detail-xl" onclick="if(event.target===this)closeDetailXL()">
+  <div class="detail-xl-inner" id="detail-xl-inner"></div>
+</div>
+
+<!-- MODAL CAMBIO ESTADO CON NOTA -->
+<div class="estado-modal" id="estado-modal">
+  <div class="estado-modal-inner">
+    <div class="estado-modal-title" id="estado-modal-title">Cambiar estado</div>
+    <div class="fg">
+      <label class="fl">Responsable de gestión</label>
+      <input class="fi" id="estado-responsable" placeholder="Nombre del responsable" autocomplete="off">
+    </div>
+    <div class="fg">
+      <label class="fl">Nota de seguimiento <span style="color:var(--text3);font-weight:400;text-transform:none">(opcional)</span></label>
+      <textarea class="fta" id="estado-nota" placeholder="¿Qué acción se tomó?" rows="2"></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeEstadoModal()">Cancelar</button>
+      <button class="mbtn mbtn-save" id="estado-modal-confirm" onclick="confirmCambioEstado()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script type="module">
+
+// ── MODO PREVIEW (?preview=1) ────────────────────────────────────────
+const IS_PREVIEW = new URLSearchParams(window.location.search).get('preview') === '1';
+
+if(IS_PREVIEW){
+  // Datos ficticios
+  const PREVIEW_USER = { email:'rodolfo.vassallo@rvc.cl', displayName:'Rodolfo Vassallo' };
+  const ahora = { toDate:()=>new Date(), toMillis:()=>Date.now() };
+  function fakeTs(daysAgo, hour=10, min=0){
+    const d = new Date(); d.setDate(d.getDate()-daysAgo);
+    d.setHours(hour,min,0,0);
+    return { toDate:()=>new Date(d), toMillis:()=>d.getTime() };
+  }
+  const PREVIEW_ALERTS = [
+    { id:'p1', descripcion:'Fiscalización SMA sin previo aviso en faena norte', obra:'Obra 1', criticidad:'Crítica', tipo:'C6 - Seguridad', situacion:'Fiscalización de organismo externo (SMA, Inspección, Mutual, DOM)', estado:'Activa', creadoPor:'rodolfo.vassallo@rvc.cl', creadoNombre:'Rodolfo Vassallo', creadoEn:fakeTs(0,9,15), adjuntos:[] },
+    { id:'p2', descripcion:'Vecino reclama por ruido de compactador nocturno', obra:'Obra 2', criticidad:'Alta', tipo:'C7 - Entorno y comunidad', situacion:'Ruido, restricciones horarias o multas por incumplimiento de normativa comunal', estado:'Activa', creadoPor:'rodrigo.lagos@rvc.cl', creadoNombre:'Rodrigo Lagos', creadoEn:fakeTs(0,14,30), adjuntos:[] },
+    { id:'p3', descripcion:'Quiebre de stock de moldajes — paraliza hormigonado losa 3', obra:'Obra 3', criticidad:'Crítica', tipo:'C3 - Abastecimiento', situacion:'Falta de materiales o quiebre de stock', estado:'En gestión', creadoPor:'rodolfo.vassallo@rvc.cl', creadoNombre:'Rodolfo Vassallo', creadoEn:fakeTs(1,8,0), adjuntos:[] },
+    { id:'p4', descripcion:'Subcontratista de electricidad no se presenta hace 3 días', obra:'Obra 1', criticidad:'Alta', tipo:'C1 - Personas', situacion:'Mala calidad subcontratista o falta de MO', estado:'Activa', creadoPor:'rodrigo.lagos@rvc.cl', creadoNombre:'Rodrigo Lagos', creadoEn:fakeTs(1,16,45), adjuntos:[] },
+    { id:'p5', descripcion:'Error en plano de fundaciones — RDI enviado sin respuesta', obra:'Obra 4', criticidad:'Alta', tipo:'C4 - Proyecto', situacion:'RDI o definiciones de proyecto sin respuesta oportuna', estado:'Activa', creadoPor:'rodolfo.vassallo@rvc.cl', creadoNombre:'Rodolfo Vassallo', creadoEn:fakeTs(2,11,20), adjuntos:[] },
+    { id:'p6', descripcion:'Mal clima laboral entre cuadrilla y capataz — alta rotación', obra:'Obra 2', criticidad:'Media', tipo:'C1 - Personas', situacion:'Bajo compromiso o mal clima laboral', estado:'Activa', creadoPor:'rodrigo.lagos@rvc.cl', creadoNombre:'Rodrigo Lagos', creadoEn:fakeTs(3,9,0), adjuntos:[] },
+    { id:'p7', descripcion:'Inicio de obra sin contrato firmado con inmobiliaria', obra:'Obra 5', criticidad:'Crítica', tipo:'C5 - Inmobiliaria', situacion:'Inicio de obra sin contrato o con definiciones contractuales incompletas', estado:'Activa', creadoPor:'rodolfo.vassallo@rvc.cl', creadoNombre:'Rodolfo Vassallo', creadoEn:fakeTs(4,15,10), adjuntos:[] },
+    { id:'p8', descripcion:'Bodega sin inventario — materiales sin control de stock', obra:'Obra 3', criticidad:'Media', tipo:'C3 - Abastecimiento', situacion:'Bodega desordenada — sin control de stock ni inventario', estado:'Resuelta', creadoPor:'rodrigo.lagos@rvc.cl', creadoNombre:'Rodrigo Lagos', creadoEn:fakeTs(5,10,30), adjuntos:[] },
+    { id:'p9', descripcion:'Estado de pago mes anterior no presentado aún', obra:'Obra 1', criticidad:'Alta', tipo:'C8 - Gestión', situacion:'Estado de pago listo o vencido pero no presentado — retraso de cobro sin justificación', estado:'Activa', creadoPor:'rodolfo.vassallo@rvc.cl', creadoNombre:'Rodolfo Vassallo', creadoEn:fakeTs(6,8,45), adjuntos:[] },
+    { id:'p10', descripcion:'Obras colindantes — revisar historial post venta', obra:'Obra 4', criticidad:'Baja', tipo:'C7 - Entorno y comunidad', situacion:'[INICIO DE OBRA] Obra colindante a proyecto anterior propio — consultar historial Post Venta', estado:'Descartada', creadoPor:'rodrigo.lagos@rvc.cl', creadoNombre:'Rodrigo Lagos', creadoEn:fakeTs(7,13,0), adjuntos:[] },
+  ];
+
+  // Sobrescribir initApp para entrar directo sin Firebase
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById('login-screen').style.display  = 'none';
+    document.getElementById('loading-screen').style.display= 'none';
+    document.getElementById('app').style.display           = 'flex';
+    currentUser = PREVIEW_USER;
+    alerts = PREVIEW_ALERTS;
+    // setHeaderDate — removido del header
+    const av = document.getElementById('hdr-avatar');
+    av.textContent = 'R';
+    av.title = 'Modo Preview — ' + PREVIEW_USER.displayName;
+    setSyncStatus('ok','Preview');
+    // Marcar indicador preview en header
+    const syncText = document.getElementById('sync-text');
+    if(syncText) syncText.textContent = '👁 Preview';
+    render();
+  });
+
+  // Sobrescribir funciones Firebase con stubs que operan en memoria
+  window._previewSave = async function(data){ alerts.unshift({id:'p'+Date.now(),...data}); render(); };
+  window._previewUpdate = async function(id, data){ const i=alerts.findIndex(a=>a.id===id); if(i>-1) alerts[i]={...alerts[i],...data}; render(); if(selectedId===id){ const a=alerts.find(x=>x.id===id); if(a) renderDetail(a); } };
+  window._previewDelete = async function(id){ alerts=alerts.filter(a=>a.id!==id); if(selectedId===id){selectedId=null;closeDetail();} render(); };
+}
+
+import { initializeApp }   from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, getDoc, onSnapshot, query, orderBy, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.14.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyCmUlkihNfxV8CyHOZ-38gcEx27jqU0z04",
+  authDomain:"rvc-pilotos-app.firebaseapp.com",
+  projectId:"rvc-pilotos-app",
+  storageBucket:"rvc-pilotos-app.appspot.com",
+  messagingSenderId:"304566913753",
+  appId:"1:304566913753:web:f1936de8ca85188338ccc8"
+};
+
+const fbApp   = initializeApp(firebaseConfig);
+const db      = getFirestore(fbApp);
+const auth    = getAuth(fbApp);
+const provider = new GoogleAuthProvider();
+
+const SITUACIONES = {
+  'C1 - Personas': [
+    'Alta rotación de trabajadores y/o supervisión',
+    'Problema de liderazgo o habilidades blandas',
+    'Bajo compromiso o mal clima laboral',
+    'Supervisores no revisan',
+    'Mala calidad subcontratista o falta de MO',
+    'Poca coordinación entre especialidades',
+    'Obra está lejos, no llega gente',
+    'Otros'
+  ],
+  'C2 - Ejecución': [
+    'Falla de equipo crítico (grúa, excavadora, generador, etc.)',
+    'Mal rendimiento o ejecución subcontratista',
+    'Reproceso por error',
+    'Uso de productos nuevos sin pruebas previas',
+    'Mala planificación de trabajos o error',
+    'Orden y limpieza deficiente',
+    'Otros'
+  ],
+  'C3 - Abastecimiento': [
+    'Falta de materiales o quiebre de stock',
+    'Bodega desordenada — sin control de stock ni inventario',
+    'Alza de precios materiales',
+    'Provisión de materiales comprometida con proveedores sin contrato formal',
+    'Otros'
+  ],
+  'C4 - Proyecto': [
+    'Errores de proyecto o falta de coordinación',
+    'RDI o definiciones de proyecto sin respuesta oportuna',
+    'Actualizaciones o cambios de proyecto que no bajan a obra',
+    'Cambios de normativa que derivan en rediseño de planos sin aviso previo',
+    'Conflicto entre estandarización interna y requerimientos del proyecto nuevo',
+    'Otros'
+  ],
+  'C5 - Inmobiliaria': [
+    'Inicio de obra sin contrato o con definiciones contractuales incompletas',
+    'Sin acuerdo en criterios de recepción o en presentación de adicionales',
+    'Partidas no consideradas en presupuesto',
+    'Precio y/o plazo muy apretado desde el inicio',
+    'Objetivos propios no alineados con la empresa',
+    'Cambio de ITO sin inducción ni traspaso formal',
+    'Otros'
+  ],
+  'C6 - Seguridad': [
+    'Casi-accidentes o condiciones de alto potencial sin reporte ni registro',
+    'Fiscalización de organismo externo (SMA, Inspección, Mutual, DOM)',
+    'Riesgo de paralización por accidente, reclamo o demanda',
+    'Normativa local no conocida o no considerada (DIA, DIMA, DOM)',
+    'Mal liderazgo en seguridad',
+    'Otros'
+  ],
+  'C7 - Entorno y comunidad': [
+    'Reclamos, conflictos o entorno adverso con vecinos u organismos (DOM, SMA, municipio)',
+    'Ruido, restricciones horarias o multas por incumplimiento de normativa comunal',
+    'Terreno o logística compleja — accesos, espacio, obras paralelas, camiones',
+    '[INICIO DE OBRA] Obra colindante a proyecto anterior propio — consultar historial Post Venta',
+    'Otros'
+  ],
+  'C8 - Gestión': [
+    'Comunicación deficiente entre Oficina y Obra — materiales, control, definiciones',
+    'Problemas que se repiten sin corrección — ausencia de aprendizaje organizacional',
+    'Presupuesto no contempla complejidad de la obra',
+    'Gastos corriendo sin producción que los respalde — obra en espera o en inicio sin fecha confirmada',
+    'Estado de pago listo o vencido pero no presentado — retraso de cobro sin justificación',
+    'Avance físico no cuadra con lo facturado',
+    'Extras ejecutados que no se han acordado',
+    'ITO no valida avance para cobrarlo',
+    'Otros'
+  ],
+  'C9 - Equipo Crítico': [
+    'Falla de equipo propio crítico (grúa, excavadora, generador, bomba, etc.)',
+    'Equipo arrendado con falla o no disponible según contrato',
+    'Equipo sin mantención al día — riesgo de falla inminente',
+    'Sin repuestos disponibles para equipo crítico',
+    'Operador no disponible para equipo especializado',
+    'Otros'
+  ],
+  'C10 - Otros': [
+    'Situación no clasificada en categorías anteriores',
+    'Otros'
+  ]
+};
+
+// Traducción de estados: valor interno → display
+const ESTADO_DISPLAY = {
+  'Activa':       'Ingresada',
+  'En gestión':   'En Progreso',
+  'Resuelta':     'Completada',
+  'Descartada':   'Descartada',
+};
+const ESTADO_INTERNAL = {
+  'Ingresada':    'Activa',
+  'En Progreso':  'En gestión',
+  'Completada':   'Resuelta',
+  'Descartada':   'Descartada',
+};
+function dispEstado(e){ return ESTADO_DISPLAY[e] || e; }
+
+const APP_ID    = 'piloto2_alertas';
+const COLECCION = 'piloto2_alertas';
+
+// ── ESTADO ──────────────────────────────────────────────────────────
+let currentUser = null;
+let alerts = [];
+let unsubscribe = null;
+let editId = null;
+let selectedId = null;
+let filters = { estado:'', criticidad:'', tipo:'', situacion:'', obra:'', usuario:'' };
+let fechaDesde = null; // Date object
+let fechaHasta = null; // Date object
+let sortCol  = 'creadoEn';
+let sortDir  = 'desc'; // 'asc' | 'desc'
+// Adjuntos pendientes en el formulario (antes de guardar)
+let pendingFiles = []; // [{file, name, tipo, previewUrl}]
+// Adjuntos ya subidos (al editar)
+let existingAdjuntos = []; // [{name, url, tipo}]
+
+// ── FECHAS ──────────────────────────────────────────────────────────
+const DIAS  = ['dom','lun','mar','mié','jue','vie','sáb'];
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function setHeaderDate(){
+  const d = new Date();
+  document.getElementById('hdr-date').textContent =
+    `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}`;
+}
+function fmtFecha(ts){
+  if(!ts) return '—';
+  const d = ts.toDate?ts.toDate():new Date(ts);
+  return `${d.getDate()} ${MESES[d.getMonth()]} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtFechaLarga(ts){
+  if(!ts) return '—';
+  const d = ts.toDate?ts.toDate():new Date(ts);
+  return `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtSize(bytes){
+  if(bytes<1024) return bytes+'B';
+  if(bytes<1024*1024) return (bytes/1024).toFixed(0)+'KB';
+  return (bytes/(1024*1024)).toFixed(1)+'MB';
+}
+
+// ── SYNC / TOAST ────────────────────────────────────────────────────
+function setSyncStatus(type,text){
+  const dot=document.getElementById('sync-dot');
+  const txt=document.getElementById('sync-text');
+  if(txt) txt.textContent=text;
+  if(dot) dot.style.background=type==='ok'?'rgba(150,255,180,.85)':type==='error'?'#ff8080':'#ffcc44';
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────
+window.signIn = async function(){
+  document.getElementById('login-err').textContent='';
+  try{ await signInWithPopup(auth,provider); }
+  catch(e){
+    const err=document.getElementById('login-err');
+    if(e.code==='auth/popup-blocked') err.textContent='Activa popups e intenta de nuevo.';
+    else if(e.code==='auth/popup-closed-by-user') err.textContent='Cancelaste el inicio de sesión.';
+    else err.textContent='Error: '+(e.message||'desconocido');
+  }
+};
+window.signOut = async function(){
+  if(IS_PREVIEW){ showToast('👁 Modo preview — sin sesión real'); return; }
+  if(!confirm('¿Cerrar sesión?')) return;
+  if(unsubscribe) unsubscribe();
+  await fbSignOut(auth);
+};
+
+onAuthStateChanged(auth, async user=>{
+  if(user){
+    const email=(user.email||'').toLowerCase();
+    try{
+      const userDoc=await getDoc(doc(db,'plataforma_usuarios',email));
+      const datos=userDoc.exists()?userDoc.data():null;
+      const tieneAcceso=datos&&datos.activo!==false&&(datos.apps||[]).includes(APP_ID);
+      if(!tieneAcceso){
+        let msg;
+        if(!datos) msg=`Tu cuenta <strong>${email}</strong> no está registrada.`;
+        else if(datos.activo===false) msg=`Tu cuenta está desactivada.`;
+        else msg=`No tienes acceso a esta app (${APP_ID}).`;
+        await fbSignOut(auth);
+        document.getElementById('login-err').innerHTML=`<div class="acceso-denegado">⛔ ${msg}</div>`;
+        return;
+      }
+      currentUser=user; initApp();
+    }catch(e){
+      console.error(e); await fbSignOut(auth);
+      document.getElementById('login-err').textContent='Error al verificar acceso. Intenta de nuevo.';
+    }
+  } else {
+    currentUser=null;
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app').style.display='none';
+    document.getElementById('loading-screen').style.display='none';
+    if(unsubscribe){unsubscribe();unsubscribe=null;}
+  }
+});
+
+function initApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('loading-screen').style.display='flex';
+  document.getElementById('app').style.display='none';
+  // setHeaderDate — removido del header
+  const av=document.getElementById('hdr-avatar');
+  av.textContent=(currentUser.displayName||currentUser.email||'?')[0].toUpperCase();
+  av.title=`${currentUser.displayName||currentUser.email} — click para salir`;
+  setSyncStatus('syncing','Conectando...');
+  // Activar pestaña alertas por defecto
+  document.getElementById('tab-alertas')?.classList.add('tab-active');
+  const be = document.getElementById('btn-excel'); if(be) be.style.display='flex';
+  startListener();
+}
+
+// ── LISTENER ─────────────────────────────────────────────────────────
+function startListener(){
+  const q=query(collection(db,COLECCION),orderBy('creadoEn','desc'));
+  unsubscribe=onSnapshot(q,
+    snap=>{
+      alerts=snap.docs.map(d=>({id:d.id,...d.data()}));
+      document.getElementById('loading-screen').style.display='none';
+      document.getElementById('app').style.display='flex';
+      setSyncStatus('ok','Sincronizado');
+      render();
+      if(currentTab==='dashboard') renderDashboard();
+      if(selectedId){
+        const a=alerts.find(x=>x.id===selectedId);
+        if(a) renderDetail(a); else closeDetail();
+      }
+    },
+    err=>{console.error(err);setSyncStatus('error','Error de conexión');}
+  );
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────
+function critColor(c){return c==='Crítica'?'#E24B4A':c==='Alta'?'#D85A30':c==='Media'?'#BA7517':'#639922';}
+function critBadge(c){
+  if(!c) return '<span class="badge" style="background:#eee;color:#999">—</span>';
+  const cls=c==='Crítica'?'critica':c==='Alta'?'alta':c==='Media'?'media':'baja';
+  return `<span class="badge badge-${cls}">${c}</span>`;
+}
+function estadoBadge(e){
+  if(!e) return '';
+  const cls=e==='Activa'?'activa':e==='En gestión'?'gestion':e==='Resuelta'?'resuelta':'descartada';
+  return `<span class="badge badge-${cls}">${dispEstado(e)}</span>`;
+}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function nombreVisible(a){return a.creadoNombre||a.creadoPor?.split('@')[0]||'—';}
+function esIncompleto(a){return !a.obra||!a.criticidad||!a.tipo||!a.situacion;}
+function fmtHistFecha(ts){
+  if(!ts) return '—';
+  const d = ts.toDate?ts.toDate():new Date(ts);
+  return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function adjIcon(tipo){return tipo==='pdf'?'📄':tipo==='image'?'🖼️':'📎';}
+function adjTipo(file){
+  if(file.type==='application/pdf') return 'pdf';
+  if(file.type.startsWith('image/')) return 'image';
+  return 'file';
+}
+
+// ── FILTRADO ─────────────────────────────────────────────────────────
+function getFiltered(){
+  const q=(document.getElementById('search')?.value||'').toLowerCase();
+  const mobCrit=document.getElementById('mob-crit-filter')?.value||'';
+  return alerts.filter(a=>{
+    if(filters.estado    &&a.estado!==filters.estado) return false;
+    if(filters.criticidad&&a.criticidad!==filters.criticidad) return false;
+    if(mobCrit           &&a.criticidad!==mobCrit) return false;
+    if(filters.tipo      &&a.tipo!==filters.tipo) return false;
+    if(filters.situacion &&a.situacion!==filters.situacion) return false;
+    if(filters.obra      &&a.obra!==filters.obra) return false;
+    if(filters.usuario   &&a.creadoPor!==filters.usuario) return false;
+    if(q&&!((a.descripcion||'').toLowerCase().includes(q)||(a.obra||'').toLowerCase().includes(q)||(a.tipo||'').toLowerCase().includes(q))) return false;
+    if(fechaDesde||fechaHasta){
+      const ts = a.creadoEn?.toDate?.()||null;
+      if(!ts) return false;
+      const d = new Date(ts.getFullYear(), ts.getMonth(), ts.getDate());
+      if(fechaDesde && d < fechaDesde) return false;
+      if(fechaHasta && d > fechaHasta) return false;
+    }
+    return true;
+  });
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────
+function render(){
+  const filtered=getFiltered();
+  const isMob=window.innerWidth<=768;
+  const list=document.getElementById('alert-list');
+
+  document.getElementById('cnt-all').textContent        =alerts.length;
+  document.getElementById('cnt-activa').textContent     =alerts.filter(a=>a.estado==='Activa').length;
+  document.getElementById('cnt-gestion').textContent    =alerts.filter(a=>a.estado==='En gestión').length;
+  document.getElementById('cnt-resuelta').textContent   =alerts.filter(a=>a.estado==='Resuelta').length;
+  document.getElementById('cnt-descartada').textContent =alerts.filter(a=>a.estado==='Descartada').length;
+  document.getElementById('cnt-critica').textContent    =alerts.filter(a=>a.criticidad==='Crítica').length;
+  document.getElementById('cnt-alta').textContent       =alerts.filter(a=>a.criticidad==='Alta').length;
+  document.getElementById('cnt-media').textContent      =alerts.filter(a=>a.criticidad==='Media').length;
+  document.getElementById('cnt-baja').textContent       =alerts.filter(a=>a.criticidad==='Baja').length;
+  // Tarjetas resumen — Activas + En gestión = vigentes
+  const vigentes = alerts.filter(a=>a.estado==='Activa'||a.estado==='En gestión');
+  document.getElementById('sum-n-critica').textContent = vigentes.filter(a=>a.criticidad==='Crítica').length;
+  document.getElementById('sum-n-alta').textContent    = vigentes.filter(a=>a.criticidad==='Alta').length;
+  document.getElementById('sum-n-media').textContent   = vigentes.filter(a=>a.criticidad==='Media').length;
+  document.getElementById('sum-n-baja').textContent    = vigentes.filter(a=>a.criticidad==='Baja').length;
+  // Resaltar tarjeta activa si hay filtro de criticidad
+  ['critica','alta','media','baja'].forEach(k=>{
+    const card = document.getElementById('sum-'+k);
+    if(card) card.style.opacity = filters.criticidad && filters.criticidad.toLowerCase()!==k ? '0.45' : '1';
+  });
+  // Actualizar title de tarjetas
+  document.getElementById('sum-critica')?.setAttribute('title','Crítica: Activas + En gestión');
+  document.getElementById('sum-alta')?.setAttribute('title','Alta: Activas + En gestión');
+  document.getElementById('sum-media')?.setAttribute('title','Media: Activas + En gestión');
+  document.getElementById('sum-baja')?.setAttribute('title','Baja: Activas + En gestión');
+
+  const tipos=[...new Set(alerts.map(a=>a.tipo).filter(Boolean))].sort();
+  document.getElementById('tipo-filters').innerHTML=tipos.map(t=>
+    `<div class="fopt ${filters.tipo===t?'active':''}" onclick="sbFilter('tipo','${esc(t)}',this)">
+      <span>${esc(t)}</span><span class="fcnt">${alerts.filter(a=>a.tipo===t).length}</span></div>`
+  ).join('')||'<div style="padding:4px 8px;font-size:11px;color:var(--text3)">Sin datos</div>';
+
+  // Filtros situación — muestra solo las situaciones de la categoría filtrada
+  const alertsParaSit = filters.tipo ? alerts.filter(a=>a.tipo===filters.tipo) : alerts;
+  const situaciones=[...new Set(alertsParaSit.map(a=>a.situacion).filter(Boolean))].sort();
+  // Indicadores de filtro activo en los botones del sidebar
+  const fbMap = {
+    'fb-cnt-estado':    filters.estado    ? filters.estado    : '',
+    'fb-cnt-criticidad':filters.criticidad? filters.criticidad: '',
+    'fb-cnt-tipo':      filters.tipo      ? filters.tipo.split(' - ')[0] : '',
+    'fb-cnt-situacion': filters.situacion ? '●' : '',
+    'fb-cnt-obra':      filters.obra      ? filters.obra      : '',
+    'fb-cnt-usuario':   filters.usuario   ? filters.usuario.split('@')[0] : '',
+  };
+  Object.entries(fbMap).forEach(([id, val])=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.textContent = val;
+    const btn = el.closest('.fblock-btn');
+    if(btn) btn.classList.toggle('has-filter', !!val);
+  });
+
+  const sitEl = document.getElementById('situacion-filters');
+  if(sitEl) sitEl.innerHTML=situaciones.map(s=>
+    `<div class="fopt ${filters.situacion===s?'active':''}" onclick="sbFilter('situacion','${esc(s)}',this)">
+      <span style="white-space:normal;line-height:1.3">${esc(s)}</span>
+      <span class="fcnt" style="flex-shrink:0;margin-left:4px">${alerts.filter(a=>a.situacion===s).length}</span></div>`
+  ).join('')||'<div style="padding:4px 8px;font-size:11px;color:var(--text3)">Sin datos</div>';
+
+  const obras=[...new Set(alerts.map(a=>a.obra).filter(Boolean))].sort();
+  document.getElementById('obra-filters').innerHTML=obras.map(o=>
+    `<div class="fopt ${filters.obra===o?'active':''}" onclick="sbFilter('obra','${esc(o)}',this)">
+      <span>${esc(o)}</span><span class="fcnt">${alerts.filter(a=>a.obra===o).length}</span></div>`
+  ).join('')||'<div style="padding:4px 8px;font-size:11px;color:var(--text3)">Sin datos</div>';
+
+  const usuarios=[...new Set(alerts.map(a=>a.creadoPor).filter(Boolean))];
+  document.getElementById('user-filters').innerHTML=usuarios.map(u=>{
+    const a=alerts.find(x=>x.creadoPor===u);
+    return `<div class="fopt ${filters.usuario===u?'active':''}" onclick="sbFilter('usuario','${esc(u)}',this)">
+      <span>${esc(nombreVisible(a||{creadoPor:u}))}</span>
+      <span class="fcnt">${alerts.filter(x=>x.creadoPor===u).length}</span></div>`;
+  }).join('')||'<div style="padding:4px 8px;font-size:11px;color:var(--text3)">Sin datos</div>';
+
+  if(filtered.length===0){
+    list.innerHTML=`<div class="empty-state"><div style="font-size:32px">🚧</div>
+      <p>${alerts.length===0?'No hay alertas registradas. Crea la primera.':'Sin resultados para los filtros aplicados.'}</p></div>`;
+    return;
+  }
+
+  if(isMob){
+    list.innerHTML=filtered.map(a=>{
+      const color=critColor(a.criticidad);
+      const meta=[a.obra,a.tipo,nombreVisible(a)].filter(Boolean).join(' · ');
+      const adjIcon_=(a.adjuntos?.length)?'📎 ':''; 
+      return `<div class="mob-row" onclick="openDetail('${a.id}')">
+        <div class="mob-crit-bar" style="background:${color}"></div>
+        <div class="mob-body">
+          <div class="mob-title">${adjIcon_}${esc(a.descripcion||'')}</div>
+          <div class="mob-meta">${esc(meta)} · ${fmtFecha(a.creadoEn)}</div>
+          <div class="mob-badges">${critBadge(a.criticidad)} ${estadoBadge(a.estado)}</div>
+        </div></div>`;
+    }).join('');
+  } else {
+    // Ordenamiento
+    const CRIT_ORD = {'Crítica':4,'Alta':3,'Media':2,'Baja':1,'':0};
+    const EST_ORD  = {'Activa':1,'En gestión':2,'Resuelta':3,'Descartada':4};
+    const sorted = [...filtered].sort((a,b)=>{
+      let va, vb;
+      if(sortCol==='descripcion'){ va=(a.descripcion||'').toLowerCase(); vb=(b.descripcion||'').toLowerCase(); }
+      else if(sortCol==='nombre')  { va=nombreVisible(a).toLowerCase(); vb=nombreVisible(b).toLowerCase(); }
+      else if(sortCol==='creadoEn'){ va=a.creadoEn?.toMillis?.()||0; vb=b.creadoEn?.toMillis?.()||0; }
+      else if(sortCol==='obra')    { va=(a.obra||'').toLowerCase(); vb=(b.obra||'').toLowerCase(); }
+      else if(sortCol==='criticidad'){ va=CRIT_ORD[a.criticidad]||0; vb=CRIT_ORD[b.criticidad]||0; }
+      else if(sortCol==='tipo')    { va=(a.tipo||'').toLowerCase(); vb=(b.tipo||'').toLowerCase(); }
+      else if(sortCol==='situacion'){ va=(a.situacion||'').toLowerCase(); vb=(b.situacion||'').toLowerCase(); }
+      else if(sortCol==='estado')  { va=EST_ORD[a.estado]||0; vb=EST_ORD[b.estado]||0; }
+      if(va<vb) return sortDir==='asc'?-1:1;
+      if(va>vb) return sortDir==='asc'?1:-1;
+      return 0;
+    });
+
+    function thSort(col, label){
+      const active = sortCol===col;
+      const arrow  = active ? (sortDir==='asc'?'↑':'↓') : '<span style="opacity:.25">↕</span>';
+      return `<th style="cursor:pointer;user-select:none;white-space:nowrap" onclick="setSort('${col}')">${label} ${arrow}</th>`;
+    }
+
+    const rows = sorted.map(a=>{
+      const color=critColor(a.criticidad);
+      const sel=selectedId===a.id;
+      const tieneAdj=a.adjuntos&&a.adjuntos.length>0;
+      const inc = esIncompleto(a);
+      return `<tr class="${sel?'sel':''}" onclick="openDetail('${a.id}')" ondblclick="openDetailXL('${a.id}')">
+        <td style="width:22px;padding:0 0 0 14px;vertical-align:middle">
+          <div style="width:4px;height:24px;border-radius:2px;background:${color}"></div>
+        </td>
+        <td class="td-desc">${inc?'<span class="inc-dot" title="Registro incompleto"></span>':''}${esc(a.descripcion||'')}</td>
+        <td class="td-txt">${esc(nombreVisible(a))}</td>
+        <td class="td-mono">${fmtFecha(a.creadoEn)}</td>
+        <td class="td-txt">${esc(a.obra||'—')}</td>
+        <td>${critBadge(a.criticidad)}</td>
+        <td class="td-cat">${esc(a.tipo||'—')}</td>
+        <td class="td-cat">${esc(a.situacion||'—')}</td>
+        <td style="padding-right:14px">${estadoBadge(a.estado)}</td>
+      </tr>`;
+    }).join('');
+
+    list.innerHTML = `<table class="alert-table">
+      <colgroup>
+        <col style="width:22px">
+        <col>
+        <col style="width:110px">
+        <col style="width:76px">
+        <col style="width:68px">
+        <col style="width:80px">
+        <col style="width:110px">
+        <col style="width:140px">
+        <col style="width:76px">
+      </colgroup>
+      <thead><tr>
+        <th style="width:22px;padding-left:14px"></th>
+        ${thSort('descripcion','Descripción')}
+        ${thSort('nombre','Creado por')}
+        ${thSort('creadoEn','Fecha')}
+        ${thSort('obra','Obra')}
+        ${thSort('criticidad','Criticidad')}
+        ${thSort('tipo','Categoría')}
+        ${thSort('situacion','Situación')}
+        ${thSort('estado','Estado')}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  }
+}
+
+// ── DETAIL PANEL ─────────────────────────────────────────────────────
+window.openDetail=function(id){
+  const a=alerts.find(x=>x.id===id);
+  if(!a) return;
+  selectedId=id; render();
+  if(window.innerWidth<=768) openDetailMobile(a);
+  else{ renderDetail(a); document.getElementById('detail-panel').classList.add('open'); }
+};
+
+function adjListHTML(adjuntos){
+  if(!adjuntos||adjuntos.length===0) return '<div style="font-size:12px;color:var(--text3)">Sin adjuntos</div>';
+  return `<div class="dp-adj-list">${adjuntos.map(adj=>{
+    if(adj.tipo==='image' && adj.b64){
+      return `<div class="dp-adj-item" style="flex-direction:column;align-items:flex-start;gap:6px;cursor:default">
+        <img src="${adj.b64}" style="width:100%;border-radius:6px;max-height:200px;object-fit:contain;background:#f5f3ee" alt="${esc(adj.name)}">
+        <a href="${adj.b64}" download="${esc(adj.name)}" style="font-size:11px;color:var(--blue);text-decoration:none">↓ Descargar imagen</a>
+      </div>`;
+    } else if(adj.tipo==='pdf' && adj.b64){
+      return `<a class="dp-adj-item" href="${adj.b64}" download="${esc(adj.name)}">
+        <span class="dp-adj-icon">📄</span>
+        <span class="dp-adj-name">${esc(adj.name)}</span>
+        <span class="dp-adj-open">↓ Descargar</span>
+      </a>`;
+    } else if(adj.url){
+      return `<a class="dp-adj-item" href="${adj.url}" target="_blank" rel="noopener">
+        <span class="dp-adj-icon">${adjIcon(adj.tipo)}</span>
+        <span class="dp-adj-name">${esc(adj.name)}</span>
+        <span class="dp-adj-open">Abrir ↗</span>
+      </a>`;
+    }
+    return '';
+  }).join('')}</div>`;
+}
+
+function histHTML(historial){
+  if(!historial||!historial.length) return '<div style="font-size:11px;color:var(--text3)">Sin movimientos registrados</div>';
+  const EST_COLORS={'Activa':'#A32D2D','En gestión':'#185FA5','Resuelta':'#3B6D11','Descartada':'#6B6963'};
+  return `<div class="hist-list">${[...historial].reverse().map(h=>`
+    <div class="hist-row">
+      <div class="hist-dot" style="background:${EST_COLORS[h.estado]||'#888'}"></div>
+      <div class="hist-body">
+        <div class="hist-accion">→ ${dispEstado(h.estado||'')}${h.responsable?' · <span style="color:var(--blue)">'+esc(h.responsable)+'</span>':''}</div>
+        <div class="hist-meta">${esc(h.usuario||'—')} · ${fmtHistFecha(h.fecha)}</div>
+        ${h.nota?`<div class="hist-nota">"${esc(h.nota)}"</div>`:''}
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+function renderDetail(a){
+  const inc = esIncompleto(a);
+  document.getElementById('dp-body').innerHTML=`
+    <div class="dp-field" style="display:flex;justify-content:space-between;align-items:center">
+      <label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text3)">ID Alerta</label>
+      <button class="expand-btn" onclick="openDetailXL('${a.id}')">⤢ Expandir</button>
+    </div>
+    <div class="dp-field"><div class="id-val">${a.id}</div></div>
+    ${inc?'<div style="font-size:11px;color:#9a7d10;background:#fef9e7;border:1px solid #e0c050;border-radius:5px;padding:5px 8px">⚠ Registro incompleto — faltan campos obligatorios</div>':''}
+    <div class="dp-field"><label>Descripción</label><div class="dp-desc">${esc(a.descripcion||'—')}</div></div>
+    <div class="dp-field"><label>Criticidad</label><p>${critBadge(a.criticidad)}</p></div>
+    <div class="dp-field"><label>Estado</label><p>${estadoBadge(a.estado)}${a.responsableGestion?' <span class="resp-badge">👤 '+esc(a.responsableGestion)+'</span>':''}</p></div>
+    <div class="dp-field"><label>Obra</label><p>${esc(a.obra||'Sin especificar')}</p></div>
+    <div class="dp-field"><label>Categoría</label><p>${esc(a.tipo||'Sin categorizar')}</p></div>
+    <div class="dp-field"><label>Situación</label><p>${esc(a.situacion||'Sin especificar')}</p></div>
+    <div class="dp-field"><label>Reportado por</label><p>${esc(nombreVisible(a))}</p></div>
+    <div class="dp-field"><label>Fecha y hora</label><p>${fmtFechaLarga(a.creadoEn)}</p></div>
+    <div class="dp-field"><label>Historial</label>${histHTML(a.historial)}</div>
+    <div class="dp-field"><label>Adjuntos</label>${adjListHTML(a.adjuntos)}</div>`;
+  const ESTADOS=['Activa','En gestión','Resuelta','Descartada'];
+  document.getElementById('dp-actions').innerHTML=`
+    <label>Cambiar estado</label>
+    <div class="estado-btns">
+      ${ESTADOS.map(e=>`<button class="estado-btn ${a.estado===e?'active-btn':''}" onclick="initCambioEstado('${a.id}','${e}')">${dispEstado(e)}</button>`).join('')}
+    </div>
+    <button class="dp-edit-btn" onclick="openModal('${a.id}')">✏️ Editar alerta</button>
+    <button class="dp-del-btn" onclick="deleteAlert('${a.id}')">Eliminar alerta</button>`;
+}
+
+function openDetailMobile(a){
+  const ESTADOS=['Activa','En gestión','Resuelta','Descartada'];
+  document.getElementById('modal-inner').innerHTML=`
+    <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Detalle</span>
+      <button onclick="closeModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3)">✕</button>
+    </div>
+    <div class="dp-desc" style="font-size:14px;line-height:1.6">${esc(a.descripcion||'—')}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${critBadge(a.criticidad)} ${estadoBadge(a.estado)}
+      ${a.obra?`<span class="badge" style="background:var(--surface2);color:var(--text2)">${esc(a.obra)}</span>`:''}
+    </div>
+    ${a.tipo?`<div style="font-size:12px;color:var(--text3)">${esc(a.tipo)}</div>`:''}
+    <div style="font-size:11px;color:var(--text3)">Por ${esc(nombreVisible(a))} · ${fmtFechaLarga(a.creadoEn)}</div>
+    ${a.adjuntos?.length?`<div><div class="fl" style="margin-bottom:6px">Adjuntos</div>${adjListHTML(a.adjuntos)}</div>`:''}
+    <div>
+      <div class="fl" style="margin-bottom:6px">Cambiar estado</div>
+      <div class="estado-btns">
+        ${ESTADOS.map(e=>`<button class="estado-btn ${a.estado===e?'active-btn':''}" onclick="initCambioEstado('${a.id}','${e}');closeModal()">${e}</button>`).join('')}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="mbtn mbtn-cancel" style="flex:1" onclick="closeModal();setTimeout(()=>openModal('${a.id}'),100)">✏️ Editar</button>
+      <button class="mbtn" style="flex:1;background:var(--red-l);color:var(--red);border:1px solid var(--crit-critica-bd)"
+        onclick="if(confirm('¿Eliminar?')){deleteAlert('${a.id}');closeModal()}">Eliminar</button>
+    </div>`;
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+window.closeDetail=function(){
+  selectedId=null;
+  document.getElementById('detail-panel').classList.remove('open');
+  render();
+};
+
+window.openDetailXL=function(id){
+  const a=alerts.find(x=>x.id===id);
+  if(!a) return;
+  selectedId=id;
+  const ESTADOS=['Activa','En gestión','Resuelta','Descartada'];
+  const inc=esIncompleto(a);
+  const inner=document.getElementById('detail-xl-inner');
+  if(!inner) return;
+  inner.innerHTML=`
+    <div class="detail-xl-hdr">
+      <div>
+        <div class="detail-xl-title">${esc(a.descripcion||'Sin descripción')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:'DM Mono',monospace">${a.id}</div>
+      </div>
+      <button class="detail-xl-close" onclick="closeDetailXL()">✕</button>
+    </div>
+    <div class="detail-xl-body">
+      ${inc?'<div class="detail-xl-full" style="font-size:11px;color:#9a7d10;background:#fef9e7;border:1px solid #e0c050;border-radius:5px;padding:6px 10px">⚠ Registro incompleto — faltan campos obligatorios</div>':''}
+      <div class="dxf">
+        <label>Criticidad</label><p>${critBadge(a.criticidad)}</p>
+      </div>
+      <div class="dxf">
+        <label>Estado</label>
+        <p>${estadoBadge(a.estado)}${a.responsableGestion?' <span class="resp-badge">👤 '+esc(a.responsableGestion)+'</span>':''}</p>
+      </div>
+      <div class="dxf">
+        <label>Obra</label><p>${esc(a.obra||'Sin especificar')}</p>
+      </div>
+      <div class="dxf">
+        <label>Fecha</label><p>${fmtFechaLarga(a.creadoEn)}</p>
+      </div>
+      <div class="dxf">
+        <label>Categoría</label><p>${esc(a.tipo||'Sin categorizar')}</p>
+      </div>
+      <div class="dxf">
+        <label>Situación</label><p>${esc(a.situacion||'Sin especificar')}</p>
+      </div>
+      <div class="dxf detail-xl-full">
+        <label>Reportado por</label><p>${esc(nombreVisible(a))}</p>
+      </div>
+      <div class="dxf detail-xl-full">
+        <label>Cambiar estado</label>
+        <div class="estado-btns-xl" style="margin-top:4px">
+          ${ESTADOS.map(e=>`<button class="estado-btn ${a.estado===e?'active-btn':''}" onclick="initCambioEstado('${a.id}','${e}')">${dispEstado(e)}</button>`).join('')}
+        </div>
+      </div>
+      <div class="dxf detail-xl-full">
+        <label>Historial</label>
+        ${histHTML(a.historial)}
+      </div>
+      <div class="dxf detail-xl-full">
+        <label>Adjuntos</label>
+        ${adjListHTML(a.adjuntos)}
+      </div>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0">
+      <button class="mbtn mbtn-cancel" onclick="openModal('${a.id}');closeDetailXL()">✏️ Editar</button>
+      <button class="mbtn" style="background:var(--red-l);color:var(--red);border:1px solid var(--crit-critica-bd)" onclick="if(confirm('¿Eliminar?')){deleteAlert('${a.id}');closeDetailXL()}">Eliminar</button>
+      <button class="mbtn mbtn-cancel" style="margin-left:auto" onclick="closeDetailXL()">Cerrar</button>
+    </div>`;
+  document.getElementById('detail-xl').classList.add('open');
+};
+
+window.closeDetailXL=function(){
+  document.getElementById('detail-xl').classList.remove('open');
+};
+
+// ── CAMBIAR ESTADO ────────────────────────────────────────────────────
+// Estado temporal para el modal de cambio
+let _pendingEstado = {id:null, estado:null};
+
+window.initCambioEstado = function(id, nuevoEstado){
+  const a = alerts.find(x=>x.id===id);
+  if(!a) return;
+  if(a.estado === nuevoEstado) return; // ya está en ese estado
+
+  // Confirmación para estados terminales
+  if((nuevoEstado==='Resuelta'||nuevoEstado==='Descartada')){
+    const confirmar = confirm(`¿Marcar esta alerta como "${nuevoEstado}"? Esta acción indica que el asunto está cerrado.`);
+    if(!confirmar) return;
+  }
+
+  _pendingEstado = {id, estado:nuevoEstado};
+  const modal = document.getElementById('estado-modal');
+  const title = document.getElementById('estado-modal-title');
+  const respInput = document.getElementById('estado-responsable');
+  const notaInput = document.getElementById('estado-nota');
+  if(title) title.textContent = `Cambiar a: ${dispEstado(nuevoEstado)}`;
+  // Pre-llenar responsable si ya tiene uno
+  if(respInput) respInput.value = a.responsableGestion||'';
+  if(notaInput) notaInput.value = '';
+  // Mostrar/ocultar campo responsable según estado
+  const respField = respInput?.closest('.fg');
+  if(respField) respField.style.display = nuevoEstado==='En gestión'?'':'none';
+  modal?.classList.add('open');
+};
+
+window.closeEstadoModal = function(){
+  document.getElementById('estado-modal')?.classList.remove('open');
+  _pendingEstado = {id:null, estado:null};
+};
+
+window.confirmCambioEstado = async function(){
+  const {id, estado} = _pendingEstado;
+  if(!id||!estado) return;
+  const nota = document.getElementById('estado-nota')?.value.trim()||'';
+  const responsable = document.getElementById('estado-responsable')?.value.trim()||'';
+  const a = alerts.find(x=>x.id===id);
+  if(!a) return;
+
+  const entrada = {
+    estado,
+    usuario: currentUser.displayName||currentUser.email,
+    fecha: new Date(),
+    ...(nota && {nota}),
+    ...(responsable && {responsable})
+  };
+  const historial = [...(a.historial||[]), entrada];
+
+  try{
+    closeEstadoModal();
+    if(IS_PREVIEW){
+      await window._previewUpdate(id,{estado, historial, ...(responsable&&{responsableGestion:responsable})});
+      showToast(`✓ Estado → ${estado} (preview)`); return;
+    }
+    await updateDoc(doc(db,COLECCION,id),{
+      estado,
+      historial,
+      ...(responsable && {responsableGestion:responsable})
+    });
+    showToast(`✓ Estado → ${estado}`);
+  }catch(e){showToast('⚠ Error al actualizar');console.error(e);}
+};
+
+window.cambiarEstado=async function(id,nuevoEstado){
+  initCambioEstado(id,nuevoEstado);
+};
+
+// ── ADJUNTOS: UI ──────────────────────────────────────────────────────
+window.triggerCamera=function(){ document.getElementById('camera-input').click(); };
+window.triggerFile  =function(){ document.getElementById('file-input').click(); };
+
+window.onFileSelected=function(event){
+  const files=Array.from(event.target.files);
+  files.forEach(file=>{
+    if(file.size>20*1024*1024){showToast('⚠ Máximo 20MB por archivo');return;}
+    const tipo=adjTipo(file);
+    const previewUrl=tipo==='image'?URL.createObjectURL(file):null;
+    pendingFiles.push({file,name:file.name,tipo,previewUrl,size:file.size});
+  });
+  event.target.value='';
+  renderAdjuntosForm();
+};
+
+window.removePending=function(idx){
+  pendingFiles.splice(idx,1);
+  renderAdjuntosForm();
+};
+
+// renderAdjuntosForm — definida más abajo con soporte de thumbnails
+
+window.removeExisting=function(idx){
+  existingAdjuntos.splice(idx,1);
+  renderAdjuntosForm();
+};
+
+// ── SUBIDA A STORAGE ──────────────────────────────────────────────────
+
+// Actualiza el select de situación según la categoría seleccionada
+window.updateSituaciones = function(selectTipoEl) {
+  const tipo = selectTipoEl ? selectTipoEl.value : (document.getElementById('f-tipo')?.value || '');
+  const sel  = document.getElementById('f-situacion');
+  if (!sel) return;
+  const lista = SITUACIONES[tipo] || [];
+  if (!lista.length) {
+    sel.innerHTML = '<option value="">Seleccionar categoría primero</option>';
+    sel.disabled = true;
+  } else {
+    sel.disabled = false;
+    sel.innerHTML = '<option value="" disabled selected>Seleccionar situación *</option>' +
+      lista.map(s => `<option value="${s.replace(/"/g,'&quot;')}">${s}</option>`).join('');
+  }
+};
+// ── ADJUNTOS — base64 en Firestore ──────────────────────────────────
+
+const MAX_IMG_SIZE  = 800;   // px máximo lado largo
+const IMG_QUALITY   = 0.72;  // calidad JPEG
+const MAX_PDF_BYTES = 500 * 1024; // 500KB para PDF
+const MAX_IMG_BYTES = 480 * 1024; // 480KB para imagen comprimida
+
+// Comprimir imagen a canvas y devolver base64
+function compressImage(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = e =>{
+      const img = new Image();
+      img.onload = ()=>{
+        let {width:w, height:h} = img;
+        if(w > MAX_IMG_SIZE || h > MAX_IMG_SIZE){
+          const ratio = Math.min(MAX_IMG_SIZE/w, MAX_IMG_SIZE/h);
+          w = Math.round(w*ratio); h = Math.round(h*ratio);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const b64 = canvas.toDataURL('image/jpeg', IMG_QUALITY);
+        // Verificar tamaño final
+        const bytes = Math.round((b64.length - 22) * 3/4);
+        if(bytes > MAX_IMG_BYTES){
+          // Segunda pasada con menor calidad
+          const b64b = canvas.toDataURL('image/jpeg', 0.55);
+          resolve(b64b);
+        } else {
+          resolve(b64);
+        }
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Leer PDF como base64
+function readPdfBase64(file){
+  return new Promise((resolve, reject)=>{
+    if(file.size > MAX_PDF_BYTES){
+      reject(new Error(`PDF demasiado grande (${(file.size/1024).toFixed(0)}KB). Máximo 500KB. Comprímelo antes de subir.`));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+window.onFileSelected = async function(event){
+  const files = Array.from(event.target.files);
+  for(const file of files){
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImg = file.type.startsWith('image/');
+    if(!isPDF && !isImg){ showToast('⚠ Solo imágenes y PDF'); continue; }
+    try {
+      showToast('Procesando...');
+      let b64, tipo, previewUrl = null;
+      if(isPDF){
+        b64 = await readPdfBase64(file);
+        tipo = 'pdf';
+      } else {
+        b64 = await compressImage(file);
+        tipo = 'image';
+        previewUrl = b64;
+      }
+      const bytes = Math.round((b64.length - 22) * 3/4);
+      pendingFiles.push({name:file.name, tipo, b64, previewUrl, size:bytes});
+      renderAdjuntosForm();
+    } catch(err){
+      showToast('⚠ ' + (err.message||'Error al procesar archivo'));
+    }
+  }
+  event.target.value = '';
+};
+
+window.removePending = function(idx){
+  pendingFiles.splice(idx, 1);
+  renderAdjuntosForm();
+};
+
+window.removeExisting = function(idx){
+  existingAdjuntos.splice(idx, 1);
+  renderAdjuntosForm();
+};
+
+function renderAdjuntosForm(){
+  const preview = document.getElementById('adj-preview');
+  if(!preview) return;
+  const all = [
+    ...existingAdjuntos.map((a,i)=>({...a, existing:true, idx:i})),
+    ...pendingFiles.map((f,i)=>({...f, existing:false, idx:i}))
+  ];
+  if(!all.length){
+    preview.innerHTML = '<div class="adj-hint">Foto desde cámara, imagen desde galería o PDF (máx 500KB)</div>';
+    return;
+  }
+  preview.innerHTML = all.map(item=>{
+    const icon = item.tipo==='pdf'?'📄':item.tipo==='image'?'🖼️':'📎';
+    const size = item.existing ? 'guardado' : fmtSize(item.size);
+    const thumb = item.previewUrl
+      ? `<img src="${item.previewUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:4px;flex-shrink:0">`
+      : `<span style="font-size:22px;flex-shrink:0">${icon}</span>`;
+    const delFn = item.existing ? `removeExisting(${item.idx})` : `removePending(${item.idx})`;
+    return `<div class="adj-item">
+      ${thumb}
+      <span class="adj-item-name">${esc(item.name)}</span>
+      <span class="adj-item-size">${size}</span>
+      <button class="adj-item-del" onclick="${delFn}" title="Quitar">✕</button>
+    </div>`;
+  }).join('');
+}
+
+// uploadFiles — disponible cuando se active Firebase Storage
+
+// ── MODAL ─────────────────────────────────────────────────────────────
+function buildForm(a){
+  return `
+    <div class="modal-title">${a?'Editar alerta':'Nueva alerta'}</div>
+    <div class="fg">
+      <label class="fl">Descripción <span style="color:var(--red)">*</span></label>
+      <textarea class="fta" id="f-desc" placeholder="¿Qué está pasando? Describe la situación..." rows="3">${a?esc(a.descripcion||''):''}</textarea>
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="fl">Obra</label>
+        <select class="fsel" id="f-obra">
+          <option value="" disabled selected>Seleccionar obra *</option>
+          ${['Obra 1','Obra 2','Obra 3','Obra 4','Obra 5'].map(o=>`<option${a?.obra===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Criticidad</label>
+        <select class="fsel" id="f-criticidad">
+          <option value="" disabled selected>Seleccionar *</option>
+          ${['Baja','Media','Alta','Crítica'].map(c=>`<option${a?.criticidad===c?' selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Categoría</label>
+      <select class="fsel" id="f-tipo" onchange="updateSituaciones(this)">
+        <option value="" disabled selected>Seleccionar categoría *</option>
+        ${['C1 - Personas','C2 - Ejecución','C3 - Abastecimiento','C4 - Proyecto','C5 - Inmobiliaria','C6 - Seguridad','C7 - Entorno y comunidad','C8 - Gestión','C9 - Equipo Crítico','C10 - Otros']
+          .map(t=>`<option value="${t}"${a?.tipo===t?' selected':''}>${t.replace(' - ',' · ')}</option>`).join('')}
+      </select>
+    </div>
+    <div class="fg">
+      <label class="fl">Situación</label>
+      <select class="fsel" id="f-situacion" disabled>
+        <option value="">Seleccionar categoría primero</option>
+      </select>
+    </div>
+    ${a ? `<div class="fg">
+      <label class="fl">Estado</label>
+      <select class="fsel" id="f-estado">
+        ${[['Activa','🔴'],['En gestión','🔵'],['Resuelta','🟢'],['Descartada','⚪']]
+          .map(([e,ic])=>`<option value="${e}"${(a?.estado||'Activa')===e?' selected':''}>${ic} ${dispEstado(e)}</option>`).join('')}
+      </select>
+    </div>` : ''}
+    <div class="fg">
+      <label class="fl">Fotos y adjuntos <span style="font-size:10px;color:var(--text3);font-weight:400;text-transform:none">(imágenes y PDF · máx 500KB c/u)</span></label>
+      <div class="adjunto-area">
+        <div class="adjunto-btns">
+          <button type="button" class="adj-btn" onclick="triggerCamera()">📷 Cámara</button>
+          <button type="button" class="adj-btn" onclick="triggerFile()">📎 Archivo / Galería</button>
+        </div>
+        <div class="adjunto-preview" id="adj-preview">
+          <div class="adj-hint">Foto desde cámara, imagen desde galería o PDF (máx 500KB)</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="mbtn mbtn-save" id="btn-guardar" onclick="saveAlert()">Guardar alerta</button>
+    </div>`;
+}
+
+window.openModal=function(id){
+  editId=id||null;
+  pendingFiles=[];
+  const a=id?alerts.find(x=>x.id===id):null;
+  existingAdjuntos=a?.adjuntos?JSON.parse(JSON.stringify(a.adjuntos)):[];
+  document.getElementById('modal-inner').innerHTML=buildForm(a);
+  renderAdjuntosForm();
+  // Poblar situaciones si hay categoría ya seleccionada (modo edición)
+  if(a?.tipo) {
+    updateSituaciones(null);
+    const fSit = document.getElementById('f-situacion');
+    if(fSit && a.situacion) {
+      // Intentar seleccionar el valor guardado
+      [...fSit.options].forEach(o => { if(o.value === a.situacion) o.selected = true; });
+    }
+  }
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(()=>document.getElementById('f-desc')?.focus(),200);
+};
+
+window.closeModal=function(){
+  document.getElementById('modal-bg').classList.remove('open');
+  editId=null; pendingFiles=[]; existingAdjuntos=[];
+};
+
+window.saveAlert=async function(){
+  const desc=document.getElementById('f-desc')?.value.trim();
+  const obra       =document.getElementById('f-obra')?.value||'';
+  const criticidad =document.getElementById('f-criticidad')?.value||'';
+  const tipo       =document.getElementById('f-tipo')?.value||'';
+  const situacion  =document.getElementById('f-situacion')?.value||'';
+  const estado     =document.getElementById('f-estado')?.value||'Activa';
+
+  // Validación campos obligatorios
+  if(!desc){
+    document.getElementById('f-desc')?.focus();
+    showToast('⚠ La descripción es obligatoria'); return;
+  }
+  if(!obra){
+    document.getElementById('f-obra')?.focus();
+    showToast('⚠ Debes seleccionar una obra'); return;
+  }
+  if(!criticidad){
+    document.getElementById('f-criticidad')?.focus();
+    showToast('⚠ Debes seleccionar la criticidad'); return;
+  }
+  if(!tipo){
+    document.getElementById('f-tipo')?.focus();
+    showToast('⚠ Debes seleccionar una categoría'); return;
+  }
+  if(!situacion){
+    document.getElementById('f-situacion')?.focus();
+    showToast('⚠ Debes seleccionar una situación'); return;
+  }
+
+  const btn=document.getElementById('btn-guardar');
+  if(btn){btn.disabled=true;btn.textContent=pendingFiles.length?'Subiendo...':'Guardando...';}
+
+  try{
+    if(IS_PREVIEW){
+      if(editId){
+        await window._previewUpdate(editId,{descripcion:desc,obra,criticidad,tipo,situacion,estado});
+      } else {
+        await window._previewSave({descripcion:desc,obra,criticidad,tipo,situacion,estado:'Activa',
+          creadoPor:currentUser.email, creadoNombre:currentUser.displayName||currentUser.email.split('@')[0],
+          creadoEn:{toDate:()=>new Date(),toMillis:()=>Date.now()}, adjuntos:[]});
+      }
+      showToast(editId?'✓ Alerta actualizada (preview)':'✓ Alerta registrada (preview)');
+      closeModal(); return;
+    }
+    if(editId){
+      const adjuntosEdit = [...existingAdjuntos, ...pendingFiles.map(f=>({name:f.name,tipo:f.tipo,b64:f.b64}))];
+      await updateDoc(doc(db,COLECCION,editId),{descripcion:desc,obra,criticidad,tipo,situacion,estado,adjuntos:adjuntosEdit});
+      showToast('✓ Alerta actualizada');
+    } else {
+      const adjuntosNuevos = pendingFiles.map(f=>({name:f.name, tipo:f.tipo, b64:f.b64}));
+      await addDoc(collection(db,COLECCION),{
+        descripcion:desc,obra,criticidad,tipo,situacion,estado:'Activa',
+        creadoPor:currentUser.email,
+        creadoNombre:currentUser.displayName||currentUser.email.split('@')[0],
+        creadoEn:serverTimestamp(),
+        adjuntos:adjuntosNuevos
+      });
+      showToast('✓ Alerta registrada');
+    }
+    closeModal();
+  }catch(e){
+    showToast('⚠ Error al guardar');console.error(e);
+    if(btn){btn.disabled=false;btn.textContent='Guardar alerta';}
+  }
+};
+
+// ── ELIMINAR ─────────────────────────────────────────────────────────
+window.deleteAlert=async function(id){
+  if(!confirm('¿Eliminar esta alerta? Esta acción no se puede deshacer.')) return;
+  try{
+    if(IS_PREVIEW){ await window._previewDelete(id); showToast('✓ Eliminada (preview)'); return; }
+    await deleteDoc(doc(db,COLECCION,id));
+    if(selectedId===id){selectedId=null;closeDetail();}
+    showToast('✓ Alerta eliminada');
+  }catch(e){showToast('⚠ Error al eliminar');console.error(e);}
+};
+
+// ── FILTROS ───────────────────────────────────────────────────────────
+window.sbFilter=function(k,v,el){
+  filters[k]=filters[k]===v?'':v;
+  if(el){
+    el.closest('.fblock-body')?.querySelectorAll('.fopt').forEach(e=>e.classList.remove('active'));
+    if(filters[k]===v) el.classList.add('active');
+  } else {
+    // Llamado desde tarjeta — sincronizar el fopt correspondiente en sidebar
+    document.querySelectorAll(`[onclick*="sbFilter('${k}'"]`).forEach(e=>{
+      if(e.tagName==='DIV') e.classList.remove('active');
+    });
+    if(filters[k]===v){
+      document.querySelectorAll(`[onclick*="sbFilter('${k}','${v}'"]`).forEach(e=>{
+        if(e.classList.contains('fopt')) e.classList.add('active');
+      });
+    }
+  }
+  render();
+};
+
+window.toggleFblock=function(id){
+  const block = document.getElementById(id);
+  if(!block) return;
+  const body  = block.querySelector('.fblock-body, .date-filter-body');
+  const arrow = block.querySelector('.fblock-arrow');
+  if(!body) return;
+  const isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  if(arrow) arrow.classList.toggle('open', !isOpen);
+};
+
+window.onFechaChange=function(){
+  const desde = document.getElementById('filter-fecha-desde')?.value;
+  const hasta = document.getElementById('filter-fecha-hasta')?.value;
+  fechaDesde = desde ? new Date(desde+'T00:00:00') : null;
+  fechaHasta = hasta ? new Date(hasta+'T23:59:59') : null;
+  // Indicador en botón
+  const cnt = document.getElementById('fb-cnt-fecha');
+  const btn = document.getElementById('fb-fecha')?.querySelector('.fblock-btn');
+  const label = [desde?'Desde '+desde.slice(5):'', hasta?'Hasta '+hasta.slice(5):''].filter(Boolean).join(' ');
+  if(cnt) cnt.textContent = label ? '●' : '';
+  if(btn) btn.classList.toggle('has-filter', !!(fechaDesde||fechaHasta));
+  render();
+};
+
+window.clearFecha=function(){
+  fechaDesde=null; fechaHasta=null;
+  const d=document.getElementById('filter-fecha-desde');
+  const h=document.getElementById('filter-fecha-hasta');
+  if(d) d.value=''; if(h) h.value='';
+  const cnt=document.getElementById('fb-cnt-fecha');
+  const btn=document.getElementById('fb-fecha')?.querySelector('.fblock-btn');
+  if(cnt) cnt.textContent='';
+  if(btn) btn.classList.remove('has-filter');
+  render();
+};
+
+window.setSort=function(col){
+  if(sortCol===col){ sortDir=sortDir==='asc'?'desc':'asc'; }
+  else { sortCol=col; sortDir='asc'; }
+  render();
+};
+
+window.clearFilters=function(){
+  filters={estado:'',criticidad:'',tipo:'',situacion:'',obra:'',usuario:''};
+  document.querySelectorAll('.fopt').forEach(e=>e.classList.remove('active'));
+  document.querySelector('.fopt')?.classList.add('active');
+  if(document.getElementById('mob-crit-filter')) document.getElementById('mob-crit-filter').value='';
+  clearFecha();
+  document.querySelectorAll('.fblock-btn').forEach(b=>b.classList.remove('has-filter'));
+  document.querySelectorAll('.fblock-cnt').forEach(b=>b.textContent='');
+  render();
+};
+
+
+// ── EXPORTAR EXCEL ────────────────────────────────────────────────────
+window.exportExcel = function(){
+  if(typeof XLSX === 'undefined'){ showToast('⚠ Cargando librería, intenta de nuevo'); return; }
+  const filtered = getFiltered();
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function fmtFechaExcel(ts){
+    if(!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return `${d.getDate()} ${MESES[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+  const rows = filtered.map(a=>({
+    'Descripción':      a.descripcion   || '',
+    'Obra':             a.obra          || '',
+    'Criticidad':       a.criticidad    || '',
+    'Categoría':        a.tipo          || '',
+    'Situación':        a.situacion     || '',
+    'Estado':           a.estado        || '',
+    'Creado por':       a.creadoNombre  || a.creadoPor || '',
+    'Email':            a.creadoPor     || '',
+    'Fecha creación':   fmtFechaExcel(a.creadoEn),
+    'Adjuntos':         a.adjuntos?.length ? a.adjuntos.map(x=>x.name).join(', ') : '',
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  // Anchos de columna
+  ws['!cols'] = [
+    {wch:50},{wch:12},{wch:12},{wch:22},{wch:55},
+    {wch:14},{wch:20},{wch:30},{wch:20},{wch:30}
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Alertas');
+  const fecha = new Date();
+  const nombre = `alertas_obra_${fecha.getFullYear()}${String(fecha.getMonth()+1).padStart(2,'0')}${String(fecha.getDate()).padStart(2,'0')}.xlsx`;
+  XLSX.writeFile(wb, nombre);
+  showToast(`✓ Descargado: ${nombre}`);
+};
+
+// ── EXPORTAR INFORME HTML ─────────────────────────────────────────────
+window.exportInforme = function(){
+  const dbBody = document.getElementById('db-body');
+  if(!dbBody){ showToast('⚠ Sin datos en el dashboard'); return; }
+
+  // Leer filtros activos para el título
+  const obraF   = document.getElementById('db-obra')?.value   || 'Todas las obras';
+  const tipoF   = document.getElementById('db-tipo')?.value   || '';
+  const critF   = document.getElementById('db-crit')?.value   || '';
+  const perF    = document.getElementById('db-periodo')?.options[document.getElementById('db-periodo').selectedIndex]?.text || 'Todo el período';
+  const filtroTxt = [obraF, tipoF?tipoF.split(' - ')[0]:'', critF, perF].filter(Boolean).join(' · ');
+  const fecha = new Date();
+  const fechaTxt = `${fecha.getDate()} ${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][fecha.getMonth()]} ${fecha.getFullYear()}`;
+
+  // CSS inline para el informe
+  const estilos = `
+    body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:0;background:#F5F3EE;color:#1A1916;}
+    .inf-header{background:#CC2929;color:#fff;padding:18px 28px;display:flex;justify-content:space-between;align-items:center;}
+    .inf-title{font-size:20px;font-weight:600;}
+    .inf-sub{font-size:12px;opacity:.75;margin-top:2px;}
+    .inf-meta{font-size:12px;opacity:.8;text-align:right;}
+    .inf-body{padding:20px 28px;}
+    .db-row{display:grid;gap:10px;margin-bottom:10px;}
+    .db-r4{grid-template-columns:repeat(4,minmax(0,1fr));}
+    .db-r3{grid-template-columns:1.3fr 1fr 1fr;}
+    .db-r2{grid-template-columns:1fr 1fr;}
+    .db-card{background:#fff;border:1px solid #D9D4CB;border-radius:10px;padding:12px 14px;}
+    .db-kpi-lbl{font-size:10px;color:#9A948C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+    .db-kpi-num{font-size:26px;font-weight:600;line-height:1;}
+    .db-kpi-sub{font-size:11px;color:#9A948C;margin-top:3px;}
+    .db-card-title{font-size:10px;font-weight:600;color:#9A948C;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+    .db-bar-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;padding:2px 4px;}
+    .db-bar-lbl{font-size:11px;color:#5A5750;width:118px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .db-bar-wrap{flex:1;background:#E6E1D9;border-radius:3px;height:7px;overflow:hidden;}
+    .db-bar-fill{height:100%;border-radius:3px;}
+    .db-bar-num{font-size:11px;color:#9A948C;width:16px;text-align:right;flex-shrink:0;}
+    .db-st-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #D9D4CB;}
+    .db-st-row:last-child{border-bottom:none;}
+    .db-st-name{font-size:12px;color:#1A1916;display:flex;align-items:center;gap:6px;}
+    .db-st-bar{width:65px;background:#E6E1D9;border-radius:3px;height:5px;overflow:hidden;margin:0 8px;}
+    .db-st-fill{height:100%;border-radius:3px;}
+    .db-st-num{font-size:11px;color:#9A948C;width:16px;text-align:right;}
+    .db-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .db-leg{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+    .db-leg-item{display:flex;align-items:center;gap:4px;font-size:11px;color:#9A948C;}
+    .db-chip{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:20px;font-size:11px;border:1px solid #D9D4CB;background:#EEEAE3;color:#5A5750;margin:0 3px 3px 0;}
+    .db-chip strong{color:#1A1916;}
+    .db-alerta-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #D9D4CB;}
+    .db-alerta-row:last-child{border-bottom:none;}
+    .db-alerta-bar{width:3px;min-height:30px;border-radius:2px;flex-shrink:0;margin-top:3px;}
+    .db-alerta-desc{font-size:12px;font-weight:500;color:#1A1916;line-height:1.4;margin-bottom:2px;}
+    .db-alerta-meta{font-size:11px;color:#9A948C;}
+    canvas{max-width:100%;height:auto!important;}
+    .no-print{display:none!important;}
+    @media print{body{background:#fff;}.inf-header{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+  `;
+
+  // Convertir canvas a imágenes para el informe
+  let bodyHTML = dbBody.innerHTML;
+  dbBody.querySelectorAll('canvas').forEach(canvas=>{
+    const img = `<img src="${canvas.toDataURL('image/png')}" style="width:100%;height:160px;object-fit:contain">`;
+    bodyHTML = bodyHTML.replace(canvas.outerHTML, img);
+  });
+
+  // Quitar onclick y cursores del informe
+  bodyHTML = bodyHTML.replace(/onclick="[^"]*"/g,'').replace(/style="cursor:pointer[^"]*"/g,'').replace(/onmouseover="[^"]*"/g,'').replace(/onmouseout="[^"]*"/g,'');
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Informe Alertas Obra — ${fechaTxt}</title>
+<style>${estilos}</style>
+</head>
+<body>
+<div class="inf-header">
+  <div>
+    <div class="inf-title">Alertas Obra — Informe</div>
+    <div class="inf-sub">${filtroTxt}</div>
+  </div>
+  <div class="inf-meta">
+    Generado el ${fechaTxt}<br>
+    RVC Constructora
+  </div>
+</div>
+<div class="inf-body">${bodyHTML}</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const nombre = `informe_alertas_${fecha.getFullYear()}${String(fecha.getMonth()+1).padStart(2,'0')}${String(fecha.getDate()).padStart(2,'0')}.html`;
+  a.href = url; a.download = nombre; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`✓ Descargado: ${nombre}`);
+};
+
+window.addEventListener('resize',render);
+
+// ── PESTAÑAS ──────────────────────────────────────────────────────────
+let currentTab = 'alertas';
+window.switchTab = function(tab){
+  currentTab = tab;
+  const layout    = document.querySelector('.layout');
+  const dbView    = document.getElementById('db-view');
+  const btnNueva  = document.getElementById('btn-nueva');
+  const tabAlertas   = document.getElementById('tab-alertas');
+  const tabDashboard = document.getElementById('tab-dashboard');
+  if(tab === 'dashboard'){
+    layout.style.display   = 'none';
+    dbView.classList.add('open');
+    const btnExcel = document.getElementById('btn-excel');
+    const btnInforme = document.getElementById('btn-informe');
+    if(btnExcel) btnExcel.style.display = 'none';
+    if(btnInforme) btnInforme.style.display = '';
+    tabAlertas?.classList.remove('tab-active');
+    tabDashboard?.classList.add('tab-active');
+    updateDbObraOptions();
+    renderDashboard();
+  } else {
+    layout.style.display   = 'flex';
+    dbView.classList.remove('open');
+    const btnExcel = document.getElementById('btn-excel');
+    const btnInforme = document.getElementById('btn-informe');
+    if(btnExcel) btnExcel.style.display = '';
+    if(btnInforme) btnInforme.style.display = 'none';
+    tabDashboard?.classList.remove('tab-active');
+    tabAlertas?.classList.add('tab-active');
+  }
+};
+
+// Actualizar opciones de obra en filtro dashboard
+function updateDbObraOptions(){
+  const sel = document.getElementById('db-obra');
+  if(!sel) return;
+  const obras = [...new Set(alerts.map(a=>a.obra).filter(Boolean))].sort();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todas las obras</option>' +
+    obras.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o}</option>`).join('');
+}
+
+window.clearDbFilters = function(){
+  ['db-obra','db-tipo','db-crit','db-periodo'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el){ el.value=''; el.classList.remove('active'); }
+  });
+  renderDashboard();
+};
+
+// ── RENDER DASHBOARD ──────────────────────────────────────────────────
+window.renderDashboard = function(){
+  const obraF    = document.getElementById('db-obra')?.value||'';
+  const tipoF    = document.getElementById('db-tipo')?.value||'';
+  const critF    = document.getElementById('db-crit')?.value||'';
+  const periodoF = parseInt(document.getElementById('db-periodo')?.value||'0');
+
+  // Marcar selectores activos
+  ['db-obra','db-tipo','db-crit','db-periodo'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.toggle('active', !!el.value);
+  });
+
+  // Filtrar datos
+  const now = Date.now();
+  let data = alerts.filter(a=>{
+    if(obraF && a.obra!==obraF) return false;
+    if(tipoF && a.tipo!==tipoF) return false;
+    if(critF && a.criticidad!==critF) return false;
+    if(periodoF){
+      const ts = a.creadoEn?.toMillis?.()||0;
+      if(now - ts > periodoF*24*60*60*1000) return false;
+    }
+    return true;
+  });
+
+  const activas   = data.filter(a=>a.estado==='Activa');
+  const enGestion = data.filter(a=>a.estado==='En gestión');
+  const resueltas = data.filter(a=>a.estado==='Resuelta');
+
+  // Días promedio resolución general
+  const resTs = resueltas.filter(a=>a.creadoEn?.toMillis);
+  const avgDias = resTs.length
+    ? (resTs.reduce((s,a)=>s+(now-a.creadoEn.toMillis()),0)/resTs.length/86400000).toFixed(1)
+    : '—';
+  // Días promedio por criticidad
+  const avgPorCrit = ['Crítica','Alta','Media','Baja'].map(crit=>{
+    const r = resueltas.filter(a=>a.criticidad===crit&&a.creadoEn?.toMillis);
+    return {crit, avg: r.length?(r.reduce((s,a)=>s+(now-a.creadoEn.toMillis()),0)/r.length/86400000).toFixed(1):'—', n:r.length};
+  });
+
+  // Por obra
+  const obras = [...new Set(alerts.map(a=>a.obra).filter(Boolean))].sort();
+  const obraMax = Math.max(...obras.map(o=>data.filter(a=>a.obra===o).length),1);
+
+  // Por categoría
+  const cats = ['C1 - Personas','C2 - Ejecución','C3 - Abastecimiento','C4 - Proyecto',
+    'C5 - Inmobiliaria','C6 - Seguridad','C7 - Entorno y comunidad','C8 - Gestión','C9 - Equipo Crítico','C10 - Otros'];
+  const catColors = {'C1 - Personas':'#7F77DD','C2 - Ejecución':'#5DCAA5',
+    'C3 - Abastecimiento':'#BA7517','C4 - Proyecto':'#185FA5','C5 - Inmobiliaria':'#D4537E',
+    'C6 - Seguridad':'#E24B4A','C7 - Entorno y comunidad':'#639922','C8 - Gestión':'#888780',
+    'C9 - Equipo Crítico':'#CC7722','C10 - Otros':'#A0A0A0'};
+  const catMax = Math.max(...cats.map(t=>data.filter(a=>a.tipo===t).length),1);
+
+  // Por criticidad
+  const critData = [
+    {l:'Crítica', n:data.filter(a=>a.criticidad==='Crítica').length, c:'#A32D2D'},
+    {l:'Alta',    n:data.filter(a=>a.criticidad==='Alta').length,    c:'#D85A30'},
+    {l:'Media',   n:data.filter(a=>a.criticidad==='Media').length,   c:'#BA7517'},
+    {l:'Baja',    n:data.filter(a=>a.criticidad==='Baja').length,    c:'#639922'},
+  ];
+
+  // Evolución — período controlado por filtro, agrupación automática según rango
+  const MESES_LBL = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const hoy = new Date();
+
+  // Determinar rango según filtro de período
+  let mesesAtras;
+  if(periodoF === 30)       mesesAtras = 1;
+  else if(periodoF === 90)  mesesAtras = 3;
+  else if(periodoF === 180) mesesAtras = 6;
+  else {
+    // Todo el período — calcular desde la alerta más antigua
+    const timestamps = data.map(a=>a.creadoEn?.toDate?.()).filter(Boolean);
+    if(timestamps.length){
+      const oldest = new Date(Math.min(...timestamps.map(d=>d.getTime())));
+      const diffMs = hoy - oldest;
+      mesesAtras = Math.max(1, Math.ceil(diffMs / (1000*60*60*24*30)));
+    } else {
+      mesesAtras = 6;
+    }
+  }
+  mesesAtras = Math.min(mesesAtras, 60); // máximo 5 años
+
+  // Decidir agrupación
+  const porTrimestre = mesesAtras > 36;
+  const periodos = [];
+
+  if(porTrimestre){
+    // Agrupar por trimestre
+    const trimestresAtras = Math.ceil(mesesAtras / 3);
+    for(let i=trimestresAtras-1;i>=0;i--){
+      const d = new Date(hoy.getFullYear(), hoy.getMonth() - i*3, 1);
+      const q = Math.floor(d.getMonth()/3)+1;
+      periodos.push({
+        lbl: `Q${q} ${d.getFullYear()}`,
+        y: d.getFullYear(),
+        meses: [d.getMonth(), d.getMonth()+1, d.getMonth()+2]
+      });
+    }
+  } else {
+    // Por mes
+    for(let i=mesesAtras-1;i>=0;i--){
+      const d = new Date(hoy.getFullYear(), hoy.getMonth()-i, 1);
+      periodos.push({
+        lbl: mesesAtras <= 18
+          ? MESES_LBL[d.getMonth()] + (d.getMonth()===0 || i===mesesAtras-1 ? ` ${d.getFullYear()}` : '')
+          : (d.getMonth()===0 ? `Ene ${d.getFullYear()}` : d.getMonth()%3===0 ? MESES_LBL[d.getMonth()] : ''),
+        lblFull: MESES_LBL[d.getMonth()] + ' ' + d.getFullYear(),
+        y: d.getFullYear(),
+        meses: [d.getMonth()]
+      });
+    }
+  }
+
+  // Contar alertas por período
+  const mesData = periodos.map(p=>
+    data.filter(a=>{
+      const d = a.creadoEn?.toDate?.()||null;
+      if(!d) return false;
+      return d.getFullYear()===p.y && p.meses.includes(d.getMonth());
+    }).length
+  );
+  const meses = periodos; // alias para compatibilidad
+
+  // Alertas sin gestionar (activas, ordenadas por antigüedad)
+  const sinGestionar = [...activas]
+    .filter(a=>a.creadoEn?.toMillis)
+    .sort((a,b)=>a.creadoEn.toMillis()-b.creadoEn.toMillis())
+    .slice(0,5);
+
+  const critColor = c=>c==='Crítica'?'#E24B4A':c==='Alta'?'#D85A30':c==='Media'?'#BA7517':'#639922';
+  const diasDesde = ts=>Math.floor((now-(ts?.toMillis?.()||now))/86400000);
+
+  const labelFiltro = [
+    obraF||'Todas las obras',
+    tipoF ? tipoF.split(' - ')[0] : '',
+    critF||'',
+  ].filter(Boolean).join(' · ');
+
+  document.getElementById('db-body').innerHTML = `
+    <!-- KPIs -->
+    <div class="db-row db-r4">
+      <div class="db-card">
+        <div class="db-kpi-lbl">Total alertas</div>
+        <div class="db-kpi-num">${data.length}</div>
+        <div class="db-kpi-sub">${labelFiltro}</div>
+      </div>
+      <div class="db-card">
+        <div class="db-kpi-lbl">Activas</div>
+        <div class="db-kpi-num" style="color:var(--crit-critica-fg)">${activas.length}</div>
+        <div class="db-kpi-sub">${data.length?Math.round(activas.length/data.length*100):0}% del total</div>
+      </div>
+      <div class="db-card">
+        <div class="db-kpi-lbl">En gestión</div>
+        <div class="db-kpi-num" style="color:var(--crit-media-fg)">${enGestion.length}</div>
+        <div class="db-kpi-sub">${data.length?Math.round(enGestion.length/data.length*100):0}% del total</div>
+      </div>
+      <div class="db-card">
+        <div class="db-kpi-lbl">Días prom. resolución</div>
+        <div class="db-kpi-num" style="color:var(--crit-baja-fg)">${avgDias}</div>
+        <div class="db-kpi-sub">Alertas resueltas: ${resueltas.length}</div>
+      </div>
+    </div>
+
+    <!-- Tiempo promedio por criticidad -->
+    <div class="db-row" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+      ${avgPorCrit.map(({crit,avg,n})=>`
+      <div class="db-card" style="text-align:center">
+        <div class="db-kpi-lbl">${crit}</div>
+        <div class="db-kpi-num" style="font-size:20px;color:${crit==='Crítica'?'var(--crit-critica-fg)':crit==='Alta'?'var(--crit-alta-fg)':crit==='Media'?'var(--crit-media-fg)':'var(--crit-baja-fg)'}">${avg}</div>
+        <div class="db-kpi-sub">días prom. · ${n} resuelta${n!==1?'s':''}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- Fila 2 -->
+    <div class="db-row db-r3">
+      <div class="db-card">
+        <div class="db-card-title">Por categoría <span style="font-size:10px;color:var(--red);font-weight:400">↗ click para filtrar</span></div>
+        ${cats.map(t=>{
+          const n=data.filter(a=>a.tipo===t).length;
+          const pct=Math.round(n/catMax*100);
+          const lbl=t.replace(' - ',' · ');
+          return `<div class="db-bar-row" onclick="dbFilterCat('${t}')">
+            <div class="db-bar-lbl">${lbl}</div>
+            <div class="db-bar-wrap"><div class="db-bar-fill" style="width:${pct}%;background:${catColors[t]}"></div></div>
+            <div class="db-bar-num">${n}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="db-card">
+        <div class="db-card-title">Por criticidad</div>
+        <div style="position:relative;height:130px"><canvas id="db-crit-chart" role="img" aria-label="Distribución por criticidad">${critData.map(d=>d.l+' '+d.n).join(', ')}</canvas></div>
+        <div class="db-leg">
+          ${critData.map(d=>`<div class="db-leg-item"><span class="db-dot" style="background:${d.c}"></span>${d.l} ${d.n}</div>`).join('')}
+        </div>
+      </div>
+      <div class="db-card">
+        <div class="db-card-title">Por estado</div>
+        ${[
+          {n:dispEstado('Activa'),   v:activas.length,   c:'var(--crit-critica-fg)'},
+          {n:dispEstado('En gestión'),v:enGestion.length, c:'var(--blue)'},
+          {n:dispEstado('Resuelta'),  v:resueltas.length, c:'var(--crit-baja-fg)'},
+          {n:dispEstado('Descartada'),v:data.filter(a=>a.estado==='Descartada').length,c:'var(--text3)'},
+        ].map(s=>`<div class="db-st-row">
+          <div class="db-st-name"><span class="db-dot" style="background:${s.c}"></span>${s.n}</div>
+          <div class="db-st-bar"><div class="db-st-fill" style="width:${data.length?Math.round(s.v/data.length*100):0}%;background:${s.c}"></div></div>
+          <div class="db-st-num">${s.v}</div>
+        </div>`).join('')}
+        <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+          <div class="db-card-title" style="margin-bottom:6px">Activas por obra</div>
+          <div>${obras.map(o=>{
+            const n=activas.filter(a=>a.obra===o).length;
+            return n>0?`<span class="db-chip" onclick="dbFilterObra('${o}')">${o} <strong>${n}</strong></span>`:'';
+          }).join('')}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fila 3 -->
+    <div class="db-row db-r2">
+      <div class="db-card">
+        <div class="db-card-title">Evolución mensual — alertas ingresadas</div>
+        <div style="position:relative;height:160px"><canvas id="db-mes-chart" role="img" aria-label="Evolución mensual">${meses.map((m,i)=>m.lbl+' '+mesData[i]).join(', ')}</canvas></div>
+      </div>
+      <div class="db-card">
+        <div class="db-card-title">Alertas activas sin gestionar <span style="font-size:10px;color:var(--text3);font-weight:400">(más antiguas)</span></div>
+        ${sinGestionar.length===0
+          ? '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Sin alertas activas</div>'
+          : sinGestionar.map(a=>`<div class="db-alerta-row" onclick="dbOpenAlerta('${a.id}')" style="cursor:pointer;border-radius:6px;transition:background .1s;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+              <div class="db-alerta-bar" style="background:${critColor(a.criticidad)}"></div>
+              <div style="flex:1;min-width:0">
+                <div class="db-alerta-desc">${esc(a.descripcion||'')}</div>
+                <div class="db-alerta-meta">${esc(a.obra||'—')} · ${esc(a.tipo?.split(' - ')[0]||'—')} · ${diasDesde(a.creadoEn)} días · <span style="color:var(--red)">ver detalle →</span></div>
+              </div>
+            </div>`).join('')
+        }
+      </div>
+    </div>
+  `;
+
+  // Dibujar gráficos
+  setTimeout(()=>{
+    // Colores fijos para ejes — funcionan en modo claro y oscuro Safari
+
+    const cCrit = document.getElementById('db-crit-chart');
+    if(cCrit){
+      if(cCrit._chart) cCrit._chart.destroy();
+      cCrit._chart = new Chart(cCrit,{
+        type:'doughnut',
+        data:{labels:critData.map(d=>d.l),datasets:[{data:critData.map(d=>d.n),backgroundColor:critData.map(d=>d.c),borderWidth:2,borderColor:'#ffffff',hoverOffset:4}]},
+        options:{responsive:true,maintainAspectRatio:false,cutout:'65%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+ctx.label+': '+ctx.parsed}}}}
+      });
+    }
+    const cMes = document.getElementById('db-mes-chart');
+    if(cMes){
+      if(cMes._chart) cMes._chart.destroy();
+      const maxVal = Math.max(...mesData, 1);
+      const nPeriodos = periodos.length;
+      // Ajustar font size y ancho de barra según cantidad de períodos
+      const tickSize = nPeriodos <= 6 ? 12 : nPeriodos <= 12 ? 11 : nPeriodos <= 24 ? 10 : 9;
+      const barThick = nPeriodos <= 6 ? undefined : nPeriodos <= 12 ? 20 : nPeriodos <= 24 ? 12 : 8;
+      cMes._chart = new Chart(cMes,{
+        type:'bar',
+        data:{
+          labels: periodos.map(p=>p.lbl),
+          datasets:[{
+            label:'Alertas',
+            data: mesData,
+            backgroundColor:'#CC2929',
+            borderRadius:3,
+            borderSkipped:false,
+            minBarLength:3,
+            maxBarThickness: barThick || 48
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{
+            legend:{display:false},
+            tooltip:{callbacks:{
+              title: ctx => periodos[ctx[0].dataIndex]?.lblFull || periodos[ctx[0].dataIndex]?.lbl || '',
+              label: ctx => ' '+ctx.parsed.y+' alerta'+(ctx.parsed.y!==1?'s':'')
+            }}
+          },
+          scales:{
+            x:{
+              ticks:{
+                color:'#5A5750',
+                font:{size:tickSize,family:"'DM Sans',sans-serif"},
+                autoSkip:false,
+                maxRotation: nPeriodos > 18 ? 45 : 0
+              },
+              grid:{display:false},
+              border:{color:'#9A948C',width:1}
+            },
+            y:{
+              ticks:{
+                color:'#5A5750',
+                font:{size:11,family:"'DM Sans',sans-serif"},
+                stepSize:1,
+                precision:0,
+                callback: v => Number.isInteger(v)?v:''
+              },
+              grid:{color:'rgba(0,0,0,0.06)'},
+              border:{color:'#9A948C',width:1},
+              min:0,
+              suggestedMax: maxVal + 1
+            }
+          }
+        }
+      });
+    }
+  },50);
+};
+
+window.dbFilterCat = function(cat){
+  const sel = document.getElementById('db-tipo');
+  if(!sel) return;
+  sel.value = sel.value===cat?'':cat;
+  sel.classList.toggle('active',!!sel.value);
+  renderDashboard();
+};
+window.dbFilterObra = function(obra){
+  const sel = document.getElementById('db-obra');
+  if(!sel) return;
+  sel.value = sel.value===obra?'':obra;
+  sel.classList.toggle('active',!!sel.value);
+  renderDashboard();
+};
+
+window.dbOpenAlerta = function(id){
+  // Cambiar a pestaña alertas y abrir el detalle del registro
+  switchTab('alertas');
+  setTimeout(()=>openDetail(id), 100);
+};
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
 </html>
