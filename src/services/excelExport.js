@@ -245,18 +245,18 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
 
   // ── Anchos de columna exactos ────────────────────────────────────────────────
   ws.getColumn(1).width  = 17;
-  ws.getColumn(2).width  = 12.57;
+  ws.getColumn(2).width  = 12.53;
   ws.getColumn(3).width  = 14.71;
-  ws.getColumn(4).width  = 5.14;
-  ws.getColumn(5).width  = 16.86;
+  ws.getColumn(4).width  = 5.15;
+  ws.getColumn(5).width  = 16.84;
   ws.getColumn(6).width  = 2.29;
-  ws.getColumn(7).width  = 13.43;
+  ws.getColumn(7).width  = 13.38;
   ws.getColumn(8).width  = 35.29;
-  ws.getColumn(9).width  = 35;
+  ws.getColumn(9).width  = 27.07;
   ws.getColumn(10).width = 6;
-  ws.getColumn(11).width = 30;
-  ws.getColumn(12).width = 32.71;
-  ws.getColumn(13).width = 22.43;
+  ws.getColumn(11).width = 14.07;
+  ws.getColumn(12).width = 20.53;
+  ws.getColumn(13).width = 18.29;
 
   // ── Alturas de fila exactas ──────────────────────────────────────────────────
   const rh = { 1:15, 2:6.75, 3:15, 4:9, 5:15, 6:3.75, 7:21, 8:4.5,
@@ -545,11 +545,10 @@ export async function generateBatchXlsxBlob({ correlativo, headerOverrides = {},
   // El quiebre manual en id=48 define dónde se corta (entre firma y Hoja 2)
   ws.pageSetup = {
     orientation: "landscape",
-    fitToPage: true,
-    fitToWidth: 1,
-    fitToHeight: 2,
+    paperSize: 1,           // Letter/Carta
+    fitToPage: false,
+    scale: 63,
     horizontalCentered: false,
-    paperSize: 5,           // Carta (Letter)
     margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
   };
   // Quiebre manual entre fila 48 (firmas) y fila 49 (título Hoja 2)
